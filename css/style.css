@@ -136,8 +136,8 @@ body::after {
 .hero-title { margin: 32px 0 0; font-weight: 300; font-family: var(--display); line-height: 0.9; }
 .hero-title span { display: block; }
 .hero-title .t-small { font-size: clamp(30px, 3.6vw, 56px); letter-spacing: -0.02em; padding-left: 0.08em; color: var(--muted); }
-.hero-title .t-big { font-size: clamp(64px, 10.4vw, 164px); letter-spacing: 0.04em; margin: 0.06em 0 0 -0.04em; }
-.hero-title .t-serif { font: italic 400 clamp(34px, 4.4vw, 68px)/1 var(--serif); letter-spacing: -0.01em; color: var(--moss-2); margin-top: 0.25em; padding-left: 0.18em; }
+.hero-title .t-big { font-size: clamp(96px, 17vw, 260px); letter-spacing: 0.06em; line-height: 0.82; }
+.hero-title .t-serif { font: italic 400 clamp(34px, 4.4vw, 68px)/1 var(--serif); letter-spacing: -0.01em; color: var(--moss-2); margin-top: 0.55em; padding-left: 0.12em; }
 .hero-lead { margin: 36px 0 0; color: var(--moss-2); font-size: 12px; letter-spacing: 0.16em; }
 .hero-desc { max-width: 460px; color: var(--muted); font-size: 16px; margin: 20px 0 0; }
 .hero-cta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 28px; }

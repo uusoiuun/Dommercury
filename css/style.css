@@ -488,6 +488,35 @@ td.bad { color: var(--bad); }
 .y-plant-list li.mixed { border-color: var(--mixed); }
 .y-plant-list li span { color: var(--muted); font-size: 13px; }
 .bed-rows { margin: 6px 0 12px; padding-left: 20px; }
+.soil-card .chip-group:first-of-type { margin-top: 6px; }
+.soil-help { margin-top: 8px; font-size: 14px; }
+.soil-help ol { margin: 6px 0 0; padding-left: 20px; }
+.soil-help li { margin: 4px 0; }
+.memo { position: sticky; top: 76px; }
+.memo ul { padding-left: 18px; margin: 6px 0; font-size: 14px; }
+.memo li { margin: 4px 0; }
+.comp-list { list-style: none; padding: 0; margin: 12px 0 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+.comp-list li { border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; background: var(--snow); cursor: pointer; transition: border-color 0.2s; }
+.comp-list li:hover { border-color: var(--moss-2); }
+.comp-list b { display: block; font-weight: 600; }
+.comp-list span { color: var(--muted); font-size: 13px; }
+.y-comp-dot { stroke: rgba(255, 255, 255, 0.8); stroke-width: 0.05; pointer-events: none; }
+.y-scn circle { fill: none; stroke: var(--accent); stroke-width: 0.25; stroke-dasharray: 0.6 0.4; }
+.y-scn text { fill: var(--accent); font-family: var(--font); font-weight: 600; paint-order: stroke; stroke: var(--card); stroke-width: 0.25; }
+.y-door { fill: var(--door); }
+.y-dialog { width: min(820px, calc(100vw - 24px)); max-height: calc(100vh - 32px); border: 1px solid var(--line); border-radius: 22px; padding: 18px 20px; background: var(--card); color: var(--text); box-shadow: 0 30px 80px rgba(0, 0, 0, 0.3); }
+.y-dialog::backdrop { background: rgba(20, 22, 14, 0.45); backdrop-filter: blur(3px); }
+.dlg-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.dlg-head h3 { margin: 0; font: 400 24px/1.2 var(--display); letter-spacing: -0.02em; }
+.dlg-head button { width: 40px; height: 40px; padding: 0; flex: none; }
+#y-dlg-pic { overflow-x: auto; }
+.elev { width: 100%; min-width: 620px; height: auto; display: block; border-radius: 14px; margin-top: 10px; }
+.dlg-list { list-style: none; padding: 0; margin: 12px 0 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; }
+.dlg-list li { border-left: 3px solid var(--good); background: var(--snow); border-radius: 6px; padding: 6px 10px; font-size: 13px; }
+.dlg-list li.mixed { border-color: var(--mixed); }
+.dlg-list li.bad { border-color: var(--bad); }
+.dlg-list b { font-size: 14px; }
+.dlg-list .fix { color: var(--moss-2); }
 .y-gold line { stroke: #c9a227; stroke-width: 0.12; stroke-dasharray: 0.9 0.5; }
 .y-gold circle { fill: #c9a227; stroke: #fff; stroke-width: 0.1; }
 .y-gold path { fill: none; stroke: #c9a227; stroke-width: 0.14; opacity: 0.7; }
@@ -506,9 +535,10 @@ td.bad { color: var(--bad); }
 
 @media (max-width: 1100px) {
   .plan-layout, .garden-layout { grid-template-columns: minmax(0, 1fr); }
+  .memo { position: static; }
   /* На узком экране схема участка — сразу после палитры */
   .garden-layout > .panel { display: contents; }
-  .y-o1 { order: 1; } .y-o2 { order: 2; } .y-o3 { order: 3; } .y-o4 { order: 4; } .y-o5 { order: 5; } .y-o6 { order: 6; } .y-o7 { order: 7; }
+  .y-o0 { order: 0; } .y-o1 { order: 1; } .y-o2 { order: 2; } .y-o3 { order: 3; } .y-o3b { order: 4; } .y-o3c { order: 5; } .y-o4 { order: 6; } .y-o5 { order: 7; } .y-o6 { order: 8; } .y-o7 { order: 9; } .y-o9 { order: 10; }
 }
 
 @media (max-width: 900px) {

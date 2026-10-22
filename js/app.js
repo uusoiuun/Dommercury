@@ -20,6 +20,10 @@ import {
   BUILDINGS, BUILDING_BY_KEY, PLANTS, PLANT_BY_KEY, PLANT_GROUPS, LIGHT_TEXT, lightZone, BEDS, checkPlant, checkBuildings, defaultYard, convexOverlap, housePieces, LIGHT_SHARE,
   PHI, FIB, goldenGrid, nearestGolden, goldenError, fibAtLeast, isFib, phyllotaxis, plantGroups, goldenSpiral,
 } from './yard.js';
+import {
+  SOIL_PH, SOIL_TEXTURE, SOIL_WATER, CLIMATE, climateGuess, HARDY_TEXT, soilFit, SOIL_TESTS, TEMPLATES, TEMPLATE_KEYS,
+  pickPlants, placeTemplate, doorPlace, WIND_DIRS, windbreak, SCENARIOS, scenarioSpot, elevationSvg, bedLayout,
+} from './garden.js';
 
 const L = window.L;
 const STORAGE_KEY = 'psy-house-v1';
@@ -2172,6 +2176,7 @@ function yardHours() {
       key,
       grid: sunHours(yard, opts),
       plants: sunHours(yard, opts, yard.plants.map((p) => ({ pt: [p.x, p.y], skip: p.id }))),
+      woody: sunHours(yard, { ...opts, noPlants: true }, yard.plants.map((p) => ({ pt: [p.x, p.y], skip: p.id }))),
     };
   }
   return hoursCache;
@@ -2185,7 +2190,7 @@ function renderYardControls() {
   for (const [id, v] of [['y-hw', h.w], ['y-hd', h.d], ['y-hcw', h.cw], ['y-hcd', h.cd], ['y-hh', h.h], ['y-hrot', h.rot], ['y-pw', yard.plot.w], ['y-pd', yard.plot.d], ['y-prot', yard.plot.rot]]) {
     if (document.activeElement !== $(id)) $(id).value = v;
   }
-  $('y-buildings').innerHTML = BUILDINGS.map((b) => `<button type="button" class="chip" data-add="${b.key}"><span class="dot" style="background:${b.color}"></span>${b.label}${b.flat ? '' : ` <small>${yFmt(b.w)}×${yFmt(b.d)}</small>`}</button>`).join('');
+  $('y-buildings').innerHTML = BUILDINGS.filter((b) => !b.hidden).map((b) => `<button type="button" class="chip" data-add="${b.key}"><span class="dot" style="background:${b.color}"></span>${b.label}${b.flat ? '' : ` <small>${yFmt(b.w)}×${yFmt(b.d)}</small>`}</button>`).join('');
   const tz = yardTz();
   $('y-tz').innerHTML = Array.from({ length: 15 }, (_, i) => i - 1).map((v) => `<option value="${v}"${v === tz ? ' selected' : ''}>UTC${v >= 0 ? '+' : '−'}${Math.abs(v)}</option>`).join('');
   $('y-place').textContent = `Место: ${fmt(state.center[0], 2)}° с. ш., ${fmt(state.center[1], 2)}° в. д. — берётся с карты на вкладке расчёта.`;
@@ -2194,7 +2199,37 @@ function renderYardControls() {
   $('y-golden').setAttribute('aria-pressed', String(!!yard.golden));
   $('y-group').innerHTML = [1, 3, 5, 8].map((n) => `<button type="button" class="chip" data-group="${n}" aria-pressed="${yard.group === n}">${n === 1 ? 'по одному' : n}</button>`).join('');
   for (const b of document.querySelectorAll('#y-light-filter [data-light]')) b.setAttribute('aria-pressed', String(b.dataset.light === lightFilter));
+  const soil = yard.soil;
+  const chipRow = (id, dict, key) => {
+    $(id).innerHTML = Object.entries(dict).map(([k, v]) => `<button type="button" class="chip" data-soil="${key}" data-v="${k}" aria-pressed="${soil.known !== false && soil[key] === k}">${v}</button>`).join('');
+  };
+  chipRow('y-soil-ph', SOIL_PH, 'ph');
+  chipRow('y-soil-texture', SOIL_TEXTURE, 'texture');
+  chipRow('y-soil-water', SOIL_WATER, 'water');
+  $('y-soil-unknown').checked = soil.known === false;
+  $('y-soil-help').innerHTML = soil.known === false
+    ? `<div class="soil-help msg mixed"><strong>Подбираем растения только по солнцу и тени.</strong> Как узнать почву:<ol>${SOIL_TESTS.map(([t, d]) => `<li><b>${t}.</b> ${d}</li>`).join('')}</ol></div>`
+    : soil.known === null
+      ? '<p class="msg mixed">Начните с почвы: отметьте кислотность, состав и влажность или поставьте галочку «не знаю».</p>'
+      : `<details class="soil-help"><summary>Как проверить почву</summary><ol>${SOIL_TESTS.map(([t, d]) => `<li><b>${t}.</b> ${d}</li>`).join('')}</ol></details>`;
+  const clim = yardClimate();
+  $('y-climate').innerHTML = Object.entries(CLIMATE).map(([k, v]) => `<option value="${k}"${k === clim ? ' selected' : ''}>${v}</option>`).join('');
+  $('y-door').value = yard.house.door || 'front';
+  $('y-winds').innerHTML = WIND_DIRS.map((w) => `<button type="button" class="chip" data-wind="${w}" aria-pressed="${yard.winds.includes(w)}">${w}</button>`).join('');
+  $('y-comp-kinds').innerHTML = [...TEMPLATE_KEYS, 'windbreak'].map((k) => `<button type="button" class="chip" data-comp="${k}" aria-pressed="${yard.comps.includes(k)}">${k === 'windbreak' ? 'Ветрозащита' : TEMPLATES[k].title}</button>`).join('');
+  $('y-scenarios').innerHTML = Object.entries(SCENARIOS).map(([k, v]) => `<button type="button" class="chip" data-scn="${k}" aria-pressed="${yard.scenario === k}">${v.title}</button>`).join('');
   renderPlantPalette();
+}
+
+const yardClimate = () => yard.climate || climateGuess(state.center[0]);
+const soilNow = () => (yard.soil.known ? yard.soil : { known: false });
+
+// Ряды клумбы: предложенная композиция или зоны А и Б
+function bedRows(it) {
+  if (it.rows) return it.rows;
+  const b = BUILDING_BY_KEY[it.t];
+  if (b.bed === 'A' || b.bed === 'B') return BEDS[b.bed].rows.map(([tier, keys]) => ({ tier, plants: keys.map((k) => ({ key: k, qty: 3 })) }));
+  return [];
 }
 
 function renderPlantPalette() {
@@ -2275,24 +2310,33 @@ function renderYardPlan() {
   const itemSvg = (it) => {
     const b = BUILDING_BY_KEY[it.t];
     const poly = rectPoly(it);
-    const short = b.bed ? `Зона ${b.bed}` : b.label;
-    return `<g class="y-obj${yardSel === it.id ? ' sel' : ''}${b.flat ? ' flat' : ''}${b.glass ? ' glass' : ''}" data-id="${it.id}"><polygon points="${pts(poly)}" fill="${b.color}"/>`
-      + (Math.min(it.w, it.d) < 1.5 ? '' : `<text x="${it.x}" y="${Y(it.y) + fs * 0.35}" font-size="${Math.min(fs * 1.1, Math.min(it.w, it.d) * 0.45)}" text-anchor="middle">${short}</text>`)
+    const short = it.kind ? TEMPLATES[it.kind].title : b.bed ? `Зона ${b.bed}` : b.label;
+    const dots = b.bed ? bedLayout(it, bedRows(it)).map((d) => `<circle class="y-comp-dot" cx="${d.x}" cy="${Y(d.y)}" r="${Math.min(0.35, Math.min(it.w, it.d) / 8)}" fill="${PLANT_BY_KEY[d.key].color}"/>`).join('') : '';
+    const fireRing = b.fire ? `<circle cx="${it.x}" cy="${Y(it.y)}" r="${Math.min(it.w, it.d) * 0.18}" fill="#c0633a" opacity="0.8"/>` : '';
+    return `<g class="y-obj${yardSel === it.id ? ' sel' : ''}${b.flat ? ' flat' : ''}${b.glass ? ' glass' : ''}" data-id="${it.id}"><polygon points="${pts(poly)}" fill="${b.color}"/>${dots}${fireRing}`
+      + (Math.min(it.w, it.d) < 1.5 ? '' : `<text x="${it.x}" y="${Y(it.y) + fs * 0.35}" font-size="${Math.min(fs * (b.bed ? 0.75 : 1.1), Math.min(it.w, it.d) * 0.45)}" text-anchor="middle">${short}</text>`)
       + `<title>${b.label}: ${yFmt(it.w)} × ${yFmt(it.d)} м</title></g>`;
   };
   parts.push(flat.map(itemSvg).join(''));
   const h = yard.house;
   parts.push(`<g class="y-obj y-house${yardSel === 'house' ? ' sel' : ''}" data-id="house"><polygon points="${pts(houseOutline(h))}"/>`
     + `<polyline class="y-facade" points="${pts(houseFacade(h))}"/>`
-    + `<text x="${h.x}" y="${Y(h.y) + fs * 0.4}" font-size="${fs * 1.3}" text-anchor="middle">Дом</text></g>`);
+    + `<text x="${h.x}" y="${Y(h.y) + fs * 0.4}" font-size="${fs * 1.3}" text-anchor="middle">Дом</text>`
+    + (() => { const dp = doorPlace(h); return `<circle class="y-door" cx="${dp.p[0]}" cy="${Y(dp.p[1])}" r="${fs * 0.45}"><title>Входная дверь</title></circle>`; })() + '</g>');
   parts.push(solid.map(itemSvg).join(''));
 
   // Растения
   const checks = new Map();
   yard.plants.forEach((p, i) => {
     const pl = PLANT_BY_KEY[p.t];
-    const res = checkPlant(p, yard, hours.plants.hours[i], hours.plants.maxHours);
-    checks.set(p.id, { ...res, hours: hours.plants.hours[i] });
+    const woody = pl.group === 'tree' || pl.group === 'shrub' || pl.group === 'fruit';
+    const ph = woody ? hours.woody : hours.plants;
+    const res = checkPlant(p, yard, ph.hours[i], ph.maxHours);
+    const sf = soilFit(pl, soilNow(), yardClimate());
+    if (sf.level === 'bad' || (sf.level === 'mixed' && res.level === 'good')) res.level = sf.level;
+    res.notes.push(...sf.notes);
+    res.fixes = sf.fixes;
+    checks.set(p.id, { ...res, hours: ph.hours[i] });
     const r = Math.max(pl.r, fs * 0.45);
     parts.push(`<g class="y-obj y-plant lvl-${res.level}${yardSel === p.id ? ' sel' : ''}" data-id="${p.id}"><circle cx="${p.x}" cy="${Y(p.y)}" r="${r}" fill="${pl.color}"/>`
       + `<circle class="ring" cx="${p.x}" cy="${Y(p.y)}" r="${r + fs * 0.18}"/>`
@@ -2301,6 +2345,10 @@ function renderYardPlan() {
 
   // Точки золотого сечения — поверх построек
   if (yard.golden) parts.push(`<g class="y-gold">${goldenGrid(yard.plot).points.map(([x, y]) => `<circle cx="${x}" cy="${Y(y)}" r="${fs * 0.4}"/>`).join('')}</g>`);
+
+  // Место для сценария отдыха
+  const scn = yard.scenario && currentScenario();
+  if (scn) parts.push(`<g class="y-scn"><circle cx="${scn.x}" cy="${Y(scn.y)}" r="2"/><text x="${scn.x}" y="${Y(scn.y) - 2.4}" font-size="${fs * 0.9}" text-anchor="middle">${SCENARIOS[yard.scenario].title}</text></g>`);
 
   // Север, солнце, масштаб
   parts.push(`<g class="y-north" transform="translate(${W + M / 2} ${M * 0.2 + fs * 2})"><g transform="rotate(${-prot})"><path d="M0 ${-fs * 1.6} L${fs * 0.6} ${fs * 0.6} L0 0 L${-fs * 0.6} ${fs * 0.6} Z"/></g><text y="${fs * 2.2}" font-size="${fs}" text-anchor="middle">С</text></g>`);
@@ -2340,6 +2388,129 @@ function renderYardPlan() {
   renderYardWarnings(checks);
   renderBeds();
   renderHarmony();
+  renderComps();
+  renderScenario();
+  renderMemo(checks);
+}
+
+// ---- Композиции, сценарии, памятка ----
+
+let compMsgs = [];
+let scnCache = { key: '', spot: null };
+
+function currentScenario() {
+  const opts = { year: YEAR, lat: state.center[0], lng: state.center[1], tz: yardTz(), date: yard.date };
+  const key = JSON.stringify([yard.scenario, yard.plot, yard.house, yard.items, yard.plants.length, yard.date, opts]);
+  if (scnCache.key !== key) scnCache = { key, spot: scenarioSpot(yard.scenario, yard, opts) };
+  return scnCache.spot;
+}
+
+function compZone(it) {
+  return lightZone(bedHours(it), yardHours().grid.maxHours);
+}
+
+function renderComps() {
+  const comps = yard.items.filter((i) => i.t === 'comp');
+  const wind = yard.plants.filter((p) => p.gen === 'wind');
+  const li = comps.map((c) => {
+    const tpl = TEMPLATES[c.kind];
+    const zone = compZone(c);
+    const names = c.rows.flatMap((r) => r.plants.map((p) => PLANT_BY_KEY[p.key].name));
+    return `<li data-open="${c.id}"><b>${tpl.title}</b><span>${LIGHT_TEXT[zone]} · ${yFmt(c.w)}×${yFmt(c.d)} м</span><br><span>${names.slice(0, 5).join(', ')}${names.length > 5 ? '…' : ''}</span></li>`;
+  });
+  if (wind.length) li.push(`<li><b>Ветрозащита</b><span>${wind.length} растений вдоль наветренных сторон: ${[...new Set(wind.map((p) => PLANT_BY_KEY[p.t].name))].join(', ')}</span></li>`);
+  $('y-comps').innerHTML = (compMsgs.length ? `<p class="msg mixed">${compMsgs.join('<br>')}</p>` : '')
+    + (li.length ? `<ul class="comp-list">${li.join('')}</ul>` : '');
+}
+
+function renderScenario() {
+  if (!yard.scenario) {
+    $('y-scenario').innerHTML = '';
+    return;
+  }
+  const sc = SCENARIOS[yard.scenario];
+  const spot = currentScenario();
+  $('y-scenario').innerHTML = spot
+    ? `<div class="msg good"><strong>${sc.title}: место отмечено на плане</strong>${sc.about} С ${sc.from}:00 до ${sc.to}:00 здесь ${sc.want === 'sun' ? 'солнце' : 'тень'} ${Math.round((sc.want === 'sun' ? spot.share : 1 - spot.share) * 100)} % времени, до дома ${yFmt(Math.round(spot.dist))} м.<br><button type="button" class="secondary" data-act="scn-place">Поставить сюда: ${BUILDING_BY_KEY[sc.item].label.toLowerCase()}</button></div>`
+    : `<p class="msg bad">Свободного места для «${sc.title}» не нашлось — освободите часть участка.</p>`;
+}
+
+function renderMemo(checks) {
+  const soil = yard.soil;
+  const items = [];
+  if (soil.known === null) items.push('<li><b>Начните с почвы</b> — карточка «Почва» вверху.</li>');
+  else if (soil.known === false) items.push('<li><b>Почва неизвестна</b> — растения подобраны по солнцу и тени. Проверьте почву до покупки растений: тест из магазина или горсть земли с уксусом и содой.</li>');
+  items.push('<li><b>Перед посадкой</b> проверьте почву в каждой посадочной яме: у дома и у забора она часто разная (строительный мусор, известь, торф).</li>');
+  items.push(`<li><b>Климат:</b> ${CLIMATE[yardClimate()].toLowerCase()}. Нежные растения сажайте у южной стены и укрывайте на зиму.</li>`);
+  const fixes = new Set();
+  for (const c of checks.values()) for (const f of c.fixes || []) fixes.add(f);
+  for (const comp of yard.items.filter((i) => i.rows)) {
+    for (const r of comp.rows) for (const p of r.plants) for (const f of soilFit(PLANT_BY_KEY[p.key], soilNow(), yardClimate()).fixes) fixes.add(f);
+  }
+  if (fixes.size) items.push(`<li><b>Если почва не подходит:</b><ul>${[...fixes].map((f) => `<li>${f}</li>`).join('')}</ul></li>`);
+  items.push('<li><b>Кислая почва</b> — раскислить доломитовой мукой или золой. <b>Щелочная</b> — подкислить верховым торфом и хвойным опадом. <b>Глина</b> — дренаж и песок. <b>Песок</b> — торф, компост и мульча.</li>');
+  $('y-memo').innerHTML = `<ul>${items.join('')}</ul>`;
+}
+
+function openComp(id) {
+  const it = yard.items.find((i) => i.id === id);
+  if (!it) return;
+  const rows = bedRows(it);
+  const tpl = it.kind ? TEMPLATES[it.kind] : null;
+  const title = tpl ? tpl.title : BEDS[BUILDING_BY_KEY[it.t].bed]?.title || BUILDING_BY_KEY[it.t].label;
+  const zone = compZone(it);
+  $('y-dlg-title').textContent = title;
+  $('y-dlg-about').textContent = `${tpl ? tpl.about : ''} Место: ${LIGHT_TEXT[zone]}, ${yFmt(it.w)} × ${yFmt(it.d)} м.`.trim();
+  $('y-dlg-pic').innerHTML = elevationSvg(rows, title);
+  const list = rows.flatMap((r) => r.plants.map((p) => {
+    const pl = PLANT_BY_KEY[p.key];
+    const sf = soilFit(pl, soilNow(), yardClimate());
+    const lightOk = pl.light.includes(zone);
+    const level = !lightOk ? 'bad' : sf.level;
+    const notes = [...(!lightOk ? [`Нужно: ${pl.light.map((l) => LIGHT_TEXT[l]).join(' или ')}.`] : []), ...sf.notes];
+    return `<li class="${level}"><b>${pl.name}</b>${p.qty > 1 ? ` — ${p.qty} шт.` : ''}<br><span class="note">${r.tier} · ${yFmt(pl.h)} м · ${pl.light.map((l) => LIGHT_TEXT[l]).join(', ')} · ${HARDY_TEXT[pl.hardy]}</span>${pl.note ? `<br>${pl.note}` : ''}${notes.length ? `<br>${notes.join(' ')}` : ''}${sf.fixes.length ? `<br><span class="fix">${sf.fixes.join(' ')}</span>` : ''}</li>`;
+  }));
+  $('y-dlg-list').innerHTML = `<ul class="dlg-list">${list.join('')}</ul>`;
+  const dlg = $('y-dialog');
+  if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', '');
+}
+
+function suggestComps() {
+  compMsgs = [];
+  yard.items = yard.items.filter((i) => !(i.t === 'comp' && i.auto));
+  yard.plants = yard.plants.filter((p) => p.gen !== 'wind');
+  const soil = soilNow();
+  const climate = yardClimate();
+  const opts = { year: YEAR, lat: state.center[0], lng: state.center[1], tz: yardTz(), cell: Math.max(1, Math.ceil(Math.max(yard.plot.w, yard.plot.d) / 60)) };
+  if (yard.comps.includes('windbreak')) {
+    const wb = windbreak(yard, yard.winds, soil, climate);
+    for (const p of wb.plants) yard.plants.push({ id: nextId(), t: p.t, x: p.x, y: p.y, gen: 'wind' });
+    if (!wb.plants.length) compMsgs.push('Ветрозащита: выберите, откуда дуют ветра (карточка «Участок»).');
+  }
+  const hours = yardHours();
+  const evening = yard.comps.includes('fire') ? { grid: sunHours(yard, { ...opts, from: 17, to: 21, minAlt: 3 }) } : null;
+  for (const kind of TEMPLATE_KEYS.filter((k) => yard.comps.includes(k))) {
+    const tpl = TEMPLATES[kind];
+    const spot = placeTemplate(kind, yard, hours, { evening });
+    if (!spot) {
+      compMsgs.push(`${tpl.title}: не нашлось свободного места.`);
+      continue;
+    }
+    const it = { id: nextId(), t: 'comp', kind, auto: true, x: spot.x, y: spot.y, w: spot.w, d: spot.d, h: 0, rot: spot.rot || 0 };
+    const zone = lightZone(bedHours(it), hours.grid.maxHours);
+    if (tpl.want === 'shade' && zone === 'sun') {
+      compMsgs.push(`${tpl.title}: на участке нет тенистого места в этот день — попробуйте весну или осень либо посадите дерево.`);
+      continue;
+    }
+    if (tpl.want === 'sun' && zone === 'shade') {
+      compMsgs.push(`${tpl.title}: солнечного места не нашлось.`);
+      continue;
+    }
+    it.rows = pickPlants(tpl, zone, soil, climate);
+    yard.items.push(it);
+  }
+  if (yard.soil.known === false) compMsgs.push('Почва не указана — подбор только по солнцу и тени. Проверьте почву перед посадкой.');
+  yardChanged(true);
 }
 
 const pct = (v) => `${Math.round(v * 100)} %`;
@@ -2436,7 +2607,7 @@ function renderYardWarnings(checks) {
   $('y-warn').innerHTML = msgs.length ? `<ul class="y-warn">${msgs.join('')}</ul>` : '';
   const list = yard.plants.map((p, i) => {
     const c = checks.get(p.id);
-    return `<li class="${c.level}" data-pick="${p.id}"><b>${i + 1}. ${PLANT_BY_KEY[p.t].name}</b> — ${yFmt(c.hours)} ч солнца, ${LIGHT_TEXT[c.zone]}${c.level === 'good' ? ' ✓' : `<br><span>${c.notes.filter((n) => !n.startsWith('Свет подходит')).join(' ')}</span>`}</li>`;
+    return `<li class="${c.level}" data-pick="${p.id}"><b>${i + 1}. ${PLANT_BY_KEY[p.t].name}</b> — ${yFmt(c.hours)} ч солнца, ${LIGHT_TEXT[c.zone]}${c.level === 'good' ? ' ✓' : `<br><span>${c.notes.filter((n) => !n.startsWith('Свет подходит')).join(' ')}${c.fixes?.length ? ` ${c.fixes.join(' ')}` : ''}</span>`}</li>`;
   });
   $('y-plant-list').innerHTML = list.length
     ? `<h3 class="sub">Посажено</h3><ul class="y-plant-list">${list.join('')}</ul><button type="button" class="link" data-act="clear-plants">Убрать все растения</button>`
@@ -2452,8 +2623,8 @@ function bedHours(it) {
 }
 
 function renderBeds() {
-  const beds = yard.items.filter((i) => BUILDING_BY_KEY[i.t].bed);
-  const intro = '<p class="note">Добавьте клумбу «Зона А» или миксбордер «Зона Б» в карточке «Хозпостройки» и поставьте на план — сайт проверит, хватит ли света каждому ряду.</p>';
+  const beds = yard.items.filter((i) => ['A', 'B'].includes(BUILDING_BY_KEY[i.t].bed));
+  const intro = '<p class="note">Добавьте клумбу «Зона А» или миксбордер «Зона Б» в карточке «Постройки и зоны» и поставьте на план — сайт проверит, хватит ли света каждому ряду.</p>';
   const describe = (key, hours) => {
     const bed = BEDS[key];
     const zone = hours == null ? null : lightZone(hours, yardHours().grid.maxHours);
@@ -2572,6 +2743,79 @@ $('y-view').addEventListener('click', (e) => {
   yardChanged(true);
 });
 
+$('y-door').addEventListener('change', (e) => {
+  yard.house.door = e.target.value;
+  yardChanged();
+});
+
+for (const id of ['y-soil-ph', 'y-soil-texture', 'y-soil-water']) {
+  $(id).addEventListener('click', (e) => {
+    const b = e.target.closest('[data-soil]');
+    if (!b) return;
+    const k = b.dataset.soil;
+    if (yard.soil.known === false) yard.soil = { known: true, ph: null, texture: null, water: null };
+    yard.soil.known = true;
+    yard.soil[k] = yard.soil[k] === b.dataset.v ? null : b.dataset.v;
+    yardChanged(true);
+  });
+}
+$('y-soil-unknown').addEventListener('change', (e) => {
+  yard.soil = e.target.checked ? { known: false, ph: null, texture: null, water: null } : { known: null, ph: null, texture: null, water: null };
+  yardChanged(true);
+});
+$('y-climate').addEventListener('change', (e) => {
+  yard.climate = e.target.value;
+  yardChanged(true);
+});
+$('y-winds').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-wind]');
+  if (!b) return;
+  const w = b.dataset.wind;
+  yard.winds = yard.winds.includes(w) ? yard.winds.filter((x) => x !== w) : [...yard.winds, w];
+  yardChanged(true);
+});
+$('y-comp-kinds').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-comp]');
+  if (!b) return;
+  const k = b.dataset.comp;
+  yard.comps = yard.comps.includes(k) ? yard.comps.filter((x) => x !== k) : [...yard.comps, k];
+  renderYardControls();
+  save();
+});
+$('y-suggest').addEventListener('click', suggestComps);
+$('y-comp-clear').addEventListener('click', () => {
+  yard.items = yard.items.filter((i) => !(i.t === 'comp' && i.auto));
+  yard.plants = yard.plants.filter((p) => p.gen !== 'wind');
+  compMsgs = [];
+  yardChanged();
+});
+$('y-comps').addEventListener('click', (e) => {
+  const li = e.target.closest('[data-open]');
+  if (li) openComp(li.dataset.open);
+});
+$('y-scenarios').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-scn]');
+  if (!b) return;
+  yard.scenario = yard.scenario === b.dataset.scn ? null : b.dataset.scn;
+  yardChanged(true);
+});
+$('y-scenario').addEventListener('click', (e) => {
+  if (!e.target.closest('[data-act="scn-place"]')) return;
+  const sc = SCENARIOS[yard.scenario];
+  const spot = currentScenario();
+  if (!spot) return;
+  const def = BUILDING_BY_KEY[sc.item];
+  const it = { id: nextId(), t: def.key, x: spot.x, y: spot.y, w: def.w, d: def.d, h: def.h, rot: 0 };
+  yard.items.push(it);
+  yardSel = it.id;
+  yard.scenario = null;
+  yardChanged(true);
+});
+$('y-dlg-close').addEventListener('click', () => $('y-dialog').close());
+$('y-dialog').addEventListener('click', (e) => {
+  if (e.target === $('y-dialog')) $('y-dialog').close();
+});
+
 $('y-golden').addEventListener('click', () => {
   yard.golden = !yard.golden;
   yardChanged(true);
@@ -2682,7 +2926,14 @@ $('y-plan').addEventListener('pointermove', (e) => {
 
 $('y-plan').addEventListener('pointerup', (e) => {
   if (drag) {
-    if (!drag.moved) yardSel = yardSel === drag.id ? null : drag.id;
+    if (!drag.moved) {
+      yardSel = yardSel === drag.id ? null : drag.id;
+      const it = yard.items.find((i) => i.id === drag.id);
+      if (it && BUILDING_BY_KEY[it.t].bed) {
+        yardSel = drag.id;
+        openComp(drag.id);
+      }
+    }
     drag = null;
     yardChanged();
     return;

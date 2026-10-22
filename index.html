@@ -337,8 +337,24 @@
     </div>
     <main class="layout garden-layout">
     <aside class="panel">
+      <section class="card y-o0 soil-card">
+        <h2><span class="num">1</span>Почва</h2>
+        <p class="note">От почвы зависит, что приживётся. Отметьте, что знаете.</p>
+        <p class="chip-group">Кислотность</p>
+        <div class="chips" id="y-soil-ph"></div>
+        <p class="chip-group">Состав</p>
+        <div class="chips" id="y-soil-texture"></div>
+        <p class="chip-group">Влажность места</p>
+        <div class="chips" id="y-soil-water"></div>
+        <label class="check"><input type="checkbox" id="y-soil-unknown"> Я не знаю, какая почва</label>
+        <div id="y-soil-help"></div>
+        <label>Климат
+          <select id="y-climate"></select>
+        </label>
+      </section>
+
       <section class="card y-o1">
-        <h2>Дом</h2>
+        <h2><span class="num">2</span>Дом</h2>
         <div class="chips" id="y-shape"></div>
         <div class="grid2">
           <label>Ширина, м <input type="number" id="y-hw" min="4" max="40" step="0.5"></label>
@@ -352,17 +368,25 @@
           <label>Высота до конька, м <input type="number" id="y-hh" min="2.5" max="20" step="0.5"></label>
           <label>Поворот, ° <input type="number" id="y-hrot" min="-180" max="360" step="5"></label>
         </div>
+        <label>Входная дверь
+          <select id="y-door">
+            <option value="front">на фасаде</option>
+            <option value="left">на левой стене</option>
+            <option value="right">на правой стене</option>
+            <option value="back">на тыльной стене</option>
+          </select>
+        </label>
         <p class="note">Дом и постройки перетаскиваются на плане пальцем или мышью. Красная линия — фасад.</p>
       </section>
 
       <section class="card y-o3">
-        <h2>Хозпостройки</h2>
+        <h2><span class="num">3</span>Постройки и зоны</h2>
         <div class="chips" id="y-buildings"></div>
         <p class="note">Нажмите, чтобы добавить на участок. Размеры потом можно изменить.</p>
       </section>
 
       <section class="card y-o4">
-        <h2>Участок</h2>
+        <h2><span class="num">4</span>Участок</h2>
         <div class="grid2">
           <label>Ширина, м <input type="number" id="y-pw" min="10" max="200" step="1"></label>
           <label>Глубина, м <input type="number" id="y-pd" min="10" max="200" step="1"></label>
@@ -373,7 +397,29 @@
             <select id="y-tz"></select>
           </label>
         </div>
+        <p class="chip-group">Откуда дуют холодные ветра</p>
+        <div class="chips" id="y-winds"></div>
         <p class="note" id="y-place"></p>
+      </section>
+
+      <section class="card y-o9 memo">
+        <h2>Памятка</h2>
+        <div id="y-memo"></div>
+        <details>
+          <summary>Сезоны и уход</summary>
+          <div class="guide">
+            <ul>
+              <li><strong>Весна</strong> — цветёт флокс шиловидный, просыпается зелень.</li>
+              <li><strong>Лето</strong> — пик: астильбы, флоксы, эхинацея, лилейники.</li>
+              <li><strong>Осень</strong> — очиток видный, поздние флоксы, золотистые метёлки злаков.</li>
+              <li><strong>Зима</strong> — красные побеги дерена, хвоя можжевельника, сухие соцветия астильбы и злаков.</li>
+              <li><strong>Почва</strong> — дренированная, с органикой. <strong>Мульча</strong> — кора или щепа, защищает корни от промерзания.</li>
+              <li><strong>Полив</strong> — умеренный, без застоя воды. <strong>Обрезка</strong> — весной убрать сухие побеги.</li>
+              <li><strong>Зимовка</strong> — большинству растений укрытие не нужно, молодые можно прикрыть лапником.</li>
+              <li><strong>Посадка</strong> — весной после оттаивания почвы или осенью до заморозков.</li>
+            </ul>
+          </div>
+        </details>
       </section>
     </aside>
 
@@ -403,6 +449,24 @@
         <div id="y-warn"></div>
       </section>
 
+      <section class="card y-o3b">
+        <h2>Композиции под ваш участок</h2>
+        <p class="note">Сайт найдёт на участке места по солнцу и тени и подберёт растения под свет, почву и климат. Нажмите на композицию на плане — откроется картинка растений с названиями.</p>
+        <div class="chips" id="y-comp-kinds"></div>
+        <div class="row wrap">
+          <button type="button" id="y-suggest">Предложить композиции</button>
+          <button type="button" id="y-comp-clear" class="secondary">Убрать предложенные</button>
+        </div>
+        <div id="y-comps"></div>
+      </section>
+
+      <section class="card y-o3c">
+        <h2>Сценарии отдыха</h2>
+        <p class="note">Выберите, как хотите проводить время, — сайт найдёт место по солнцу в нужные часы.</p>
+        <div class="chips" id="y-scenarios"></div>
+        <div id="y-scenario"></div>
+      </section>
+
       <section class="card y-o5">
         <h2>Растения</h2>
         <p class="note">Выберите растение и нажмите на план, чтобы посадить. Сайт проверит свет на этом месте за выбранный день и отступы от границы и дома.</p>
@@ -426,34 +490,22 @@
         <div id="y-harmony"></div>
       </section>
 
+
+
       <section class="card y-o7">
-        <h2>Композиции</h2>
+        <h2>Зоны А и Б</h2>
         <div id="y-beds"></div>
-        <details>
-          <summary>Сезоны и уход</summary>
-          <div class="guide">
-            <h3>Как меняется сад по сезонам</h3>
-            <ul>
-              <li><strong>Весна</strong> — цветёт флокс шиловидный, просыпается зелень.</li>
-              <li><strong>Лето</strong> — пик: астильбы, флоксы, эхинацея, лилейники.</li>
-              <li><strong>Осень</strong> — очиток видный, поздние флоксы, золотистые метёлки злаков.</li>
-              <li><strong>Зима</strong> — красные побеги дерена, серо-зелёная хвоя можжевельника, сухие соцветия астильбы и злаков.</li>
-            </ul>
-            <h3>Уход</h3>
-            <ul>
-              <li><strong>Почва</strong> — дренированная, с органикой.</li>
-              <li><strong>Мульча</strong> — кора или щепа, защищает корни от промерзания.</li>
-              <li><strong>Полив</strong> — умеренный, без застоя воды.</li>
-              <li><strong>Обрезка</strong> — весной убрать сухие побеги и сформировать кустарники.</li>
-              <li><strong>Зимовка</strong> — большинству растений укрытие не нужно, молодые можно прикрыть лапником.</li>
-              <li><strong>Посадка</strong> — весной после оттаивания почвы или осенью до заморозков.</li>
-            </ul>
-          </div>
-        </details>
       </section>
     </div>
     </main>
   </section>
+
+  <dialog id="y-dialog" class="y-dialog">
+    <div class="dlg-head"><h3 id="y-dlg-title"></h3><button type="button" class="secondary" id="y-dlg-close" aria-label="Закрыть">✕</button></div>
+    <p class="note" id="y-dlg-about"></p>
+    <div id="y-dlg-pic"></div>
+    <div id="y-dlg-list"></div>
+  </dialog>
 
   <footer class="foot">
     <p class="foot-mark">Дом Меркурий</p>

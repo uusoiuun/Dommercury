@@ -180,8 +180,13 @@ export const BUILDINGS = [
   { key: 'garage', label: 'Гараж', w: 8, d: 8, h: 4, color: '#6f6a64' },
   { key: 'workshop', label: 'Мастерская', w: 6, d: 4, h: 3.5, color: '#7d6b58' },
   { key: 'balagan', label: 'Балаган', w: 6, d: 6, h: 3.5, color: '#a08463' },
+  { key: 'gazebo', label: 'Беседка', w: 4, d: 4, h: 3, color: '#b89668', open: true },
+  { key: 'bbq', label: 'Мангальная зона', w: 4, d: 4, h: 0, color: '#9c8f86', flat: true, fire: true },
+  { key: 'firepit', label: 'Костровище', w: 3.5, d: 3.5, h: 0, color: '#8f8077', flat: true, fire: true, round: true },
+  { key: 'terrace', label: 'Площадка для кофе', w: 3, d: 3, h: 0, color: '#d9c6a5', flat: true },
   { key: 'bedA', label: 'Клумба: зона А', w: 5, d: 2, h: 0, color: '#c9b44a', flat: true, bed: 'A' },
   { key: 'bedB', label: 'Миксбордер: зона Б', w: 8, d: 3, h: 0, color: '#e2b8c4', flat: true, bed: 'B' },
+  { key: 'comp', label: 'Композиция', w: 6, d: 2, h: 0, color: '#cbd9a8', flat: true, bed: 'C', hidden: true },
 ];
 export const BUILDING_BY_KEY = Object.fromEntries(BUILDINGS.map((b) => [b.key, b]));
 
@@ -252,7 +257,83 @@ export const PLANTS = [
   P('deschampsia', 'Щучка дернистая', 'grass', 0.8, 0.3, ['sun', 'part', 'shade'], '#c8b880', { note: 'Воздушные метёлки, красивы под инеем.' }),
   P('stipa', 'Ковыль перистый', 'grass', 0.7, 0.3, ['sun'], '#d8d0b0', { note: 'Тонкие ости — вертикальный акцент.' }),
   P('bromus', 'Кострец', 'grass', 0.8, 0.3, ['sun'], '#b8b080'),
+  // Кустарники «без раздумий» и растения со схемы участка
+  P('cornusSton', 'Дерен отпрысковый', 'shrub', 2, 1.2, ['sun', 'part', 'shade'], '#b84a3a'),
+  P('spiraeaCham', 'Спирея дубравколистная', 'shrub', 1.5, 0.8, ['sun', 'part', 'shade'], '#ece8da', { note: 'Местный вид, растёт и в тени.' }),
+  P('spiraeaJap', 'Спирея японская', 'shrub', 0.8, 0.6, ['sun', 'part'], '#e48ab0', { note: 'Розовые щитки всё лето — для входной зоны.' }),
+  P('spiraeaVan', 'Спирея Вангутта', 'shrub', 2, 1.2, ['sun'], '#f2f0e8'),
+  P('philadelphus', 'Чубушник', 'shrub', 2.5, 1.2, ['sun', 'part'], '#f6f3e6', { note: 'Белые душистые цветы в начале лета — «садовый жасмин».' }),
+  P('syringaVulg', 'Сирень обыкновенная', 'shrub', 4, 2, ['sun'], '#b48ad0', { size: 'mid' }),
+  P('syringaMeyer', 'Сирень Мейера', 'shrub', 1.5, 0.8, ['sun'], '#c49ad8'),
+  P('amelanchier', 'Ирга', 'shrub', 4, 2, ['sun', 'part'], '#4a5a8a', { size: 'mid', note: 'Белые цветы весной, ягоды летом, рыжая листва осенью.' }),
+  P('berberis', 'Барбарис (обыкновенный, оттавский)', 'shrub', 1.5, 0.8, ['sun', 'part'], '#8a2a3a'),
+  P('viburnum', 'Калина обыкновенная', 'shrub', 3, 1.5, ['sun', 'part', 'shade'], '#d03a2a'),
+  P('salixPurp', 'Ива пурпурная', 'shrub', 2.5, 1.2, ['sun', 'part'], '#9ab08a'),
+  P('hydrangeaPan', 'Гортензия метельчатая', 'shrub', 2, 1, ['sun', 'part'], '#f4f1e6', { note: 'Белые метёлки с конца лета.' }),
+  P('hydrangeaArb', 'Гортензия древовидная', 'shrub', 1.5, 0.8, ['part', 'shade'], '#f0f4e4'),
+  P('rosaPark', 'Роза парковая', 'shrub', 1.5, 0.8, ['sun'], '#c060a8'),
+  P('taxus', 'Тис', 'shrub', 2, 1, ['part', 'shade'], '#2f4a3a'),
+  P('rhododendron', 'Рододендрон (азалия)', 'shrub', 1.2, 0.7, ['part'], '#e070a0', { note: 'Только кислая почва.' }),
+  P('picea', 'Ель сибирская', 'tree', 15, 3, ['sun', 'part'], '#2a4a3a'),
+  P('malusDec', 'Яблоня декоративная', 'tree', 5, 2, ['sun'], '#d0607a', { size: 'mid' }),
+  P('rubus', 'Малина', 'fruit', 1.5, 0.6, ['sun', 'part'], '#b02a4a'),
+  P('nepeta', 'Котовник', 'perennial', 0.5, 0.4, ['sun'], '#8a90d0'),
+  P('armeria', 'Армерия', 'perennial', 0.25, 0.2, ['sun'], '#e890b0'),
+  P('aruncus', 'Волжанка', 'perennial', 1.5, 0.6, ['part', 'shade'], '#f2eedc', { note: 'Крупные кремовые метёлки — «астильба-великан» для тени.' }),
+  P('irisBarb', 'Ирис бородатый', 'perennial', 0.8, 0.3, ['sun'], '#8a70c0'),
+  P('vinca', 'Барвинок', 'ground', 0.15, 0.4, ['part', 'shade'], '#6a7ad0'),
+  // Пряные травы
+  P('alliumSch', 'Шнитт-лук', 'herb', 0.4, 0.2, ['sun', 'part'], '#b080c0'),
+  P('melissa', 'Мелисса (мята лимонная)', 'herb', 0.6, 0.35, ['sun', 'part'], '#a8c860'),
+  P('mentha', 'Мята', 'herb', 0.6, 0.35, ['part', 'sun'], '#70a860', { note: 'Разрастается — сажайте в бортик.' }),
+  P('origanum', 'Орегано (душица)', 'herb', 0.5, 0.3, ['sun'], '#c890b8'),
+  P('salvia', 'Шалфей', 'herb', 0.6, 0.3, ['sun'], '#9aa890'),
+  P('artemisiaDrac', 'Эстрагон (тархун)', 'herb', 0.9, 0.35, ['sun', 'part'], '#7a9a60'),
+  P('leek', 'Лук-порей', 'herb', 0.6, 0.15, ['sun'], '#c0d0a0', { annual: true }),
+  P('ocimum', 'Базилик', 'herb', 0.4, 0.2, ['sun'], '#7a3a5a', { annual: true }),
+  P('borago', 'Бораго (огуречная трава)', 'herb', 0.6, 0.3, ['sun'], '#6a8ad8', { annual: true }),
 ];
+
+// Почва, влага и морозостойкость.
+// ph: A — кислая, N — нейтральная, K — щелочная (что растение выносит).
+// water: dry — сухо, normal — обычная влажность, wet — сыро.
+// hardy: very — переносит самые суровые зимы (Якутия), good — зимует в защищённом месте,
+// risky — в суровом климате может вымерзнуть, нужно укрытие.
+const SOIL = {
+  cornus: ['ANK', 'normal wet', 'very'], spiraea: ['NK', 'dry normal', 'good'], physocarpus: ['ANK', 'dry normal', 'very'],
+  cotoneaster: ['ANK', 'dry normal', 'very'], potentilla: ['NK', 'dry normal', 'very'], bergenia: ['ANK', 'normal wet', 'very'],
+  sedum: ['NK', 'dry', 'very'], irisSib: ['AN', 'normal wet', 'very'], larix: ['ANK', 'normal', 'very'], pinus: ['AN', 'dry normal', 'very'],
+  betula: ['AN', 'normal wet', 'very'], padus: ['ANK', 'normal wet', 'very'], crataegus: ['NK', 'normal', 'very'],
+  juniper: ['NK', 'dry normal', 'good'], syringa: ['NK', 'normal', 'very'], caragana: ['NK', 'dry normal', 'very'],
+  rosaAcic: ['AN', 'dry normal', 'very'], rosaCanina: ['NK', 'dry normal', 'very'], sorbaria: ['ANK', 'normal wet', 'very'],
+  salix: ['ANK', 'normal wet', 'very'], ledum: ['A', 'wet', 'very'], lonicera: ['AN', 'normal', 'very'], malus: ['NK', 'normal', 'very'],
+  ribes: ['AN', 'normal wet', 'very'], hippophae: ['NK', 'dry normal', 'very'], prunus: ['NK', 'dry normal', 'good'],
+  trollius: ['AN', 'normal wet', 'very'], hemerocallis: ['ANK', 'normal', 'very'], astilbe: ['AN', 'normal wet', 'good'],
+  phloxPan: ['AN', 'normal', 'good'], echinacea: ['NK', 'dry normal', 'good'], rudbeckia: ['NK', 'normal', 'good'],
+  paeonia: ['NK', 'normal', 'very'], delphinium: ['NK', 'normal', 'good'], adonis: ['NK', 'dry', 'very'], pulsatilla: ['NK', 'dry', 'very'],
+  hosta: ['AN', 'normal wet', 'good'], achillea: ['NK', 'dry normal', 'very'], geranium: ['ANK', 'normal', 'very'],
+  filipendula: ['NK', 'wet normal', 'very'], primula: ['AN', 'normal wet', 'good'], heuchera: ['AN', 'normal', 'good'],
+  chrysanthemum: ['NK', 'normal', 'good'], phloxSub: ['NK', 'dry', 'good'], thymus: ['NK', 'dry', 'very'], sempervivum: ['NK', 'dry', 'very'],
+  sagina: ['AN', 'normal wet', 'good'], orostachys: ['NK', 'dry', 'very'], trifolium: ['NK', 'normal', 'very'], festuca: ['NK', 'dry', 'good'],
+  deschampsia: ['AN', 'normal wet', 'very'], stipa: ['NK', 'dry', 'very'], bromus: ['NK', 'dry normal', 'very'],
+  cornusSton: ['ANK', 'normal wet', 'very'], spiraeaCham: ['ANK', 'dry normal', 'very'], spiraeaJap: ['NK', 'normal', 'good'],
+  spiraeaVan: ['NK', 'normal', 'good'], philadelphus: ['NK', 'normal', 'good'], syringaVulg: ['NK', 'normal', 'good'],
+  syringaMeyer: ['NK', 'normal', 'good'], amelanchier: ['ANK', 'normal', 'very'], berberis: ['NK', 'dry normal', 'good'],
+  viburnum: ['ANK', 'normal wet', 'very'], salixPurp: ['ANK', 'normal wet', 'good'], hydrangeaPan: ['A N', 'normal wet', 'risky'],
+  hydrangeaArb: ['AN', 'normal wet', 'risky'], rosaPark: ['NK', 'normal', 'good'], taxus: ['NK', 'normal', 'risky'],
+  rhododendron: ['A', 'normal wet', 'risky'], picea: ['AN', 'normal wet', 'very'], malusDec: ['NK', 'normal', 'good'],
+  rubus: ['AN', 'normal', 'very'], nepeta: ['NK', 'dry', 'good'], armeria: ['AN', 'dry', 'good'], aruncus: ['AN', 'normal wet', 'very'],
+  irisBarb: ['NK', 'dry', 'good'], vinca: ['NK', 'normal', 'risky'],
+  alliumSch: ['NK', 'normal', 'very'], melissa: ['N', 'normal', 'good'], mentha: ['ANK', 'normal wet', 'very'], origanum: ['NK', 'dry', 'very'],
+  salvia: ['NK', 'dry', 'risky'], artemisiaDrac: ['NK', 'dry normal', 'very'], leek: ['NK', 'normal', 'very'], ocimum: ['N', 'normal', 'very'],
+  borago: ['NK', 'normal', 'very'],
+};
+for (const p of PLANTS) {
+  const [ph, water, hardy] = SOIL[p.key] || ['ANK', 'normal', 'good'];
+  p.ph = [...ph.replace(/\s/g, '')];
+  p.water = water.split(' ');
+  p.hardy = hardy;
+}
 export const PLANT_BY_KEY = Object.fromEntries(PLANTS.map((p) => [p.key, p]));
 
 export const PLANT_GROUPS = [
@@ -263,6 +344,7 @@ export const PLANT_GROUPS = [
   ['perennial', 'Многолетники'],
   ['ground', 'Почвопокровные'],
   ['grass', 'Злаки'],
+  ['herb', 'Пряные травы'],
 ];
 
 export const LIGHT_TEXT = { sun: 'солнце', part: 'полутень', shade: 'тень' };
@@ -352,10 +434,12 @@ const bbox = (poly) => poly.reduce((b, [x, y]) => [Math.min(b[0], x), Math.min(b
  * Солнце ниже minAlt не считается: у горизонта оно почти не греет.
  */
 export function sunHours(yard, opts, points = null) {
-  const { year, lat, lng, tz, step = 0.25, minAlt = 10 } = opts;
-  const cs = casters(yard).filter((c) => !c.glass);
+  const { year, lat, lng, tz, step = 0.25, minAlt = 10, from = 0, to = 24, noPlants = false } = opts;
+  // noPlants: деревьям и кустарникам свет считаем без тени соседних растений —
+  // в ряду и в группе они растут вместе и тянутся к свету
+  const cs = casters(yard).filter((c) => !c.glass && !(noPlants && c.crown));
   const samples = [];
-  for (let t = step / 2; t < 24; t += step) {
+  for (let t = from + step / 2; t < to; t += step) {
     const s = sunPosition(localToUtc(year, yard.date, t, tz), lat, lng);
     if (s.alt < minAlt) continue;
     samples.push(cs.map((c) => {
@@ -563,7 +647,12 @@ export function goldenSpiral(plot, turns = 6) {
 export function defaultYard() {
   return {
     plot: { w: 30, d: 40, rot: 0 },
-    house: { shape: 'rect', w: 12, d: 9, cw: 5, cd: 4, h: 7, x: 15, y: 24, rot: 0 },
+    house: { shape: 'rect', w: 12, d: 9, cw: 5, cd: 4, h: 7, x: 15, y: 24, rot: 0, door: 'front' },
+    soil: { known: null, ph: null, texture: null, water: null },
+    climate: null,
+    winds: ['С', 'СЗ'],
+    comps: ['sunBorder', 'shadeBorder', 'rockery', 'entrance', 'parade', 'herbs', 'fire', 'windbreak'],
+    scenario: null,
     items: [],
     plants: [],
     date: '06-21',

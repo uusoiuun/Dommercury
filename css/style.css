@@ -174,7 +174,7 @@ body::after {
 .code { margin-top: 96px; padding: 8px clamp(18px, 4vw, 56px) 56px; border-radius: 36px; background: var(--moss); color: #ece5d6; }
 .code .captions { color: rgba(236, 229, 214, 0.6); margin-top: 32px; }
 .code-list { list-style: none; margin: 44px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 0 32px; }
-.code-list li { display: grid; grid-template-columns: 40px 1fr; gap: 2px 12px; padding: 22px 0; border-top: 1px solid rgba(236, 229, 214, 0.18); }
+.code-list li { display: grid; align-content: start; grid-template-columns: 40px 1fr; gap: 2px 12px; padding: 22px 0; border-top: 1px solid rgba(236, 229, 214, 0.18); }
 .code-list .mono { color: rgba(236, 229, 214, 0.55); padding-top: 8px; }
 .code-list b { font: 400 30px/1.1 var(--serif); font-style: italic; }
 .code-list p { grid-column: 2; margin: 4px 0 0; color: rgba(236, 229, 214, 0.72); font-size: 15px; }

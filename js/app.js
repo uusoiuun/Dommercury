@@ -2275,16 +2275,16 @@ $('garden-clear').addEventListener('click', () => {
 
 // ---- Вкладки ----
 
-const TABS = ['calc', 'plan', 'garden'];
+const TABS = ['home', 'calc', 'plan', 'garden'];
 
 function showTab() {
   const id = location.hash.slice(1);
-  const tab = TABS.includes(id) ? id : 'calc';
+  const tab = TABS.includes(id) ? id : 'home';
   for (const page of document.querySelectorAll('.tab-page')) page.hidden = page.dataset.page !== tab;
   for (const a of document.querySelectorAll('.tabs a')) a.setAttribute('aria-selected', String(a.dataset.tab === tab));
   // Карта, созданная в скрытой вкладке, не знает своего размера
   if (tab === 'calc') map.invalidateSize();
-  if (TABS.includes(id)) window.scrollTo({ top: 0 });
+  window.scrollTo({ top: 0 });
 }
 
 window.addEventListener('hashchange', showTab);

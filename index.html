@@ -4,27 +4,29 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Dommercury — дом на Севере с учётом фэн-шуй</title>
+  <meta name="theme-color" content="#2e3626">
+  <meta property="og:image" content="img/hero-sm.jpg">
   <meta name="description" content="Расчёт дома по фэн-шуй, планировочное решение и конструктор озеленения участка для Якутска и Крайнего Севера.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=Unbounded:wght@500;700&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=Inter+Tight:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
   <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
   <header class="masthead">
     <div class="masthead-in">
-      <a class="brand" href="#calc" aria-label="Dommercury — на главную">
+      <a class="brand" href="#home" aria-label="Dommercury — на главную">
         <svg class="logo" viewBox="0 0 48 48" aria-hidden="true">
-          <circle cx="24" cy="24" r="21" fill="none" stroke="currentColor" stroke-width="2"/>
-          <circle cx="24" cy="24" r="14" fill="none" stroke="currentColor" stroke-width="1" opacity=".5"/>
-          <path d="M24 5 L28 24 L24 43 L20 24 Z" fill="currentColor" opacity=".35"/>
-          <path d="M24 5 L28 24 L20 24 Z" fill="#e0634f"/>
-          <path d="M14 27 L24 19 L34 27 L34 34 L14 34 Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+          <circle cx="24" cy="24" r="21" fill="none" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M24 6 L27 24 L24 42 L21 24 Z" fill="currentColor" opacity=".3"/>
+          <path d="M24 6 L27 24 L21 24 Z" fill="currentColor"/>
+          <path d="M15 28 L24 21 L33 28 L33 34 L15 34 Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
         </svg>
-        <span><b>Dommercury</b><small>дом на Севере с учётом фэн-шуй</small></span>
+        <span><b>Dommercury</b><small>дом · фэн-шуй · ландшафт</small></span>
       </a>
       <nav class="tabs" role="tablist" aria-label="Разделы">
+        <a role="tab" href="#home" data-tab="home"><span class="tab-ico">◐</span><span class="tab-long">Главная</span><span class="tab-short">Главная</span></a>
         <a role="tab" href="#calc" data-tab="calc"><span class="tab-ico">☯</span><span class="tab-long">Расчёт дома по фэн-шуй</span><span class="tab-short">Расчёт</span></a>
         <a role="tab" href="#plan" data-tab="plan"><span class="tab-ico">▦</span><span class="tab-long">Планировочное решение</span><span class="tab-short">Планировка</span></a>
         <a role="tab" href="#garden" data-tab="garden"><span class="tab-ico">❦</span><span class="tab-long">Конструктор ландшафтного озеленения</span><span class="tab-short">Озеленение</span></a>
@@ -32,7 +34,71 @@
     </div>
   </header>
 
-  <section class="tab-page" id="tab-calc" data-page="calc" role="tabpanel">
+
+  <section class="tab-page home" id="tab-home" data-page="home" role="tabpanel">
+    <div class="hero">
+      <div class="hero-text">
+        <p class="mono hero-coords">62.0355° N,<br>129.6755° E</p>
+        <h1 class="hero-title">мой дом<br><span>на Севере</span></h1>
+        <p class="serif hero-lead">эстетика, вкус и уют —<br>по сторонам света</p>
+        <p class="hero-desc">Частный дом для Якутии и вечной мерзлоты: ориентация на участке, расчёт по фэн-шуй, планировка под вашу семью и сад, который переживёт северную зиму.</p>
+        <div class="hero-cta">
+          <a class="btn" href="#calc">Рассчитать дом</a>
+          <a class="btn ghost" href="#garden">Ландшафт и озеленение</a>
+        </div>
+      </div>
+      <figure class="hero-photo">
+        <img src="img/hero.jpg" srcset="img/hero-sm.jpg 636w, img/hero.jpg 1272w" sizes="(max-width: 900px) 100vw, 45vw" alt="Девушка в саду среди деревьев и камней, за ней — пагода и небо" fetchpriority="high">
+        <figcaption>
+          <span class="mono">ЯКУТСК, 2026</span>
+          <span class="mono">dommercury · design code</span>
+        </figcaption>
+      </figure>
+    </div>
+
+    <div class="captions serif"><span>(о проекте)</span><span>(01)</span><span>(три шага)</span></div>
+    <h2 class="section-title">Дом, который стоит<br>в согласии с местом</h2>
+    <p class="section-lead">Мы начинаем с участка и стороны света, затем раскладываем комнаты по звёздам и свету, а после — продолжаем дом садом.</p>
+
+    <div class="steps">
+      <a class="step-card" href="#calc" style="--pos: 18% 12%">
+        <span class="mono">01</span>
+        <span class="step-name">Расчёт дома<br>по фэн-шуй</span>
+        <span class="step-go" aria-hidden="true">→</span>
+      </a>
+      <a class="step-card" href="#plan" style="--pos: 52% 30%">
+        <span class="mono">02</span>
+        <span class="step-name">Планировочное<br>решение</span>
+        <span class="step-go" aria-hidden="true">→</span>
+      </a>
+      <a class="step-card" href="#garden" style="--pos: 98% 34%">
+        <span class="mono">03</span>
+        <span class="step-name">Ландшафт<br>и озеленение</span>
+        <span class="step-go" aria-hidden="true">→</span>
+      </a>
+    </div>
+
+    <section class="code">
+      <div class="captions serif"><span>(дизайн-код)</span><span>(02)</span><span>(ценности)</span></div>
+      <h2 class="section-title">Семь слов,<br>из которых строится дом</h2>
+      <ol class="code-list">
+        <li><span class="mono">01</span><b>Эстетика</b><p>Дом красиво стоит на участке и смотрит фасадом на свет и простор.</p></li>
+        <li><span class="mono">02</span><b>Вкус</b><p>Природные материалы и спокойные цвета. Ничего лишнего.</p></li>
+        <li><span class="mono">03</span><b>Ландшафт</b><p>Рельеф, вид и открытое место перед домом работают вместе с планом.</p></li>
+        <li><span class="mono">04</span><b>Озеленение</b><p>Лиственница, ель, шиповник, жимолость — растения, которым не страшна северная зима.</p></li>
+        <li><span class="mono">05</span><b>Доверие</b><p>Каждое решение объяснено: видно, почему комната или дерево стоит именно здесь.</p></li>
+        <li><span class="mono">06</span><b>Мой дом</b><p>Планировка под вашу семью: спальни по Гуа каждого, комнаты по вашему техзаданию.</p></li>
+        <li><span class="mono">07</span><b>Уют</b><p>Солнце в кухне зимой, тёплые полы над одной мокрой точкой, тишина в спальнях.</p></li>
+      </ol>
+    </section>
+
+    <div class="outro">
+      <p class="serif">начните с участка</p>
+      <a class="btn" href="#calc">Поставить дом на карту</a>
+    </div>
+  </section>
+
+  <section class="tab-page" id="tab-calc" data-page="calc" role="tabpanel" hidden>
     <div class="intro">
       <h1>Расчёт дома по фэн-шуй</h1>
       <p>Поставьте дом на карту и поверните фасадом. Сайт учтёт магнитное склонение Якутска, построит схему летящих звёзд по форме дома и подберёт вход.</p>
@@ -304,7 +370,9 @@
   </section>
 
   <footer class="foot">
-    <p>Dommercury · расчёт предварительный и не заменяет инженерные изыскания и проект.</p>
+    <p class="foot-mark">Dommercury</p>
+    <p class="mono">эстетика · вкус · ландшафт · озеленение · доверие · мой дом · уют</p>
+    <p>Расчёт предварительный и не заменяет инженерные изыскания и проект.</p>
   </footer>
 
   <script src="vendor/leaflet/leaflet.js"></script>

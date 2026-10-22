@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Дом на Севере — фэн-шуй калькулятор</title>
+  <meta name="description" content="Ориентация дома на участке, магнитное склонение, 24 горы, летящие звёзды и число Гуа.">
+  <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="top">
+    <h1>Дом на Севере</h1>
+    <p>Ориентация дома и расчёт фэн-шуй по градусу фасада</p>
+  </header>
+
+  <main class="layout">
+    <section class="map-wrap">
+      <div id="map" aria-label="Карта участка"></div>
+      <div class="map-tools">
+        <button type="button" id="btn-house">Поставить дом в центр карты</button>
+        <button type="button" id="btn-site">Нарисовать участок</button>
+        <button type="button" id="btn-site-clear" class="secondary">Очистить участок</button>
+        <button type="button" id="btn-locate" class="secondary">Где я</button>
+      </div>
+      <p class="hint" id="map-hint">Перетащите дом за середину. Поверните за круглую ручку перед фасадом.</p>
+    </section>
+
+    <aside class="panel">
+      <section class="card">
+        <h2>1. Дом</h2>
+        <div class="grid2">
+          <label>Длина фасада, м <input type="number" id="in-width" min="3" max="60" step="0.5"></label>
+          <label>Глубина дома, м <input type="number" id="in-depth" min="3" max="60" step="0.5"></label>
+        </div>
+        <div id="shape1" class="shape"></div>
+        <label class="check"><input type="checkbox" id="in-floor2"> Есть второй этаж</label>
+        <div id="floor2-size" hidden>
+          <div class="grid2">
+            <label>Второй этаж: длина по фасаду, м <input type="number" id="in-width2" min="3" max="60" step="0.5"></label>
+            <label>Второй этаж: глубина, м <input type="number" id="in-depth2" min="3" max="60" step="0.5"></label>
+          </div>
+          <div id="shape2" class="shape"></div>
+        </div>
+        <div id="site-info" class="note"></div>
+      </section>
+
+      <section class="card">
+        <h2>2. Фасад и дверь</h2>
+        <label>Фасад смотрит на (истинный азимут), °
+          <div class="row">
+            <input type="range" id="in-az-range" min="0" max="359.9" step="0.1">
+            <input type="number" id="in-az" min="0" max="359.9" step="0.1">
+          </div>
+        </label>
+        <p class="note">Фасад — архитектурный фасад по проекту: парадная сторона, главный вид, открытое пространство. Дверь может быть на другой стороне.</p>
+        <div class="grid2">
+          <label>Входная дверь
+            <select id="door-side">
+              <option value="auto">авто: В/ЮВ и звезда воды 9 или 1</option>
+              <option value="front">на фасаде</option>
+              <option value="left">на левой стене</option>
+              <option value="back">на тыльной стене</option>
+              <option value="right">на правой стене</option>
+            </select>
+          </label>
+          <label>От левого края стены, м <input type="number" id="door-pos" min="0" max="60" step="0.5" placeholder="посередине"></label>
+        </div>
+        <label class="check"><input type="checkbox" id="door-nine"> Вход в секторе девятки (горной или водной 9)</label>
+        <p class="note">«Авто» ставит дверь в сектор Восток или Юго-восток со звездой воды 9 или 1. Если там таких звёзд нет — в другой сектор с 9 или 1, а если нет нигде — в В или ЮВ. Для ручной двери: левый край — если смотреть на стену снаружи, пусто — посередине.</p>
+        <div id="door-info"></div>
+
+        <details id="facade-helper">
+          <summary>Помощник: какую сторону считать фасадом</summary>
+          <p class="note">Отметьте, что есть у каждой стороны дома. Главный вход добавляет своей стороне 2 балла (фасад в первую очередь — сторона главного входа), кроме двери, поставленной в сектор В или ЮВ по традиции.</p>
+          <div class="table-wrap" id="facade-table"></div>
+          <div id="facade-result"></div>
+        </details>
+
+        <details id="facade-guide">
+          <summary>Как определить фасад: правила разных школ</summary>
+          <div class="guide">
+            <h3>Коротко</h3>
+            <ul>
+              <li><strong>Фасад</strong> — сторона, откуда в дом приходит энергия: главный вход, парадный вид, балконы и окна гостиной.</li>
+              <li><strong>Тыл</strong> — тихая сторона с наименьшим числом окон, всегда напротив фасада.</li>
+              <li>Если обе стороны одинаково парадные и входами пользуются одинаково, фасадом считают сторону улицы из адреса дома.</li>
+              <li>Звезда воды берётся от фасада, звезда горы — от тыла.</li>
+            </ul>
+
+            <h3>Летящие звёзды (Сюань Кун)</h3>
+            <p>Фасад (向) — ян-сторона дома, через которую он принимает ци. Признаки по убыванию веса:</p>
+            <ol>
+              <li>Парадная сторона по проекту: главная архитектура, куда дом «смотрит».</li>
+              <li>Открытое пространство перед домом (мин тан): двор, поле, свободная часть участка.</li>
+              <li>Низина, понижение рельефа, вода — они тоже ян и обычно перед фасадом.</li>
+              <li>Свет и главный вид: большие окна гостиной.</li>
+              <li>Улица и въезд.</li>
+              <li>Главная дверь — подтверждает фасад, если стоит на той же стороне, но не определяет его.</li>
+            </ol>
+            <p>Тыл (坐) — инь-сторона, опора: холм, лес, высокие постройки, соседний дом вплотную. Сторона с опорой фасадом обычно не бывает.</p>
+
+            <h3>Восемь дворцов (Ба Чжай)</h3>
+            <p>Классический Ба Чжай («Ба Чжай Мин Цзин») определяет дом по сидению — по тылу, противоположному фасаду. Многие современные практики определяют дом по направлению главной двери. Если дверь на фасаде, оба способа дают одно и то же. Если нет — переключите расчёт в разделе «Восемь дворцов» и сравните.</p>
+
+            <h3>Сань Хэ</h3>
+            <p>Главное — откуда к дому приходит и куда уходит вода (понижение рельефа, водостоки, дорога) и как стоят ворота участка и дверь. Фасад обычно совпадает со стороной, куда сходит рельеф.</p>
+
+            <h3>Спорные случаи</h3>
+            <ul>
+              <li><strong>Дверь сбоку или сзади.</strong> Фасад остаётся по архитектуре и открытому пространству. Дверь оценивается отдельно по звёздам её сектора.</li>
+              <li><strong>Дорога за домом, а вид и двор — с другой стороны.</strong> Большинство школ берут фасадом сторону с видом и открытым пространством, если дом спроектирован «лицом» к ней.</li>
+              <li><strong>Две стороны равноценны.</strong> Посчитайте обе карты: в помощнике есть кнопка, которая делает выбранную сторону фасадом. Окончательный выбор — за консультантом.</li>
+            </ul>
+
+            <h3>Для Якутска</h3>
+            <p>Входную дверь в Якутии обычно ставят в сектор Восток или Юго-восток — к восходу солнца, по традиции. Поэтому такая дверь фасад не определяет: помощник не даёт ей баллов, а дверь оценивается по звёздам своего сектора.</p>
+            <p>Архитектурный фасад дома на сваях обычно смотрит на юг — к свету и главному виду. Дверь не на фасаде здесь обычная ситуация.</p>
+          </div>
+        </details>
+      </section>
+
+      <section class="card">
+        <h2>3. Азимут</h2>
+        <dl class="kv" id="azimuth-out"></dl>
+        <fieldset class="radio">
+          <legend>Для расчёта фэн-шуй брать</legend>
+          <label><input type="radio" name="az-mode" value="magnetic"> магнитный азимут (компас Ло Пань)</label>
+          <label><input type="radio" name="az-mode" value="true"> истинный азимут (по карте)</label>
+        </fieldset>
+        <div id="boundary-warn"></div>
+      </section>
+
+      <section class="card">
+        <h2>4. Летящие звёзды</h2>
+        <div class="grid2">
+          <label>Период
+            <select id="in-period">
+              <option value="9">9 (2024–2043)</option>
+              <option value="8">8 (2004–2023)</option>
+              <option value="7">7 (1984–2003)</option>
+            </select>
+          </label>
+          <label>Схема
+            <select id="in-orient">
+              <option value="plan-bottom">План дома, фасад снизу</option>
+              <option value="plan-top">План дома, фасад сверху</option>
+              <option value="south">По сторонам света, юг сверху</option>
+              <option value="north">По сторонам света, север сверху</option>
+            </select>
+          </label>
+        </div>
+        <div id="stars-plans" class="plans"></div>
+        <div id="stars-grid" class="stars-grid"></div>
+        <p class="note">В клетке: слева — звезда горы, справа — звезда воды, внизу — базовая звезда периода.</p>
+        <p class="note">Период — когда семья начала жить в доме (есть и спать). Для нового дома — 9-й.</p>
+        <div id="patterns"></div>
+        <div id="remedies"></div>
+        <details>
+          <summary>Значение звёзд и коррекции</summary>
+          <div id="stars-legend"></div>
+        </details>
+      </section>
+
+      <section class="card">
+        <h2>5. Восемь дворцов</h2>
+        <fieldset class="radio">
+          <legend>Определять дом</legend>
+          <label><input type="radio" name="bazhai-by" value="facade"> по тылу (классический Ба Чжай)</label>
+          <label><input type="radio" name="bazhai-by" value="door"> по входной двери</label>
+        </fieldset>
+        <div id="bazhai"></div>
+      </section>
+
+      <section class="card">
+        <h2>6. Жильцы и техзадание</h2>
+        <div id="people"></div>
+        <button type="button" id="btn-person" class="secondary">Добавить человека</button>
+        <h3 class="sub">Какие помещения нужны</h3>
+        <p class="note">Нажмите, чтобы включить или выключить комнату.</p>
+        <div class="chips" id="room-chips">
+          <button type="button" class="chip" data-room="kitchen">Кухня-гостиная</button>
+          <button type="button" class="chip" data-room="master">Спальня родителей</button>
+          <button type="button" class="chip" data-room="suite">Мастер-спальня</button>
+          <button type="button" class="chip" data-room="masterWork">Рабочая зона в спальне родителей</button>
+          <button type="button" class="chip" data-room="guest">Гостевая спальня</button>
+          <button type="button" class="chip" data-room="office">Кабинет</button>
+          <button type="button" class="chip" data-room="boiler">Котельная</button>
+          <button type="button" class="chip" data-room="laundry">Постирочная</button>
+          <button type="button" class="chip" data-room="storage">Кладовка</button>
+          <button type="button" class="chip" data-room="wardrobe">Гардеробная</button>
+        </div>
+        <p class="note">Мастер-спальня — со своей ванной, проходной гардеробной и туалетным столиком.</p>
+        <div class="steppers" id="steppers">
+          <div class="stepper">
+            <span>Детских</span>
+            <button type="button" class="step" data-step="kids" data-d="-1" aria-label="Меньше детских">−</button>
+            <output id="pg-kids-val"></output>
+            <button type="button" class="step" data-step="kids" data-d="1" aria-label="Больше детских">+</button>
+            <button type="button" class="link" data-step="kids" data-d="auto" id="pg-kids-auto">по числу детей</button>
+          </div>
+          <div class="stepper">
+            <span>Санузлов</span>
+            <button type="button" class="step" data-step="baths" data-d="-1" aria-label="Меньше санузлов">−</button>
+            <output id="pg-baths-val"></output>
+            <button type="button" class="step" data-step="baths" data-d="1" aria-label="Больше санузлов">+</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>7. Планировочное решение</h2>
+        <p class="note">Кухня-гостиная и кабинет — по водной звезде: там проводят время, но не спят. Спальни — по горной звезде и Гуа тех, кто в них спит. Плита — по горной звезде. Санузел, котельная, кладовка — в секторы с неблагоприятными звёздами. Прихожая — у входной двери, в центре — холл. Все санузлы — в одной мокрой точке: рядом друг с другом, на втором этаже — над санузлами первого; котельная — рядом с ними.</p>
+        <div id="layout-plans" class="plans"></div>
+        <div id="layout-editor"></div>
+        <div id="layout-notes"></div>
+        <div id="layout-variants"></div>
+      </section>
+
+      <section class="card no-print">
+        <button type="button" id="btn-print">Распечатать / сохранить в PDF</button>
+        <p class="note">Расчёт предварительный. Толкования — общие правила школы Сюань Кун. Сайт не заменяет инженерные изыскания и проект.</p>
+      </section>
+    </aside>
+  </main>
+
+  <script src="vendor/leaflet/leaflet.js"></script>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

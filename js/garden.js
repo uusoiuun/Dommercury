@@ -103,7 +103,7 @@ export const SOIL_TESTS = [
 
 export const TEMPLATES = {
   sunBorder: {
-    title: 'Солнечный миксбордер', want: 'sun', w: 7, d: 2.5,
+    short: 'Солнечный', title: 'Солнечный миксбордер', want: 'sun', w: 7, d: 2.5,
     about: 'Пышное цветение всё лето: кустарники сзади, многолетники в середине, низкие и почвопокровные спереди.',
     tiers: [
       ['Задний ряд — кустарники', ['spiraea', 'physocarpus', 'philadelphus', 'potentilla', 'syringaMeyer', 'rosaPark', 'caragana', 'spiraeaCham'], 2, 1],
@@ -113,7 +113,7 @@ export const TEMPLATES = {
     ],
   },
   shadeBorder: {
-    title: 'Теневой миксбордер', want: 'shade', w: 6, d: 2.5,
+    short: 'Теневой', title: 'Теневой миксбордер', want: 'shade', w: 6, d: 2.5,
     about: 'Для северной стороны и тени деревьев: крупные листья, белые и кремовые соцветия светятся в полумраке. Тень обычно влажнее — растениям это нравится.',
     tiers: [
       ['Задний ряд — кустарники', ['viburnum', 'cornus', 'sorbaria', 'spiraeaCham', 'hydrangeaArb', 'cornusSton'], 2, 1],
@@ -123,7 +123,7 @@ export const TEMPLATES = {
     ],
   },
   rockery: {
-    title: 'Рокарий', want: 'sun', dry: true, w: 4, d: 3,
+    short: 'Рокарий', title: 'Рокарий', want: 'sun', dry: true, w: 4, d: 3,
     about: 'Каменистая горка на самом солнечном и сухом месте: камни, гравий, суккуленты и злаки. Почти без полива.',
     tiers: [
       ['Каркас', ['juniper', 'potentilla', 'pinus'], 1, 1],
@@ -132,7 +132,7 @@ export const TEMPLATES = {
     ],
   },
   entrance: {
-    title: 'Входная зона', want: 'any', at: 'door', w: 3.5, d: 1.5,
+    short: 'У входа', title: 'Входная зона', want: 'any', at: 'door', w: 3.5, d: 1.5,
     about: 'Небольшая аккуратная клумба у входа: красива с весны до осени, не мешает проходу, не колется.',
     tiers: [
       ['Акцент', ['hydrangeaPan', 'spiraeaJap', 'potentilla', 'cornus', 'hydrangeaArb'], 1, 1],
@@ -141,7 +141,7 @@ export const TEMPLATES = {
     ],
   },
   parade: {
-    title: 'Парадная зона у фасада', want: 'any', at: 'facade', w: 6, d: 1.8,
+    short: 'Парадная', title: 'Парадная зона у фасада', want: 'any', at: 'facade', w: 6, d: 1.8,
     about: 'Вдоль фасада — строгая и спокойная посадка: вечнозелёный каркас и повторяющиеся группы, чтобы дом выглядел нарядно круглый год.',
     tiers: [
       ['Каркас', ['juniper', 'berberis', 'spiraea', 'cornus', 'taxus', 'spiraeaCham'], 2, 1],
@@ -150,7 +150,7 @@ export const TEMPLATES = {
     ],
   },
   herbs: {
-    title: 'Грядка пряных трав', want: 'sun', near: 10, w: 3, d: 1.5,
+    short: 'Пряные травы', title: 'Грядка пряных трав', want: 'sun', near: 10, w: 3, d: 1.5,
     about: 'Ароматная грядка ближе к кухне или террасе: зелень к столу всё лето.',
     tiers: [
       ['Задний ряд', ['artemisiaDrac', 'borago', 'leek'], 2, 1],
@@ -159,7 +159,7 @@ export const TEMPLATES = {
     ],
   },
   fire: {
-    title: 'Костровище', want: 'sun', evening: true, fire: true, w: 6, d: 6,
+    short: 'Костровище', title: 'Костровище', want: 'sun', evening: true, fire: true, w: 6, d: 6,
     about: 'Круг из гравия с очагом посередине, вокруг — низкие негорючие растения. Не ближе 5 м к постройкам и 4 м к деревьям.',
     tiers: [
       ['Вокруг гравийного круга', ['thymus', 'sedum', 'sempervivum', 'festuca', 'orostachys'], 3, 5],
@@ -317,6 +317,150 @@ function polyGap(a, b) {
     for (const p of P1) for (let i = 0; i < P2.length; i++) min = Math.min(min, seg(p, P2[i], P2[(i + 1) % P2.length]));
   }
   return min;
+}
+
+// ---- Готовые композиции: нажали — и миксбордер встаёт на свою сторону участка ----
+// side — где ставить (стороны света), want — свет, rows — ряды от заднего к переднему: [ряд, [[ключ, штук]]]
+
+export const PRESETS = {
+  sunSedum: {
+    short: 'Солнечный с очитком', title: 'Солнечный миксбордер с очитком', side: 'Ю', want: 'sun', w: 7, d: 2.5,
+    about: 'Для самой солнечной и сухой стороны: очиток, эхинацея, рудбекия и котовник цветут с июля до заморозков, почти без полива.',
+    rows: [
+      ['Задний ряд', [['potentilla', 1], ['spiraea', 1]]],
+      ['Средний ряд', [['echinacea', 3], ['rudbeckia', 3], ['irisSib', 3]]],
+      ['Передний ряд', [['sedum', 5], ['nepeta', 3], ['thymus', 5]]],
+      ['Злаки', [['stipa', 3]]],
+    ],
+  },
+  pinkWhite: {
+    short: 'Бело-розовый', title: 'Бело-розовый миксбордер', side: 'ЮЗ', want: 'sun', w: 8, d: 3,
+    about: 'Нежная гамма: дерен, спирея и можжевельник сзади, флоксы, астильбы и лилейники в середине, ковёр из флокса шиловидного и тимьяна спереди.',
+    rows: [
+      ['Задний ряд — структура', [['cornus', 1], ['spiraea', 1], ['juniper', 1]]],
+      ['Средний ряд', [['hemerocallis', 3], ['phloxPan', 3], ['echinacea', 3]]],
+      ['Передний ряд', [['phloxSub', 5], ['sedum', 3], ['thymus', 5], ['festuca', 3]]],
+      ['Акценты', [['stipa', 3]]],
+    ],
+  },
+  perennials: {
+    short: 'Многолетники', title: 'Цветник из многолетников', side: 'ЮВ', want: 'sun', w: 6, d: 2.5,
+    about: 'Ирисы, флокс, лилейники, очиток и гейхеры под парковой розой — цветение волнами с июня до осени.',
+    rows: [
+      ['Акцент', [['rosaPark', 1]]],
+      ['Середина', [['irisBarb', 3], ['phloxPan', 3], ['hemerocallis', 3]]],
+      ['Передний край', [['sedum', 3], ['heuchera', 3]]],
+    ],
+  },
+  philadelphus: {
+    short: 'С чубушником', title: 'Клумба с чубушником и местом для отдыха', side: 'З', want: 'sun', w: 6, d: 4,
+    about: 'Душистый чубушник за спиной, флоксы и роза по бокам, котовник и армерия у гравийной площадки с двумя стульями.',
+    rows: [
+      ['Фон', [['philadelphus', 1], ['rosaPark', 1]]],
+      ['Середина', [['phloxPan', 3], ['nepeta', 3]]],
+      ['Край площадки', [['armeria', 5], ['thymus', 3]]],
+    ],
+  },
+  yellowViolet: {
+    short: 'Жёлто-фиолетовая', title: 'Жёлто-фиолетовая клумба: купальница, ирисы, злаки', side: 'В', want: 'part', w: 5, d: 2,
+    about: 'Утреннее солнце и влажная почва: купальница светится жёлтым, сибирские ирисы — фиолетовым, злаки добавляют лёгкости.',
+    rows: [
+      ['Задний план', [['trollius', 3], ['deschampsia', 3]]],
+      ['Средний план', [['irisSib', 5], ['stipa', 3]]],
+      ['Передний край', [['festuca', 5]]],
+    ],
+  },
+  shadeHosta: {
+    short: 'Хоста и астильба', title: 'Тенистый уголок: хоста и астильба', side: 'С', want: 'shade', w: 6, d: 2.5,
+    about: 'Для северной стороны: крупные листья хост, пышные метёлки астильб, бадан и гейхеры у края. В тени влажнее — им это нравится.',
+    rows: [
+      ['Задний ряд', [['viburnum', 1], ['cornus', 1]]],
+      ['Средний ряд', [['astilbe', 5], ['hosta', 3], ['aruncus', 1]]],
+      ['Передний ряд', [['bergenia', 3], ['heuchera', 3], ['sagina', 5]]],
+    ],
+  },
+  shadeWhite: {
+    short: 'Белый сад', title: 'Белый сад в тени', side: 'СВ', want: 'shade', w: 5, d: 2.5,
+    about: 'Белые и кремовые цветы светятся в полумраке: гортензия древовидная, волжанка, астильба «Bridal Veil», хоста с белой каймой.',
+    rows: [
+      ['Задний ряд', [['hydrangeaArb', 1], ['spiraeaCham', 1]]],
+      ['Средний ряд', [['aruncus', 1], ['astilbe', 3], ['hosta', 3]]],
+      ['Передний ряд', [['bergenia', 3], ['vinca', 5]]],
+    ],
+  },
+  shrubGroup: {
+    short: 'Кустарники', title: 'Кустарниковая группа', side: 'СЗ', want: 'part', w: 7, d: 3.5,
+    about: 'Сирень, гортензия, пёстрый дерен и спирея с можжевельниками спереди — красиво круглый год и прикрывает от ветра.',
+    rows: [
+      ['Задний ряд', [['syringaVulg', 1], ['cornus', 1]]],
+      ['Середина', [['hydrangeaPan', 2], ['spiraeaJap', 3]]],
+      ['Передний ряд', [['juniper', 2]]],
+    ],
+  },
+  rockery: {
+    short: 'Рокарий', title: 'Рокарий', side: 'Ю', want: 'sun', w: 4, d: 3,
+    about: 'Каменистая горка на самом солнечном и сухом месте: можжевельник, ковыль, прострел, очиток, молодило и тимьян между камнями.',
+    rows: [
+      ['Каркас', [['juniper', 1]]],
+      ['Средний ярус', [['stipa', 3], ['pulsatilla', 3]]],
+      ['Между камнями', [['sedum', 5], ['sempervivum', 5], ['thymus', 5]]],
+    ],
+  },
+  herbs: {
+    short: 'Травы', title: 'Пряные травы', side: 'Ю', want: 'sun', near: 10, w: 3, d: 1.5,
+    about: 'Ближе к кухне: шнитт-лук, орегано, тимьян, мелисса, мята в бортике, эстрагон.',
+    rows: [
+      ['Задний ряд', [['artemisiaDrac', 1], ['borago', 2]]],
+      ['Середина', [['melissa', 2], ['mentha', 2], ['origanum', 2]]],
+      ['Передний край', [['thymus', 3], ['alliumSch', 3]]],
+    ],
+  },
+};
+export const PRESET_KEYS = Object.keys(PRESETS);
+const SIDE_AZ = { С: 0, СВ: 45, В: 90, ЮВ: 135, Ю: 180, ЮЗ: 225, З: 270, СЗ: 315 };
+
+/** Ряды готовой композиции в общем виде: [{ tier, plants: [{ key, qty }] }]. */
+export const presetRows = (key) => PRESETS[key].rows.map(([tier, list]) => ({ tier, plants: list.map(([k, qty]) => ({ key: k, qty })) }));
+
+/**
+ * Место для готовой композиции: на своей стороне участка и с нужным светом.
+ * Длинная сторона клумбы — вдоль ближайшей границы участка.
+ */
+export function placePreset(key, yard, hours) {
+  const pr = PRESETS[key];
+  const W = yard.plot.w;
+  const D = yard.plot.d;
+  // Направление стороны в осях участка
+  const a = rad(SIDE_AZ[pr.side] - yard.plot.rot);
+  const dir = [Math.sin(a), Math.cos(a)];
+  const rot = Math.abs(dir[0]) > Math.abs(dir[1]) ? 90 : 0;
+  const shareAt = makeShareAt({ ...hours.grid, w: W }, hours.grid.maxHours);
+  const obs = obstacles(yard);
+  const flatObs = yard.items.filter((i) => BUILDING_BY_KEY[i.t].flat).map((i) => rectPoly(i));
+  const woody = yard.plants.filter((p) => ['tree', 'shrub', 'fruit'].includes(PLANT_BY_KEY[p.t].group));
+  const h = yard.house;
+  const hd = h.shape === 'square' ? h.w : h.d;
+  const want = { sun: 0.85, part: 0.5, shade: 0.2 }[pr.want];
+  let best = null;
+  for (let y = 1; y <= D - 1; y += 1) {
+    for (let x = 1; x <= W - 1; x += 1) {
+      const o = { x, y, w: pr.w, d: pr.d, rot };
+      const poly = rectPoly(o);
+      if (poly.some(([px, py]) => px < 0.8 || py < 0.8 || px > W - 0.8 || py > D - 0.8)) continue;
+      if (obs.some((ob) => convexOverlap(ob, poly))) continue;
+      const wide = rectPoly({ ...o, w: o.w + 2, d: o.d + 2 });
+      if (flatObs.some((ob) => convexOverlap(ob, wide))) continue;
+      if (woody.some((p) => inPoly(rectPoly({ ...o, w: o.w + 2 * PLANT_BY_KEY[p.t].r, d: o.d + 2 * PLANT_BY_KEY[p.t].r }), [p.x, p.y]))) continue;
+      // Насколько точка на нужной стороне: от центра участка к стороне
+      const toward = ((x - W / 2) * dir[0] + (y - D / 2) * dir[1]) / (Math.hypot(W, D) / 2);
+      const pts = [[x, y], [x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]];
+      const share = pts.reduce((s, [px, py]) => s + shareAt(px, py), 0) / pts.length;
+      let score = toward * 6 - Math.abs(share - want) * 8;
+      if (pr.near) score -= Math.max(0, Math.hypot(x - h.x, y - h.y) - Math.max(h.w, hd) / 2 - pr.near) * 0.5;
+      if (!best || score > best.score) best = { ...o, score, share };
+    }
+  }
+  return best;
 }
 
 // ---- Ветрозащита ----

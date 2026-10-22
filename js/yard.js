@@ -184,8 +184,6 @@ export const BUILDINGS = [
   { key: 'bbq', label: 'Мангальная зона', w: 4, d: 4, h: 0, color: '#9c8f86', flat: true, fire: true },
   { key: 'firepit', label: 'Костровище', w: 3.5, d: 3.5, h: 0, color: '#8f8077', flat: true, fire: true, round: true },
   { key: 'terrace', label: 'Площадка для кофе', w: 3, d: 3, h: 0, color: '#d9c6a5', flat: true },
-  { key: 'bedA', label: 'Клумба: зона А', w: 5, d: 2, h: 0, color: '#c9b44a', flat: true, bed: 'A' },
-  { key: 'bedB', label: 'Миксбордер: зона Б', w: 8, d: 3, h: 0, color: '#e2b8c4', flat: true, bed: 'B' },
   { key: 'comp', label: 'Композиция', w: 6, d: 2, h: 0, color: '#cbd9a8', flat: true, bed: 'C', hidden: true },
 ];
 export const BUILDING_BY_KEY = Object.fromEntries(BUILDINGS.map((b) => [b.key, b]));
@@ -377,29 +375,6 @@ export function convexOverlap(a, b) {
   }
   return true;
 }
-
-// Композиции: ряды от заднего плана к переднему
-export const BEDS = {
-  A: {
-    title: 'Зона А: купальница, ирисы и злаки',
-    palette: 'жёлто-фиолетовая',
-    rows: [
-      ['Задний план', ['trollius', 'deschampsia']],
-      ['Средний план', ['irisSib', 'stipa']],
-      ['Передний край', ['festuca']],
-    ],
-  },
-  B: {
-    title: 'Зона Б: миксбордер бело-розовый',
-    palette: 'бело-розовая',
-    rows: [
-      ['Задний ряд — структура', ['cornus', 'spiraea', 'juniper']],
-      ['Средний ряд — высокие акценты', ['hemerocallis', 'astilbe', 'phloxPan', 'echinacea']],
-      ['Передний ряд', ['phloxSub', 'sedum', 'thymus', 'festuca']],
-      ['Акценты по всей композиции', ['stipa', 'deschampsia']],
-    ],
-  },
-};
 
 // ---- Сцена: кто отбрасывает тень ----
 

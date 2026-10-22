@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   convexOverlap, sunPosition, localToUtc, sunDay, housePieces, houseOutline, shadowPoly, hull, inConvex, sunHours,
-  defaultYard, checkPlant, checkBuildings, lightZone, PLANTS, BEDS, PLANT_BY_KEY, tzGuess,
+  defaultYard, checkPlant, checkBuildings, lightZone, PLANTS, PLANT_BY_KEY, tzGuess,
 } from '../js/yard.js';
 
 const YAK = [62.0355, 129.6755];
@@ -85,7 +85,6 @@ test('постройки: отступ от границы', () => {
 test('каталог растений и композиции согласованы', () => {
   assert.equal(new Set(PLANTS.map((p) => p.key)).size, PLANTS.length);
   assert.equal(PLANTS.filter((p) => p.top).length, 10);
-  for (const b of Object.values(BEDS)) for (const [, keys] of b.rows) for (const k of keys) assert.ok(PLANT_BY_KEY[k], k);
 });
 
 test('пересечение прямоугольников крест-накрест', () => {

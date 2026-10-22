@@ -71,3 +71,18 @@ test('сценарии и картинка композиции', () => {
   const svg = elevationSvg(pickPlants(TEMPLATES.sunBorder, 'sun', { known: false }, 'cold'));
   assert.ok(svg.startsWith('<svg') && svg.includes('<text'));
 });
+
+test('готовые композиции: солнечная — на юге, теневая — на севере в тени', async () => {
+  const { placePreset, PRESETS, presetRows } = await import('../js/garden.js');
+  const y = defaultYard();
+  const hours = { grid: sunHours(y, { ...YAK, cell: 1 }) };
+  const sun = placePreset('sunSedum', y, hours);
+  assert.ok(sun.y < y.plot.d / 2, `y=${sun.y}`);
+  assert.ok(sun.share > 0.7);
+  const shade = placePreset('shadeHosta', y, hours);
+  assert.ok(shade.y > y.plot.d / 2, `y=${shade.y}`);
+  assert.ok(shade.share < sun.share);
+  const east = placePreset('yellowViolet', y, hours);
+  assert.ok(east.x > y.plot.w / 2 && east.rot === 90);
+  for (const k of Object.keys(PRESETS)) for (const r of presetRows(k)) for (const p of r.plants) assert.ok(PLANT_BY_KEY[p.key], `${k}: ${p.key}`);
+});

@@ -163,7 +163,7 @@ body::after {
 .step-card {
   position: relative; display: flex; flex-direction: column; justify-content: space-between; min-height: 420px; padding: 20px;
   border-radius: 24px; overflow: hidden; color: #f2ecdf; text-decoration: none; isolation: isolate;
-  background: url("../img/hero-sm.jpg") var(--pos) / 320% no-repeat, var(--moss);
+  background: url("../img/hero.jpg") var(--pos) / 320% no-repeat, var(--moss);
 }
 .step-card::before { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(180deg, rgba(20, 22, 14, 0.15), rgba(20, 22, 14, 0.62)); transition: background 0.3s; }
 .step-card:hover::before { background: linear-gradient(180deg, rgba(20, 22, 14, 0.05), rgba(20, 22, 14, 0.5)); }

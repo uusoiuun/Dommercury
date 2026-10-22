@@ -15,6 +15,7 @@ import {
   ROOMS, MOUNTAIN, WATER, UNFAVORABLE_MOUNTAIN, WATER_FACE, attacksGua, elementOf, roomFit, bedroomsFor, entranceNotes, heTuPairs, doubleNine,
 } from './stars9.js';
 import { planRooms, roomsFor, kitchenSplit, dir8, isDoubleNine } from './planner.js';
+import { ELEMENTS, ELEMENT_BY_KEY, evaluate, sectorOf, sectorAdvice, PLANTS } from './landscape.js';
 
 const L = window.L;
 const STORAGE_KEY = 'psy-house-v1';
@@ -50,6 +51,9 @@ const defaults = {
   // Помещения, поставленные вручную: {'этаж:ряд-столбец': {key, label, type, wet}}
   overrides: {},
   site: [],
+  // Элементы озеленения: {t: ключ элемента, ll: [широта, долгота]}
+  garden: [],
+  gardenTool: 'conifer',
   people: [],
   zoom: 20,
 };
@@ -370,6 +374,7 @@ function render() {
   renderPeople(houseAz(fsAz));
   renderProgramInputs();
   renderLayout(chart, fsAz);
+  renderGarden(chart, shift);
 }
 
 function renderMap(chart, shift) {
@@ -2127,6 +2132,165 @@ $('people').addEventListener('click', (e) => {
 
 $('btn-print').addEventListener('click', () => window.print());
 
+
+// ---- Конструктор ландшафтного озеленения ----
+
+const GARDEN_GROUPS = [
+  ['Горы: высокое и тяжёлое', (e) => e.cat === 'mountain'],
+  ['Вода и открытое место', (e) => e.cat === 'water' || e.cat === 'open'],
+  ['Прочее', (e) => !['mountain', 'water', 'open'].includes(e.cat)],
+];
+const LEVEL_TEXT = { good: 'хорошо', ok: 'допустимо', mixed: 'есть замечания', bad: 'лучше перенести' };
+let gardenView = null;
+
+function renderGardenPalette() {
+  $('garden-palette').innerHTML = GARDEN_GROUPS.map(([title, f]) => `<p class="chip-group">${title}</p>`
+    + ELEMENTS.filter(f).map((e) => `<button type="button" class="chip" data-garden="${e.key}" aria-pressed="${state.gardenTool === e.key}"><span class="dot" style="background:${e.color}"></span>${e.label}</button>`).join('')).join('');
+  $('garden-plants').innerHTML = `<div class="plants">${PLANTS.map((g) => `<h3>${g.group}</h3><ul>${g.items.map((i) => `<li>${i}</li>`).join('')}</ul>`).join('')}</div>`;
+}
+
+function gardenStarClass(num, period) {
+  if (num === period) return 'pill-wang';
+  const t = starState(num, period).key;
+  return t === 'sheng' ? 'pill-good' : t === 'tui' || t === 'neutral' ? 'pill-mid' : 'pill-bad';
+}
+
+function renderGarden(chart, shift) {
+  const g1 = floorGeom(1);
+  const loc = (ll) => toLocal(state.center, ll);
+  const houseR = Math.hypot(g1.W, g1.D) / 2;
+  const site = state.site.map(loc);
+  const items = state.garden.map((it) => ({ ...it, p: loc(it.ll) }));
+  const far = Math.max(houseR * 3, 25, ...site.map(([x, y]) => Math.hypot(x, y) * 1.08), ...items.map((it) => Math.hypot(...it.p) + 4));
+  const R = Math.ceil(far / 5) * 5;
+  // На телефоне подписи крупнее, иначе их не прочитать
+  const fs = R / (window.innerWidth < 700 ? 15 : 24);
+  const P = ([x, y]) => `${x.toFixed(2)},${(-y).toFixed(2)}`;
+  const parts = [];
+
+  // Сетка через 5 м
+  for (let v = -R + 5; v < R; v += 5) {
+    parts.push(`<line class="g-grid" x1="${v}" y1="${-R}" x2="${v}" y2="${R}"/><line class="g-grid" x1="${-R}" y1="${v}" x2="${R}" y2="${v}"/>`);
+  }
+  if (site.length > 2) parts.push(`<polygon class="g-site" points="${site.map(P).join(' ')}"/>`);
+  parts.push(`<circle class="g-ring" r="${(houseR + 10).toFixed(2)}"/>`);
+
+  // Секторы: лучи границ и подписи со звёздами
+  for (let k = 0; k < 8; k++) {
+    const b = rad(22.5 + 45 * k + shift);
+    parts.push(`<line class="g-ray" x1="${Math.sin(b) * houseR}" y1="${-Math.cos(b) * houseR}" x2="${Math.sin(b) * R * 1.5}" y2="${-Math.cos(b) * R * 1.5}"/>`);
+    const lb = rad(45 * k + shift);
+    const pal = PALACES[k];
+    const st = chart.palaces[pal.lo];
+    const x = Math.sin(lb) * R * 0.86;
+    const y = -Math.cos(lb) * R * 0.86;
+    parts.push(`<text class="g-sector" x="${x}" y="${y - fs * 0.2}" font-size="${fs * 1.15}" stroke-width="${fs * 0.25}" text-anchor="middle">${pal.dir}</text>`,
+      `<text class="g-sector-stars" x="${x}" y="${y + fs * 1.05}" font-size="${fs * 0.85}" stroke-width="${fs * 0.22}" text-anchor="middle">Г${st.mountain} · В${st.water}</text>`);
+  }
+
+  // Дом
+  for (const pc of pieces(g1.dec)) {
+    if (!pc.inside) continue;
+    const pts = [[pc.x1, pc.y1], [pc.x2, pc.y1], [pc.x2, pc.y2], [pc.x1, pc.y2]].map(([x, y]) => loc(planToMap(g1, x, y)));
+    parts.push(`<polygon class="g-house" stroke="none" points="${pts.map(P).join(' ')}"/>`);
+  }
+  for (const sg of outline(g1.dec)) {
+    const a = loc(planToMap(g1, sg.x1, sg.y1));
+    const b = loc(planToMap(g1, sg.x2, sg.y2));
+    parts.push(`<line class="${sg.facing === 'front' ? 'g-facade' : 'g-house'}" x1="${a[0]}" y1="${-a[1]}" x2="${b[0]}" y2="${-b[1]}"/>`);
+  }
+  const dp = doorPoint(doorNow, g1.W, g1.D);
+  const door = loc(planToMap(g1, dp.x, dp.y));
+  parts.push(`<circle class="g-door" cx="${door[0]}" cy="${-door[1]}" r="${Math.max(0.6, fs * 0.45)}"/>`);
+  const doorBearing = norm360(deg(Math.atan2(door[0], door[1])));
+
+  // Элементы
+  const evals = items.map((it, i) => {
+    const el = ELEMENT_BY_KEY[it.t];
+    const bearing = norm360(deg(Math.atan2(it.p[0], it.p[1])));
+    const pal = sectorOf(bearing - shift);
+    const st = chart.palaces[pal.lo];
+    const res = evaluate(el, { mountain: st.mountain, water: st.water, period: chart.period, bearing, dist: Math.hypot(...it.p), houseR, doorBearing });
+    const r = Math.max(el.r, fs * 0.9);
+    parts.push(`<g class="g-el lvl-${res.level}" data-i="${i}"><title>${el.label}: ${LEVEL_TEXT[res.level]}</title>`
+      + `<circle class="ring" cx="${it.p[0]}" cy="${-it.p[1]}" r="${r + fs * 0.25}" stroke-width="${fs * 0.22}"/>`
+      + `<circle class="body" cx="${it.p[0]}" cy="${-it.p[1]}" r="${r}" fill="${el.color}" stroke-width="${fs * 0.1}"/>`
+      + `<text x="${it.p[0]}" y="${-it.p[1] + fs * 0.32}" font-size="${fs * 0.8}" text-anchor="middle">${i + 1}</text></g>`);
+    return { i, el, pal, st, res };
+  });
+
+  // Север и масштаб
+  parts.push(`<text class="g-north" x="${-R + fs}" y="${-R + fs * 1.6}" font-size="${fs * 1.2}">С ↑</text>`,
+    `<line class="g-scale" x1="${R - fs - 10}" y1="${R - fs}" x2="${R - fs}" y2="${R - fs}"/>`,
+    `<text class="g-scale-t" x="${R - fs - 5}" y="${R - fs * 1.4}" font-size="${fs * 0.8}" text-anchor="middle">10 м</text>`);
+
+  $('garden-svg').innerHTML = `<svg viewBox="${-R} ${-R} ${2 * R} ${2 * R}" role="img" aria-label="Схема участка">${parts.join('')}</svg>`;
+  gardenView = { R };
+
+  $('garden-eval').innerHTML = evals.length
+    ? `<div class="garden-eval">${evals.map(({ i, el, pal, st, res }) => `<div class="g-item ${res.level}"><header><span>${i + 1}. ${el.label}</span><span>${pal.dir} <span class="pill-inline ${gardenStarClass(st.mountain, chart.period)}">Г${st.mountain}</span> <span class="pill-inline ${gardenStarClass(st.water, chart.period)}">В${st.water}</span></span></header>`
+      + `<ul><li><strong>${LEVEL_TEXT[res.level]}</strong></li>${res.notes.map((n) => `<li>${n}</li>`).join('')}</ul></div>`).join('')}</div>`
+    : '<p class="note">Пока ничего не поставлено. Выберите элемент слева и нажмите на схему.</p>';
+
+  const adv = sectorAdvice(chart.palaces, chart.period, shift);
+  $('garden-advice').innerHTML = `<table class="advice-table"><thead><tr><th>Сектор</th><th>Звёзды</th><th>Что поставить</th><th>Чего избегать</th></tr></thead><tbody>${adv.map((a) => `<tr><td>${a.palace.dir}</td>`
+    + `<td><span class="pill-inline ${gardenStarClass(a.mountain, chart.period)}">Г${a.mountain}</span> <span class="pill-inline ${gardenStarClass(a.water, chart.period)}">В${a.water}</span></td>`
+    + `<td>${a.put.join('; ')}</td><td class="avoid">${a.avoid.join('; ') || '—'}</td></tr>`).join('')}</tbody></table>`;
+}
+
+$('garden-palette').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-garden]');
+  if (!b) return;
+  state.gardenTool = b.dataset.garden;
+  renderGardenPalette();
+  save();
+});
+
+$('garden-svg').addEventListener('click', (e) => {
+  const svg = $('garden-svg').querySelector('svg');
+  if (!svg || !gardenView) return;
+  const hit = e.target.closest('.g-el');
+  if (hit) {
+    state.garden.splice(Number(hit.dataset.i), 1);
+  } else {
+    const pt = new DOMPoint(e.clientX, e.clientY).matrixTransform(svg.getScreenCTM().inverse());
+    state.garden.push({ t: state.gardenTool, ll: offset(state.center, pt.x, -pt.y) });
+  }
+  render();
+  save();
+});
+
+$('garden-undo').addEventListener('click', () => {
+  state.garden.pop();
+  render();
+  save();
+});
+
+$('garden-clear').addEventListener('click', () => {
+  if (state.garden.length && !window.confirm('Убрать все элементы с участка?')) return;
+  state.garden = [];
+  render();
+  save();
+});
+
+// ---- Вкладки ----
+
+const TABS = ['calc', 'plan', 'garden'];
+
+function showTab() {
+  const id = location.hash.slice(1);
+  const tab = TABS.includes(id) ? id : 'calc';
+  for (const page of document.querySelectorAll('.tab-page')) page.hidden = page.dataset.page !== tab;
+  for (const a of document.querySelectorAll('.tabs a')) a.setAttribute('aria-selected', String(a.dataset.tab === tab));
+  // Карта, созданная в скрытой вкладке, не знает своего размера
+  if (tab === 'calc') map.invalidateSize();
+  if (TABS.includes(id)) window.scrollTo({ top: 0 });
+}
+
+window.addEventListener('hashchange', showTab);
+
 renderShapeControls(1);
 renderShapeControls(2);
+renderGardenPalette();
+showTab();
 render();

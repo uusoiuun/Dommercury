@@ -3,19 +3,42 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Дом на Севере — фэн-шуй калькулятор</title>
-  <meta name="description" content="Ориентация дома на участке, магнитное склонение, 24 горы, летящие звёзды и число Гуа.">
+  <title>Dommercury — дом на Севере с учётом фэн-шуй</title>
+  <meta name="description" content="Расчёт дома по фэн-шуй, планировочное решение и конструктор озеленения участка для Якутска и Крайнего Севера.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=Unbounded:wght@500;700&display=swap">
   <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <header class="top">
-    <h1>Дом на Севере</h1>
-    <p>Ориентация дома и расчёт фэн-шуй по градусу фасада</p>
+  <header class="masthead">
+    <div class="masthead-in">
+      <a class="brand" href="#calc" aria-label="Dommercury — на главную">
+        <svg class="logo" viewBox="0 0 48 48" aria-hidden="true">
+          <circle cx="24" cy="24" r="21" fill="none" stroke="currentColor" stroke-width="2"/>
+          <circle cx="24" cy="24" r="14" fill="none" stroke="currentColor" stroke-width="1" opacity=".5"/>
+          <path d="M24 5 L28 24 L24 43 L20 24 Z" fill="currentColor" opacity=".35"/>
+          <path d="M24 5 L28 24 L20 24 Z" fill="#e0634f"/>
+          <path d="M14 27 L24 19 L34 27 L34 34 L14 34 Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+        </svg>
+        <span><b>Dommercury</b><small>дом на Севере с учётом фэн-шуй</small></span>
+      </a>
+      <nav class="tabs" role="tablist" aria-label="Разделы">
+        <a role="tab" href="#calc" data-tab="calc"><span class="tab-ico">☯</span><span class="tab-long">Расчёт дома по фэн-шуй</span><span class="tab-short">Расчёт</span></a>
+        <a role="tab" href="#plan" data-tab="plan"><span class="tab-ico">▦</span><span class="tab-long">Планировочное решение</span><span class="tab-short">Планировка</span></a>
+        <a role="tab" href="#garden" data-tab="garden"><span class="tab-ico">❦</span><span class="tab-long">Конструктор ландшафтного озеленения</span><span class="tab-short">Озеленение</span></a>
+      </nav>
+    </div>
   </header>
 
-  <main class="layout">
-    <section class="map-wrap">
+  <section class="tab-page" id="tab-calc" data-page="calc" role="tabpanel">
+    <div class="intro">
+      <h1>Расчёт дома по фэн-шуй</h1>
+      <p>Поставьте дом на карту и поверните фасадом. Сайт учтёт магнитное склонение Якутска, построит схему летящих звёзд по форме дома и подберёт вход.</p>
+    </div>
+    <main class="layout">
+    <section class="map-wrap card flush">
       <div id="map" aria-label="Карта участка"></div>
       <div class="map-tools">
         <button type="button" id="btn-house">Поставить дом в центр карты</button>
@@ -28,7 +51,7 @@
 
     <aside class="panel">
       <section class="card">
-        <h2>1. Дом</h2>
+        <h2><span class="num">1</span>Дом</h2>
         <div class="grid2">
           <label>Длина фасада, м <input type="number" id="in-width" min="3" max="60" step="0.5"></label>
           <label>Глубина дома, м <input type="number" id="in-depth" min="3" max="60" step="0.5"></label>
@@ -46,7 +69,7 @@
       </section>
 
       <section class="card">
-        <h2>2. Фасад и дверь</h2>
+        <h2><span class="num">2</span>Фасад и дверь</h2>
         <label>Фасад смотрит на (истинный азимут), °
           <div class="row">
             <input type="range" id="in-az-range" min="0" max="359.9" step="0.1">
@@ -121,7 +144,7 @@
       </section>
 
       <section class="card">
-        <h2>3. Азимут</h2>
+        <h2><span class="num">3</span>Азимут</h2>
         <dl class="kv" id="azimuth-out"></dl>
         <fieldset class="radio">
           <legend>Для расчёта фэн-шуй брать</legend>
@@ -132,7 +155,7 @@
       </section>
 
       <section class="card">
-        <h2>4. Летящие звёзды</h2>
+        <h2><span class="num">4</span>Летящие звёзды</h2>
         <div class="grid2">
           <label>Период
             <select id="in-period">
@@ -163,7 +186,7 @@
       </section>
 
       <section class="card">
-        <h2>5. Восемь дворцов</h2>
+        <h2><span class="num">5</span>Восемь дворцов</h2>
         <fieldset class="radio">
           <legend>Определять дом</legend>
           <label><input type="radio" name="bazhai-by" value="facade"> по тылу (классический Ба Чжай)</label>
@@ -173,10 +196,24 @@
       </section>
 
       <section class="card">
-        <h2>6. Жильцы и техзадание</h2>
+        <h2><span class="num">6</span>Жильцы</h2>
         <div id="people"></div>
         <button type="button" id="btn-person" class="secondary">Добавить человека</button>
-        <h3 class="sub">Какие помещения нужны</h3>
+        <p class="note">Гуа жильцов нужно для выбора спален: их видно во вкладке «Планировочное решение».</p>
+      </section>
+    </aside>
+    </main>
+  </section>
+
+  <section class="tab-page" id="tab-plan" data-page="plan" role="tabpanel" hidden>
+    <div class="intro">
+      <h1>Планировочное решение</h1>
+      <p>Выберите помещения — сайт разложит их по секторам: где проводят время — по водной звезде, спальни — по горной и Гуа. Учтены свет Якутска и одна мокрая точка.</p>
+    </div>
+    <main class="layout plan-layout">
+    <aside class="panel">
+      <section class="card">
+        <h2>Какие помещения нужны</h2>
         <p class="note">Нажмите, чтобы включить или выключить комнату.</p>
         <div class="chips" id="room-chips">
           <button type="button" class="chip" data-room="kitchen">Кухня-гостиная</button>
@@ -208,8 +245,14 @@
         </div>
       </section>
 
+      <section class="card no-print">
+        <button type="button" id="btn-print">Распечатать / сохранить в PDF</button>
+        <p class="note">Расчёт предварительный. Толкования — общие правила школы Сюань Кун. Сайт не заменяет инженерные изыскания и проект.</p>
+      </section>
+    </aside>
+    <div class="panel">
       <section class="card">
-        <h2>7. Планировочное решение</h2>
+        <h2>Планировка этажей</h2>
         <p class="note">Кухня-гостиная и кабинет — по водной звезде: там проводят время, но не спят. Спальни — по горной звезде и Гуа тех, кто в них спит. Плита — по горной звезде. Санузел, котельная, кладовка — в секторы с неблагоприятными звёздами. Прихожая — у входной двери, в центре — холл. Все санузлы — в одной мокрой точке: рядом друг с другом, на втором этаже — над санузлами первого; котельная — рядом с ними.</p>
         <div id="layout-plans" class="plans"></div>
         <div id="layout-editor"></div>
@@ -217,12 +260,52 @@
         <div id="layout-variants"></div>
       </section>
 
-      <section class="card no-print">
-        <button type="button" id="btn-print">Распечатать / сохранить в PDF</button>
-        <p class="note">Расчёт предварительный. Толкования — общие правила школы Сюань Кун. Сайт не заменяет инженерные изыскания и проект.</p>
+    </div>
+    </main>
+  </section>
+
+  <section class="tab-page" id="tab-garden" data-page="garden" role="tabpanel" hidden>
+    <div class="intro">
+      <h1>Конструктор ландшафтного озеленения</h1>
+      <p>Выберите элемент и нажмите на схему участка. Каждый элемент оценивается по звёздам своего сектора и по климату Якутска: тень зимой, ветер, мерзлота.</p>
+    </div>
+    <main class="layout garden-layout">
+    <aside class="panel">
+      <section class="card g-o1">
+        <h2>Элементы</h2>
+        <div class="chips palette" id="garden-palette"></div>
+        <div class="row wrap">
+          <button type="button" id="garden-undo" class="secondary">Отменить последний</button>
+          <button type="button" id="garden-clear" class="secondary">Очистить всё</button>
+        </div>
+        <p class="note">Нажмите на элемент на схеме, чтобы убрать его. Участок рисуется на вкладке расчёта кнопкой «Нарисовать участок».</p>
+      </section>
+      <section class="card g-o3">
+        <h2>Оценка</h2>
+        <div id="garden-eval"></div>
       </section>
     </aside>
-  </main>
+    <div class="panel">
+      <section class="card g-o2">
+        <h2>Схема участка</h2>
+        <div id="garden-svg" class="garden-svg"></div>
+        <p class="note">Север сверху. Лучи — границы секторов по компасу, в подписи сектора: Г — горная звезда, В — водная. Синяя метка — входная дверь.</p>
+      </section>
+      <section class="card g-o4">
+        <h2>Что где сажать</h2>
+        <div class="table-wrap" id="garden-advice"></div>
+      </section>
+      <section class="card g-o5">
+        <h2>Растения для Якутска</h2>
+        <div id="garden-plants"></div>
+      </section>
+    </div>
+    </main>
+  </section>
+
+  <footer class="foot">
+    <p>Dommercury · расчёт предварительный и не заменяет инженерные изыскания и проект.</p>
+  </footer>
 
   <script src="vendor/leaflet/leaflet.js"></script>
   <script type="module" src="js/app.js"></script>

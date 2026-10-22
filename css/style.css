@@ -133,8 +133,9 @@ body::after {
 .hero { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr); gap: 24px; align-items: stretch; min-height: calc(100vh - 100px); }
 .hero-text { display: flex; flex-direction: column; justify-content: space-between; padding: 24px 0 8px; }
 .hero-coords { color: var(--muted); margin: 0; }
-.hero-title { margin: 32px 0 0; font: 300 clamp(56px, 9.5vw, 156px)/0.88 var(--display); letter-spacing: -0.055em; }
+.hero-title { margin: 32px 0 0; font: 300 clamp(46px, 7.4vw, 118px)/0.9 var(--display); letter-spacing: -0.05em; }
 .hero-title span { display: block; padding-left: 0.9em; }
+.hero-title span + span { padding-left: 0.3em; font-family: var(--serif); font-style: italic; font-weight: 400; letter-spacing: -0.02em; color: var(--moss-2); }
 .hero-lead { font-size: clamp(24px, 2.6vw, 38px); line-height: 1.1; margin: 28px 0 0; color: var(--moss-2); }
 .hero-desc { max-width: 460px; color: var(--muted); font-size: 16px; margin: 20px 0 0; }
 .hero-cta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 28px; }

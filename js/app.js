@@ -2980,7 +2980,8 @@ $('y-plan').addEventListener('pointerup', (e) => {
 
 // ---- Вкладки ----
 
-const TABS = ['home', 'calc', 'plan', 'garden'];
+// Вкладка «Планировочное решение» пока скрыта: #plan открывает главную
+const TABS = ['home', 'calc', 'garden'];
 
 function showTab() {
   const id = location.hash.slice(1);

@@ -66,5 +66,5 @@ python3 -m http.server 8000
 
 ## Публикация
 
-Workflow `.github/workflows/pages.yml` гоняет тесты и публикует сайт при пуше в `main`.
-Один раз включите: Settings → Pages → Source: **GitHub Actions**.
+Сайт публикуется GitHub Pages из ветки `gh-pages`. Workflow `.github/workflows/pages.yml`
+гоняет тесты и после успеха копирует `main` в `gh-pages` — сайт обновляется сам.

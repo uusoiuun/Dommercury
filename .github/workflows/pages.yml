@@ -1,5 +1,6 @@
 name: Тесты и публикация
 
+# Сайт публикуется из ветки gh-pages: после успешных тестов main копируется туда
 on:
   push:
     branches: [main]
@@ -7,13 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: pages
-  cancel-in-progress: true
+  contents: write
 
 jobs:
   test:
@@ -25,18 +20,13 @@ jobs:
           node-version: 22
       - run: node --test tests/*.test.mjs
 
-  deploy:
+  publish:
     if: github.event_name != 'pull_request'
     needs: test
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
         with:
-          path: .
-      - id: deployment
-        uses: actions/deploy-pages@v4
+          fetch-depth: 0
+      - name: Обновить ветку gh-pages
+        run: git push --force origin HEAD:gh-pages

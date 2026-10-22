@@ -18,6 +18,7 @@ import { planRooms, roomsFor, kitchenSplit, dir8, isDoubleNine } from './planner
 import {
   sunPosition, localToUtc, sunDay, tzGuess, HOUSE_SHAPES, rectPoly, houseOutline, houseFacade, inPoly, sunVector, shadowsAt, sunHours,
   BUILDINGS, BUILDING_BY_KEY, PLANTS, PLANT_BY_KEY, PLANT_GROUPS, LIGHT_TEXT, lightZone, BEDS, checkPlant, checkBuildings, defaultYard, convexOverlap, housePieces, LIGHT_SHARE,
+  PHI, FIB, goldenGrid, nearestGolden, goldenError, fibAtLeast, isFib, phyllotaxis, plantGroups, goldenSpiral,
 } from './yard.js';
 
 const L = window.L;
@@ -2190,6 +2191,8 @@ function renderYardControls() {
   $('y-place').textContent = `Место: ${fmt(state.center[0], 2)}° с. ш., ${fmt(state.center[1], 2)}° в. д. — берётся с карты на вкладке расчёта.`;
   $('y-dates').innerHTML = DATES.map(([d, l]) => `<button type="button" class="chip" data-date="${d}" aria-pressed="${yard.date === d}">${l}</button>`).join('');
   for (const b of document.querySelectorAll('#y-view [data-view]')) b.setAttribute('aria-pressed', String(b.dataset.view === yard.view));
+  $('y-golden').setAttribute('aria-pressed', String(!!yard.golden));
+  $('y-group').innerHTML = [1, 3, 5, 8].map((n) => `<button type="button" class="chip" data-group="${n}" aria-pressed="${yard.group === n}">${n === 1 ? 'по одному' : n}</button>`).join('');
   for (const b of document.querySelectorAll('#y-light-filter [data-light]')) b.setAttribute('aria-pressed', String(b.dataset.light === lightFilter));
   renderPlantPalette();
 }
@@ -2251,6 +2254,21 @@ function renderYardPlan() {
     parts.push(`<rect class="y-night" x="0" y="0" width="${W}" height="${D}"/>`);
   }
 
+  // Золотое сечение: линии, точки пересечения и спираль
+  if (yard.golden) {
+    const gg = goldenGrid(yard.plot);
+    const arcs = goldenSpiral(yard.plot);
+    const corner = ([x, y, sz], k) => [[x + sz, y], [x, y], [x, y + sz], [x + sz, y + sz]][k];
+    // Центр дуги: 0 — правый нижний угол, 1 — левый нижний, 2 — левый верхний, 3 — правый верхний
+    const from = { 0: 1, 1: 2, 2: 3, 3: 0 };
+    const to = { 0: 3, 1: 0, 2: 1, 3: 2 };
+    const pt = (sq, k) => { const [x, y] = corner(sq, k); return `${x.toFixed(2)} ${Y(y).toFixed(2)}`; };
+    const pathD = arcs.map(({ sq, dir }, i) => `${i ? '' : `M${pt(sq, from[dir])} `}A${sq[2].toFixed(2)} ${sq[2].toFixed(2)} 0 0 1 ${pt(sq, to[dir])}`).join(' ');
+    parts.push(`<g class="y-gold">${gg.xs.map((x) => `<line x1="${x}" y1="0" x2="${x}" y2="${D}"/>`).join('')}${gg.ys.map((y) => `<line x1="0" y1="${Y(y)}" x2="${W}" y2="${Y(y)}"/>`).join('')}`
+      + `${arcs.map(({ sq }) => `<rect x="${sq[0]}" y="${Y(sq[1] + sq[2])}" width="${sq[2]}" height="${sq[2]}"/>`).join('')}<path d="${pathD}"/>`
+      + '</g>');
+  }
+
   // Плоские объекты, постройки, дом
   const flat = yard.items.filter((i) => BUILDING_BY_KEY[i.t].flat);
   const solid = yard.items.filter((i) => !BUILDING_BY_KEY[i.t].flat);
@@ -2259,7 +2277,8 @@ function renderYardPlan() {
     const poly = rectPoly(it);
     const short = b.bed ? `Зона ${b.bed}` : b.label;
     return `<g class="y-obj${yardSel === it.id ? ' sel' : ''}${b.flat ? ' flat' : ''}${b.glass ? ' glass' : ''}" data-id="${it.id}"><polygon points="${pts(poly)}" fill="${b.color}"/>`
-      + `<text x="${it.x}" y="${Y(it.y) + fs * 0.35}" font-size="${Math.min(fs * 1.1, Math.min(it.w, it.d) * 0.45)}" text-anchor="middle">${short}</text></g>`;
+      + (Math.min(it.w, it.d) < 1.5 ? '' : `<text x="${it.x}" y="${Y(it.y) + fs * 0.35}" font-size="${Math.min(fs * 1.1, Math.min(it.w, it.d) * 0.45)}" text-anchor="middle">${short}</text>`)
+      + `<title>${b.label}: ${yFmt(it.w)} × ${yFmt(it.d)} м</title></g>`;
   };
   parts.push(flat.map(itemSvg).join(''));
   const h = yard.house;
@@ -2279,6 +2298,9 @@ function renderYardPlan() {
       + `<circle class="ring" cx="${p.x}" cy="${Y(p.y)}" r="${r + fs * 0.18}"/>`
       + `<text x="${p.x}" y="${Y(p.y) + fs * 0.3}" font-size="${fs * 0.8}" text-anchor="middle">${i + 1}</text></g>`);
   });
+
+  // Точки золотого сечения — поверх построек
+  if (yard.golden) parts.push(`<g class="y-gold">${goldenGrid(yard.plot).points.map(([x, y]) => `<circle cx="${x}" cy="${Y(y)}" r="${fs * 0.4}"/>`).join('')}</g>`);
 
   // Север, солнце, масштаб
   parts.push(`<g class="y-north" transform="translate(${W + M / 2} ${M * 0.2 + fs * 2})"><g transform="rotate(${-prot})"><path d="M0 ${-fs * 1.6} L${fs * 0.6} ${fs * 0.6} L0 0 L${-fs * 0.6} ${fs * 0.6} Z"/></g><text y="${fs * 2.2}" font-size="${fs}" text-anchor="middle">С</text></g>`);
@@ -2317,6 +2339,66 @@ function renderYardPlan() {
   renderYardEditor(checks);
   renderYardWarnings(checks);
   renderBeds();
+  renderHarmony();
+}
+
+const pct = (v) => `${Math.round(v * 100)} %`;
+const ratio = (a, b) => yFmt(Math.round((Math.max(a, b) / Math.max(1e-6, Math.min(a, b))) * 100) / 100);
+const polyArea = (poly) => Math.abs(poly.reduce((sum, [x1, y1], i) => {
+  const [x2, y2] = poly[(i + 1) % poly.length];
+  return sum + x1 * y2 - x2 * y1;
+}, 0)) / 2;
+
+function renderHarmony() {
+  const out = [];
+  const h = yard.house;
+  const hd = h.shape === 'square' ? h.w : h.d;
+
+  // 1. Дом в точке золотого сечения
+  const ng = nearestGolden(yard.plot, [h.x, h.y]);
+  out.push(ng.dist <= 2
+    ? `<li class="good"><b>Дом стоит в точке золотого сечения</b><span>Главный объект не в центре, а на пересечении линий 38 % / 62 % — композиция живая и естественная.</span></li>`
+    : `<li class="mixed"><b>Дом в ${yFmt(Math.round(ng.dist * 10) / 10)} м от точки золотого сечения</b><span>Главный объект смотрится естественнее не в центре, а на пересечении золотых линий (золотые точки на плане).</span><br><button type="button" class="secondary" data-act="house-gold">Поставить дом в ближайшую точку</button></li>`);
+
+  // 2. Зонирование: газон и цветники
+  const plotA = yard.plot.w * yard.plot.d;
+  const built = polyArea(houseOutline(h)) + yard.items.filter((i) => !BUILDING_BY_KEY[i.t].flat).reduce((s2, i) => s2 + i.w * i.d, 0);
+  const paths = yard.items.filter((i) => i.t === 'path').reduce((s2, i) => s2 + i.w * i.d, 0);
+  const beds = yard.items.filter((i) => BUILDING_BY_KEY[i.t].bed).reduce((s2, i) => s2 + i.w * i.d, 0);
+  const lawn = Math.max(0, plotA - built - paths - beds);
+  const green = lawn + beds;
+  const share = green ? beds / green : 0;
+  const near = Math.abs(share - 0.382) < 0.06 || Math.abs(share - 0.618) < 0.06;
+  out.push(`<li class="${near ? 'good' : 'mixed'}"><b>Газон и цветники: ${pct(1 - share)} : ${pct(share)}</b><span>Застройка ${pct(built / plotA)}, дорожки ${pct(paths / plotA)}. По золотому сечению зелёную часть делят примерно 62 : 38 — газон и цветники (или наоборот, если сад цветочный).${near ? '' : ` Сейчас цветников ${yFmt(Math.round(beds))} м² — для 62 : 38 нужно около ${yFmt(Math.round(green * 0.382))} м².`}</span></li>`);
+
+  // 3. Пропорции дома
+  const errFacade = goldenError(h.w, h.h);
+  const errPlan = goldenError(h.w, hd);
+  out.push(`<li class="${Math.min(errFacade, errPlan) < 0.08 ? 'good' : 'mixed'}"><b>Пропорции дома</b><span>Фасад: ширина ${yFmt(h.w)} м к высоте ${yFmt(h.h)} м = ${ratio(h.w, h.h)} (золотое — 1,618; для этой ширины высота около ${yFmt(Math.round((h.w / PHI) * 10) / 10)} м). План: ${yFmt(h.w)} × ${yFmt(hd)} м = ${ratio(h.w, hd)} (золотой план — ${yFmt(h.w)} × ${yFmt(Math.round((h.w / PHI) * 2) / 2)} м).</span></li>`);
+
+  // 4. Дорожки
+  const pathLens = yard.items.filter((i) => i.t === 'path').map((i) => Math.max(i.w, i.d)).sort((a, b) => b - a);
+  if (pathLens.length >= 2) {
+    const e = goldenError(pathLens[0], pathLens[1]);
+    out.push(`<li class="${e < 0.1 ? 'good' : 'mixed'}"><b>Дорожки: главная ${yFmt(pathLens[0])} м, второстепенная ${yFmt(pathLens[1])} м = ${ratio(pathLens[0], pathLens[1])}</b><span>Ритм приятнее, когда главная длиннее второстепенной примерно в 1,6 раза: для главной ${yFmt(pathLens[0])} м — около ${yFmt(Math.round((pathLens[0] / PHI) * 2) / 2)} м.</span></li>`);
+  } else {
+    out.push('<li><b>Дорожки</b><span>Добавьте главную и второстепенную дорожки: главная длиннее примерно в 1,6 раза — так получается плавный ритм движения по саду.</span></li>');
+  }
+
+  // 5. Ярусы миксбордера
+  const tier = BEDS.B.rows.slice(0, 3).map(([, keys]) => Math.max(...keys.map((k) => PLANT_BY_KEY[k].h)));
+  out.push(`<li><b>Ярусы миксбордера: ${tier.map((t) => `${yFmt(t)} м`).join(' → ')}</b><span>Каждый следующий ярус ниже предыдущего примерно в 1,6 раза — например, 2 м, 1,2 м и 0,7 м. Сейчас: ${ratio(tier[0], tier[1])} и ${ratio(tier[1], tier[2])}.</span></li>`);
+
+  // 6. Группы растений по числам Фибоначчи
+  const groups = plantGroups(yard.plants).filter((g) => PLANT_BY_KEY[g.t].size === 'low' || PLANT_BY_KEY[g.t].group === 'shrub');
+  const odd = groups.filter((g) => !isFib(g.size) || g.size === 2);
+  out.push(groups.length
+    ? `<li class="${odd.length ? 'mixed' : 'good'}"><b>Группы растений</b><span>${odd.length
+      ? odd.map((g) => `${PLANT_BY_KEY[g.t].name}: ${g.size} шт. — добавьте до ${fibAtLeast(Math.max(3, g.size))}`).join('; ')
+      : 'Все группы — 1, 3, 5 или 8 растений: так посадки выглядят естественно.'}</span></li>`
+    : '<li><b>Группы растений</b><span>Многолетники и кустарники сажайте группами по 3, 5 или 8 — выберите «Сажать группой», и растения встанут по «золотому углу», как семена подсолнуха.</span></li>');
+
+  $('y-harmony').innerHTML = `<ul class="harmony">${out.join('')}</ul>`;
 }
 
 function renderYardEditor(checks) {
@@ -2490,6 +2572,26 @@ $('y-view').addEventListener('click', (e) => {
   yardChanged(true);
 });
 
+$('y-golden').addEventListener('click', () => {
+  yard.golden = !yard.golden;
+  yardChanged(true);
+});
+
+$('y-group').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-group]');
+  if (!b) return;
+  yard.group = Number(b.dataset.group);
+  renderYardControls();
+  save();
+});
+
+$('y-harmony').addEventListener('click', (e) => {
+  if (!e.target.closest('[data-act="house-gold"]')) return;
+  const ng = nearestGolden(yard.plot, [yard.house.x, yard.house.y]);
+  [yard.house.x, yard.house.y] = ng.p.map((v) => Math.round(v * 2) / 2);
+  yardChanged();
+});
+
 $('y-light-filter').addEventListener('click', (e) => {
   const b = e.target.closest('[data-light]');
   if (!b) return;
@@ -2592,7 +2694,12 @@ $('y-plan').addEventListener('pointerup', (e) => {
     // На дом и постройки не сажаем
     const solid = [houseOutline(yard.house), ...yard.items.filter((i) => !BUILDING_BY_KEY[i.t].flat).map((i) => rectPoly(i))];
     if (solid.some((poly) => inPoly(poly, [x, y]))) return;
-    yard.plants.push({ id: nextId(), t: yardTool, x: snap(x), y: snap(y) });
+    const pl = PLANT_BY_KEY[yardTool];
+    const n = yard.group || 1;
+    for (const [px, py] of phyllotaxis(n, Math.max(0.4, pl.r * 1.7), x, y)) {
+      if (px < 0 || py < 0 || px > yard.plot.w || py > yard.plot.d) continue;
+      yard.plants.push({ id: nextId(), t: yardTool, x: Math.round(px * 10) / 10, y: Math.round(py * 10) / 10 });
+    }
     yardChanged();
   } else if (yardSel) {
     yardSel = null;

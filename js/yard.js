@@ -224,11 +224,11 @@ export const PLANTS = [
   P('prunus', 'Вишня песчаная', 'fruit', 1.2, 0.7, ['sun'], '#7a2a3a', { note: 'Иногда подмерзает — место потеплее.' }),
   // Многолетники
   P('trollius', 'Купальница азиатская', 'perennial', 0.6, 0.3, ['sun', 'part'], '#f0a020'),
-  P('hemerocallis', 'Лилейник', 'perennial', 0.8, 0.4, ['sun', 'part'], '#f0c0a0'),
-  P('astilbe', 'Астильба', 'perennial', 0.8, 0.4, ['part', 'shade'], '#f0b8c8'),
-  P('phloxPan', 'Флокс метельчатый', 'perennial', 1, 0.4, ['sun', 'part'], '#f4d0dc'),
-  P('echinacea', 'Эхинацея пурпурная', 'perennial', 0.9, 0.35, ['sun'], '#d890b0'),
-  P('rudbeckia', 'Рудбекия блестящая', 'perennial', 0.7, 0.35, ['sun'], '#e8b020'),
+  P('hemerocallis', 'Лилейник', 'perennial', 0.8, 0.4, ['sun', 'part'], '#f0c0a0', { note: 'Бело-розовые сорта, например «Stella de Oro». Цветёт в середине лета.' }),
+  P('astilbe', 'Астильба', 'perennial', 0.8, 0.4, ['part', 'shade'], '#f0b8c8', { note: '«Bridal Veil» — белая, «Pink Lightning» — нежно-розовая. Июль–август.' }),
+  P('phloxPan', 'Флокс метельчатый', 'perennial', 1, 0.4, ['sun', 'part'], '#f4d0dc', { note: '«David» — белый, «Omega» — светло-розовый с белым центром. Июль–сентябрь.' }),
+  P('echinacea', 'Эхинацея пурпурная', 'perennial', 0.9, 0.35, ['sun'], '#d890b0', { note: '«White Swan» — почти белая, «PowWow Wild Berry» — розовая. Июль–сентябрь.' }),
+  P('rudbeckia', 'Рудбекия блестящая', 'perennial', 0.7, 0.35, ['sun'], '#e8b020', { note: '«Goldsturm» — золотисто-жёлтая, смягчает переход к розово-белой гамме.' }),
   P('paeonia', 'Пион', 'perennial', 0.8, 0.5, ['sun'], '#e07090'),
   P('delphinium', 'Дельфиниум', 'perennial', 1.5, 0.4, ['sun'], '#4a6ad0'),
   P('adonis', 'Адонис сибирский', 'perennial', 0.4, 0.3, ['sun'], '#f0d020'),
@@ -241,16 +241,16 @@ export const PLANTS = [
   P('heuchera', 'Гейхера', 'perennial', 0.4, 0.3, ['part', 'shade'], '#8a3a5a'),
   P('chrysanthemum', 'Златоцвет', 'perennial', 0.5, 0.3, ['sun'], '#f4e04a'),
   // Почвопокровные
-  P('phloxSub', 'Флокс шиловидный', 'ground', 0.15, 0.3, ['sun'], '#f2c4d4', { note: 'Ковёр цветов в мае–июне.' }),
-  P('thymus', 'Тимьян ползучий', 'ground', 0.1, 0.3, ['sun'], '#e8e0f0'),
-  P('sempervivum', 'Молодило', 'ground', 0.1, 0.15, ['sun'], '#8a6a5a'),
-  P('sagina', 'Мшанка шиловидная', 'ground', 0.05, 0.3, ['sun', 'part'], '#7ab060'),
+  P('phloxSub', 'Флокс шиловидный', 'ground', 0.15, 0.3, ['sun'], '#f2c4d4', { note: '«White Delight» — белый, «Candy Stripe» — бело-розовый. Ковёр цветов в мае–июне.' }),
+  P('thymus', 'Тимьян ползучий', 'ground', 0.1, 0.3, ['sun'], '#e8e0f0', { note: '«Albiflorus» — белые цветы, ароматный ковёр. Июнь–июль.' }),
+  P('sempervivum', 'Молодило', 'ground', 0.1, 0.15, ['sun'], '#8a6a5a', { note: 'Зелёные и красноватые розетки — фон для цветов.' }),
+  P('sagina', 'Мшанка шиловидная', 'ground', 0.05, 0.3, ['sun', 'part'], '#7ab060', { note: 'Густой зелёный ковёр, подчёркивает белые тона.' }),
   P('orostachys', 'Горноколосник колючий', 'ground', 0.1, 0.15, ['sun'], '#a0b090'),
   P('trifolium', 'Клевер ползучий', 'ground', 0.1, 0.3, ['sun', 'part'], '#90b080'),
   // Злаки
-  P('festuca', 'Овсяница сизая', 'grass', 0.3, 0.2, ['sun'], '#9ab4c0'),
+  P('festuca', 'Овсяница сизая', 'grass', 0.3, 0.2, ['sun'], '#9ab4c0', { note: 'Серебристо-голубая листва рядом с розово-белыми цветами.' }),
   P('deschampsia', 'Щучка дернистая', 'grass', 0.8, 0.3, ['sun', 'part', 'shade'], '#c8b880', { note: 'Воздушные метёлки, красивы под инеем.' }),
-  P('stipa', 'Ковыль перистый', 'grass', 0.7, 0.3, ['sun'], '#d8d0b0'),
+  P('stipa', 'Ковыль перистый', 'grass', 0.7, 0.3, ['sun'], '#d8d0b0', { note: 'Тонкие ости — вертикальный акцент.' }),
   P('bromus', 'Кострец', 'grass', 0.8, 0.3, ['sun'], '#b8b080'),
 ];
 export const PLANT_BY_KEY = Object.fromEntries(PLANTS.map((p) => [p.key, p]));
@@ -468,6 +468,97 @@ export function checkPlant(p, yard, hours, maxHours) {
   return { level, zone, notes };
 }
 
+// ---- Золотое сечение и числа Фибоначчи ----
+
+export const PHI = (1 + Math.sqrt(5)) / 2;
+export const FIB = [1, 2, 3, 5, 8, 13, 21];
+const GOLD = 1 / PHI; // ≈ 0,618
+
+/** Линии золотого сечения участка (≈ 38 % и 62 % ширины и глубины) и их пересечения. */
+export function goldenGrid(plot) {
+  const xs = [plot.w * (1 - GOLD), plot.w * GOLD];
+  const ys = [plot.d * (1 - GOLD), plot.d * GOLD];
+  return { xs, ys, points: xs.flatMap((x) => ys.map((y) => [x, y])) };
+}
+
+/** Ближайшая точка золотого сечения и расстояние до неё. */
+export function nearestGolden(plot, [x, y]) {
+  return goldenGrid(plot).points
+    .map((p) => ({ p, dist: Math.hypot(p[0] - x, p[1] - y) }))
+    .sort((a, b) => a.dist - b.dist)[0];
+}
+
+/** Насколько отношение a : b близко к 1,618 (0 — точно). */
+export function goldenError(a, b) {
+  const big = Math.max(a, b);
+  const small = Math.min(a, b);
+  return small > 0 ? Math.abs(big / small - PHI) / PHI : Infinity;
+}
+
+/** Ближайшее число Фибоначчи не меньше n (для групп растений). */
+export const fibAtLeast = (n) => FIB.find((f) => f >= n) ?? n;
+export const isFib = (n) => FIB.includes(n);
+
+/**
+ * Точки посадки группы из n растений по «золотому углу» 137,5° — так
+ * располагаются семена в корзинке подсолнуха; группа выглядит естественно.
+ */
+export function phyllotaxis(n, spacing, cx = 0, cy = 0) {
+  const angle = Math.PI * (3 - Math.sqrt(5));
+  return Array.from({ length: n }, (_, i) => {
+    const r = spacing * Math.sqrt(i + 0.5) * 0.9;
+    return [cx + r * Math.cos(i * angle), cy + r * Math.sin(i * angle)];
+  });
+}
+
+/** Группы одинаковых растений: соседи одного вида ближе link метров. */
+export function plantGroups(plants, link = 2.5) {
+  const seen = new Set();
+  const groups = [];
+  for (const p of plants) {
+    if (seen.has(p.id)) continue;
+    const g = [];
+    const stack = [p];
+    seen.add(p.id);
+    while (stack.length) {
+      const a = stack.pop();
+      g.push(a);
+      for (const b of plants) {
+        if (!seen.has(b.id) && b.t === a.t && Math.hypot(a.x - b.x, a.y - b.y) <= link) {
+          seen.add(b.id);
+          stack.push(b);
+        }
+      }
+    }
+    groups.push({ t: p.t, ids: g.map((x) => x.id), size: g.length });
+  }
+  return groups;
+}
+
+/** Золотая спираль в золотом прямоугольнике участка: путь для отрисовки (оси участка). */
+export function goldenSpiral(plot, turns = 6) {
+  // Самый большой золотой прямоугольник внутри участка
+  let w = plot.w;
+  let h = plot.w / PHI;
+  if (h > plot.d) { h = plot.d; w = h * PHI; }
+  let x = (plot.w - w) / 2;
+  let y = (plot.d - h) / 2;
+  const arcs = [];
+  let dir = 0; // 0 — квадрат слева, 1 — сверху, 2 — справа, 3 — снизу
+  for (let i = 0; i < turns; i++) {
+    const horizontal = w >= h;
+    const s = horizontal ? h : w;
+    let sq;
+    if (dir === 0) { sq = [x, y, s]; x += s; w -= s; }
+    else if (dir === 1) { sq = [x, y + h - s, s]; h -= s; }
+    else if (dir === 2) { sq = [x + w - s, y, s]; w -= s; }
+    else { sq = [x, y, s]; y += s; h -= s; }
+    arcs.push({ sq, dir });
+    dir = (dir + 1) % 4;
+  }
+  return arcs;
+}
+
 /** Новый участок по умолчанию: дом 12 × 9 м. */
 export function defaultYard() {
   return {
@@ -479,6 +570,8 @@ export function defaultYard() {
     time: 12,
     tz: null,
     view: 'shadow',
+    golden: true,
+    group: 1,
     seq: 1,
   };
 }

@@ -488,6 +488,19 @@ td.bad { color: var(--bad); }
 .y-plant-list li.mixed { border-color: var(--mixed); }
 .y-plant-list li span { color: var(--muted); font-size: 13px; }
 .bed-rows { margin: 6px 0 12px; padding-left: 20px; }
+.y-gold line { stroke: #c9a227; stroke-width: 0.12; stroke-dasharray: 0.9 0.5; }
+.y-gold circle { fill: #c9a227; stroke: #fff; stroke-width: 0.1; }
+.y-gold path { fill: none; stroke: #c9a227; stroke-width: 0.14; opacity: 0.7; }
+.y-gold rect { fill: none; stroke: #c9a227; stroke-width: 0.06; opacity: 0.5; }
+.y-group { align-items: center; margin: 4px 0 0; }
+.y-group .chips { margin: 0; }
+.harmony { list-style: none; padding: 0; margin: 8px 0 0; display: flex; flex-direction: column; gap: 8px; }
+.harmony li { border-left: 3px solid var(--muted); background: var(--snow); border-radius: 4px; padding: 8px 12px; font-size: 14px; }
+.harmony li.good { border-color: var(--good); }
+.harmony li.mixed { border-color: var(--mixed); }
+.harmony li b { display: block; }
+.harmony li span { color: var(--muted); }
+.harmony button { margin-top: 6px; }
 .bed-rows li { margin: 6px 0; }
 .bed-rows .chips { margin: 4px 0 0; }
 
@@ -495,7 +508,7 @@ td.bad { color: var(--bad); }
   .plan-layout, .garden-layout { grid-template-columns: minmax(0, 1fr); }
   /* На узком экране схема участка — сразу после палитры */
   .garden-layout > .panel { display: contents; }
-  .y-o1 { order: 1; } .y-o2 { order: 2; } .y-o3 { order: 3; } .y-o4 { order: 4; } .y-o5 { order: 5; } .y-o6 { order: 6; }
+  .y-o1 { order: 1; } .y-o2 { order: 2; } .y-o3 { order: 3; } .y-o4 { order: 4; } .y-o5 { order: 5; } .y-o6 { order: 6; } .y-o7 { order: 7; }
 }
 
 @media (max-width: 900px) {

@@ -94,3 +94,18 @@ test('пересечение прямоугольников крест-накр�
   assert.ok(convexOverlap(a, b));
   assert.ok(!convexOverlap(a, [[10, 10], [11, 10], [11, 11], [10, 11]]));
 });
+
+test('золотое сечение участка и групп', async () => {
+  const { goldenGrid, nearestGolden, goldenError, fibAtLeast, phyllotaxis, plantGroups, goldenSpiral, PHI } = await import('../js/yard.js');
+  const g = goldenGrid({ w: 30, d: 40 });
+  assert.ok(Math.abs(g.xs[1] - 18.54) < 0.01);
+  assert.equal(g.points.length, 4);
+  assert.ok(nearestGolden({ w: 30, d: 40 }, [18, 24]).dist < 1.5);
+  assert.ok(goldenError(16.18, 10) < 0.001);
+  assert.equal(fibAtLeast(4), 5);
+  assert.equal(phyllotaxis(5, 1).length, 5);
+  const groups = plantGroups([{ id: 'a', t: 'x', x: 0, y: 0 }, { id: 'b', t: 'x', x: 1, y: 0 }, { id: 'c', t: 'x', x: 9, y: 0 }, { id: 'd', t: 'y', x: 0.5, y: 0 }]);
+  assert.deepEqual(groups.map((x) => x.size).sort(), [1, 1, 2]);
+  const arcs = goldenSpiral({ w: 30, d: 40 });
+  assert.ok(Math.abs(arcs[0].sq[2] * PHI - 30) < 0.01);
+});

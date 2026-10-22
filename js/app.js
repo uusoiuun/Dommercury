@@ -15,7 +15,10 @@ import {
   ROOMS, MOUNTAIN, WATER, UNFAVORABLE_MOUNTAIN, WATER_FACE, attacksGua, elementOf, roomFit, bedroomsFor, entranceNotes, heTuPairs, doubleNine,
 } from './stars9.js';
 import { planRooms, roomsFor, kitchenSplit, dir8, isDoubleNine } from './planner.js';
-import { ELEMENTS, ELEMENT_BY_KEY, evaluate, sectorOf, sectorAdvice, PLANTS } from './landscape.js';
+import {
+  sunPosition, localToUtc, sunDay, tzGuess, HOUSE_SHAPES, rectPoly, houseOutline, houseFacade, inPoly, sunVector, shadowsAt, sunHours,
+  BUILDINGS, BUILDING_BY_KEY, PLANTS, PLANT_BY_KEY, PLANT_GROUPS, LIGHT_TEXT, lightZone, BEDS, checkPlant, checkBuildings, defaultYard, convexOverlap, housePieces, LIGHT_SHARE,
+} from './yard.js';
 
 const L = window.L;
 const STORAGE_KEY = 'psy-house-v1';
@@ -51,9 +54,8 @@ const defaults = {
   // Помещения, поставленные вручную: {'этаж:ряд-столбец': {key, label, type, wet}}
   overrides: {},
   site: [],
-  // Элементы озеленения: {t: ключ элемента, ll: [широта, долгота]}
-  garden: [],
-  gardenTool: 'conifer',
+  // Конструктор участка: дом, постройки, растения, день и время
+  yard: defaultYard(),
   people: [],
   zoom: 20,
 };
@@ -62,6 +64,11 @@ const saved = load();
 // Сохранения до появления плана дома открываем сразу на плане
 if (!('floor2' in saved)) delete saved.orient;
 const state = { ...defaults, ...saved, program: { ...defaults.program, ...(saved.program || {}) } };
+{
+  const y = defaultYard();
+  const sy = saved.yard || {};
+  state.yard = { ...y, ...sy, plot: { ...y.plot, ...(sy.plot || {}) }, house: { ...y.house, ...(sy.house || {}) } };
+}
 // Двери из прежних версий (без режима «авто») ставим автоматически в сектор В или ЮВ
 if (saved.door && !('auto' in saved.door)) state.door = { ...defaults.door };
 
@@ -374,7 +381,6 @@ function render() {
   renderPeople(houseAz(fsAz));
   renderProgramInputs();
   renderLayout(chart, fsAz);
-  renderGarden(chart, shift);
 }
 
 function renderMap(chart, shift) {
@@ -2133,144 +2139,465 @@ $('people').addEventListener('click', (e) => {
 $('btn-print').addEventListener('click', () => window.print());
 
 
-// ---- Конструктор ландшафтного озеленения ----
+// ---- Конструктор участка: дом, постройки, солнце, тени и растения ----
 
-const GARDEN_GROUPS = [
-  ['Горы: высокое и тяжёлое', (e) => e.cat === 'mountain'],
-  ['Вода и открытое место', (e) => e.cat === 'water' || e.cat === 'open'],
-  ['Прочее', (e) => !['mountain', 'water', 'open'].includes(e.cat)],
-];
-const LEVEL_TEXT = { good: 'хорошо', ok: 'допустимо', mixed: 'есть замечания', bad: 'лучше перенести' };
-let gardenView = null;
+const yard = state.yard;
+let yardTool = null; // растение, которое сажаем нажатием на план
+let yardSel = null; // выбранный объект: 'house' или id
+let lightFilter = 'all';
+let hoursCache = { key: '', grid: null, plants: null };
+let playTimer = null;
 
-function renderGardenPalette() {
-  $('garden-palette').innerHTML = GARDEN_GROUPS.map(([title, f]) => `<p class="chip-group">${title}</p>`
-    + ELEMENTS.filter(f).map((e) => `<button type="button" class="chip" data-garden="${e.key}" aria-pressed="${state.gardenTool === e.key}"><span class="dot" style="background:${e.color}"></span>${e.label}</button>`).join('')).join('');
-  $('garden-plants').innerHTML = `<div class="plants">${PLANTS.map((g) => `<h3>${g.group}</h3><ul>${g.items.map((i) => `<li>${i}</li>`).join('')}</ul>`).join('')}</div>`;
+const DATES = [['03-21', 'Весна, 21 марта'], ['06-21', 'Лето, 21 июня'], ['08-15', 'Август'], ['09-23', 'Осень, 23 сентября'], ['12-21', 'Зима, 21 декабря']];
+const YEAR = new Date().getFullYear();
+const yardTz = () => yard.tz ?? tzGuess(state.center[1]);
+const hhmm = (t) => {
+  const m = Math.round(t * 60) % 1440;
+  return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+};
+const nextId = () => `o${yard.seq++}`;
+const yFmt = (n) => fmt(n, Number.isInteger(n) ? 0 : 1);
+const objById = (id) => (id === 'house' ? yard.house : yard.items.find((i) => i.id === id) || yard.plants.find((p) => p.id === id));
+
+function sunNow() {
+  return sunPosition(localToUtc(YEAR, yard.date, yard.time, yardTz()), state.center[0], state.center[1]);
 }
 
-function gardenStarClass(num, period) {
-  if (num === period) return 'pill-wang';
-  const t = starState(num, period).key;
-  return t === 'sheng' ? 'pill-good' : t === 'tui' || t === 'neutral' ? 'pill-mid' : 'pill-bad';
+function yardHours() {
+  const opts = { year: YEAR, lat: state.center[0], lng: state.center[1], tz: yardTz(), cell: Math.max(1, Math.ceil(Math.max(yard.plot.w, yard.plot.d) / 60)) };
+  const key = JSON.stringify([yard.plot, yard.house, yard.items, yard.plants, yard.date, opts]);
+  if (hoursCache.key !== key) {
+    hoursCache = {
+      key,
+      grid: sunHours(yard, opts),
+      plants: sunHours(yard, opts, yard.plants.map((p) => ({ pt: [p.x, p.y], skip: p.id }))),
+    };
+  }
+  return hoursCache;
 }
 
-function renderGarden(chart, shift) {
-  const g1 = floorGeom(1);
-  const loc = (ll) => toLocal(state.center, ll);
-  const houseR = Math.hypot(g1.W, g1.D) / 2;
-  const site = state.site.map(loc);
-  const items = state.garden.map((it) => ({ ...it, p: loc(it.ll) }));
-  const far = Math.max(houseR * 3, 25, ...site.map(([x, y]) => Math.hypot(x, y) * 1.08), ...items.map((it) => Math.hypot(...it.p) + 4));
-  const R = Math.ceil(far / 5) * 5;
-  // На телефоне подписи крупнее, иначе их не прочитать
-  const fs = R / (window.innerWidth < 700 ? 15 : 24);
-  const P = ([x, y]) => `${x.toFixed(2)},${(-y).toFixed(2)}`;
+function renderYardControls() {
+  const h = yard.house;
+  $('y-shape').innerHTML = Object.entries(HOUSE_SHAPES).map(([k, v]) => `<button type="button" class="chip" data-shape="${k}" aria-pressed="${h.shape === k}">${v}</button>`).join('');
+  $('y-hd-wrap').hidden = h.shape === 'square';
+  $('y-cut').hidden = h.shape !== 'L';
+  for (const [id, v] of [['y-hw', h.w], ['y-hd', h.d], ['y-hcw', h.cw], ['y-hcd', h.cd], ['y-hh', h.h], ['y-hrot', h.rot], ['y-pw', yard.plot.w], ['y-pd', yard.plot.d], ['y-prot', yard.plot.rot]]) {
+    if (document.activeElement !== $(id)) $(id).value = v;
+  }
+  $('y-buildings').innerHTML = BUILDINGS.map((b) => `<button type="button" class="chip" data-add="${b.key}"><span class="dot" style="background:${b.color}"></span>${b.label}${b.flat ? '' : ` <small>${yFmt(b.w)}×${yFmt(b.d)}</small>`}</button>`).join('');
+  const tz = yardTz();
+  $('y-tz').innerHTML = Array.from({ length: 15 }, (_, i) => i - 1).map((v) => `<option value="${v}"${v === tz ? ' selected' : ''}>UTC${v >= 0 ? '+' : '−'}${Math.abs(v)}</option>`).join('');
+  $('y-place').textContent = `Место: ${fmt(state.center[0], 2)}° с. ш., ${fmt(state.center[1], 2)}° в. д. — берётся с карты на вкладке расчёта.`;
+  $('y-dates').innerHTML = DATES.map(([d, l]) => `<button type="button" class="chip" data-date="${d}" aria-pressed="${yard.date === d}">${l}</button>`).join('');
+  for (const b of document.querySelectorAll('#y-view [data-view]')) b.setAttribute('aria-pressed', String(b.dataset.view === yard.view));
+  for (const b of document.querySelectorAll('#y-light-filter [data-light]')) b.setAttribute('aria-pressed', String(b.dataset.light === lightFilter));
+  renderPlantPalette();
+}
+
+function renderPlantPalette() {
+  const ok = (p) => lightFilter === 'all' || p.light.includes(lightFilter);
+  $('y-plants').innerHTML = PLANT_GROUPS.map(([g, title]) => {
+    const list = PLANTS.filter((p) => (g === 'top' ? p.top : !p.top && p.group === g) && ok(p)).sort((a, b) => (a.top || 0) - (b.top || 0));
+    if (!list.length) return '';
+    return `<p class="chip-group">${title}</p><div class="chips">${list.map((p) => `<button type="button" class="chip plant-chip" data-plant="${p.key}" aria-pressed="${yardTool === p.key}" title="${p.light.map((l) => LIGHT_TEXT[l]).join(', ')}"><span class="dot" style="background:${p.color}"></span>${p.top ? `<b>${p.top}</b> ` : ''}${p.name}<small>${p.light.map((l) => LIGHT_ICON[l]).join('')}</small></button>`).join('')}</div>`;
+  }).join('');
+}
+
+const LIGHT_ICON = { sun: '☀', part: '◐', shade: '●' };
+const HOURS_COLOR = { sun: '#f2c94c', part: '#9fb87a', shade: '#3f5a5a' };
+
+function drawClock(t) {
+  const m = (t % 12) * 30;
+  const mm = ((t * 60) % 60) * 6;
+  const ticks = Array.from({ length: 12 }, (_, i) => {
+    const a = rad(i * 30);
+    return `<line x1="${50 + 40 * Math.sin(a)}" y1="${50 - 40 * Math.cos(a)}" x2="${50 + (i % 3 ? 36 : 32) * Math.sin(a)}" y2="${50 - (i % 3 ? 36 : 32) * Math.cos(a)}"/>`;
+  }).join('');
+  const day = t >= 6 && t < 18;
+  return `<svg viewBox="0 0 100 100"><circle class="clock-face" cx="50" cy="50" r="46"/><g class="clock-ticks">${ticks}</g>`
+    + `<text class="clock-sym" x="50" y="70" text-anchor="middle">${day ? '☀' : '☾'}</text>`
+    + `<line class="clock-h" x1="50" y1="50" x2="${50 + 22 * Math.sin(rad(m))}" y2="${50 - 22 * Math.cos(rad(m))}"/>`
+    + `<line class="clock-m" x1="50" y1="50" x2="${50 + 33 * Math.sin(rad(mm))}" y2="${50 - 33 * Math.cos(rad(mm))}"/><circle cx="50" cy="50" r="3" class="clock-pin"/></svg>`;
+}
+
+function renderYardPlan() {
+  const { w: W, d: D, rot: prot } = yard.plot;
+  const M = Math.max(4, Math.max(W, D) * 0.08);
+  const Y = (y) => D - y;
+  const pts = (poly) => poly.map(([x, y]) => `${x.toFixed(2)},${Y(y).toFixed(2)}`).join(' ');
+  const fs = Math.max(W, D) / 40;
+  const sun = sunNow();
+  const day = sunDay(YEAR, yard.date, state.center[0], state.center[1], yardTz());
+  const hours = yardHours();
   const parts = [];
 
-  // Сетка через 5 м
-  for (let v = -R + 5; v < R; v += 5) {
-    parts.push(`<line class="g-grid" x1="${v}" y1="${-R}" x2="${v}" y2="${R}"/><line class="g-grid" x1="${-R}" y1="${v}" x2="${R}" y2="${v}"/>`);
-  }
-  if (site.length > 2) parts.push(`<polygon class="g-site" points="${site.map(P).join(' ')}"/>`);
-  parts.push(`<circle class="g-ring" r="${(houseR + 10).toFixed(2)}"/>`);
+  // Участок и сетка через 5 м
+  parts.push(`<rect class="y-plot" x="0" y="0" width="${W}" height="${D}"/>`);
+  for (let x = 5; x < W; x += 5) parts.push(`<line class="y-grid" x1="${x}" y1="0" x2="${x}" y2="${D}"/>`);
+  for (let y = 5; y < D; y += 5) parts.push(`<line class="y-grid" x1="0" y1="${Y(y)}" x2="${W}" y2="${Y(y)}"/>`);
 
-  // Секторы: лучи границ и подписи со звёздами
-  for (let k = 0; k < 8; k++) {
-    const b = rad(22.5 + 45 * k + shift);
-    parts.push(`<line class="g-ray" x1="${Math.sin(b) * houseR}" y1="${-Math.cos(b) * houseR}" x2="${Math.sin(b) * R * 1.5}" y2="${-Math.cos(b) * R * 1.5}"/>`);
-    const lb = rad(45 * k + shift);
-    const pal = PALACES[k];
-    const st = chart.palaces[pal.lo];
-    const x = Math.sin(lb) * R * 0.86;
-    const y = -Math.cos(lb) * R * 0.86;
-    parts.push(`<text class="g-sector" x="${x}" y="${y - fs * 0.2}" font-size="${fs * 1.15}" stroke-width="${fs * 0.25}" text-anchor="middle">${pal.dir}</text>`,
-      `<text class="g-sector-stars" x="${x}" y="${y + fs * 1.05}" font-size="${fs * 0.85}" stroke-width="${fs * 0.22}" text-anchor="middle">Г${st.mountain} · В${st.water}</text>`);
+  // Карта солнечных часов или тени в выбранное время
+  if (yard.view === 'hours') {
+    const c = hours.grid.cell;
+    const max = hours.grid.maxHours;
+    const solid = [houseOutline(yard.house), ...yard.items.filter((i) => !BUILDING_BY_KEY[i.t].flat).map((i) => rectPoly(i))];
+    const open = hours.grid.grid.filter((g) => !solid.some((poly) => inPoly(poly, [g.x, g.y])));
+    parts.push(`<g class="y-hours">${open.map((g) => `<rect x="${g.x - c / 2}" y="${Y(g.y) - c / 2}" width="${c + 0.02}" height="${c + 0.02}" fill="${HOURS_COLOR[lightZone(g.hours, max)]}" opacity="${0.35 + 0.45 * Math.min(1, g.hours / Math.max(1, max))}"/>`).join('')}</g>`);
+  } else if (sun.alt > 0) {
+    const sh = shadowsAt(yard, sun);
+    parts.push(`<g class="y-shadows">${sh.filter((c) => !c.glass).map((c) => `<polygon points="${pts(c.shadow)}"/>`).join('')}</g>`);
+    parts.push(`<g class="y-shadows glass">${sh.filter((c) => c.glass).map((c) => `<polygon points="${pts(c.shadow)}"/>`).join('')}</g>`);
+  } else {
+    parts.push(`<rect class="y-night" x="0" y="0" width="${W}" height="${D}"/>`);
   }
 
-  // Дом
-  for (const pc of pieces(g1.dec)) {
-    if (!pc.inside) continue;
-    const pts = [[pc.x1, pc.y1], [pc.x2, pc.y1], [pc.x2, pc.y2], [pc.x1, pc.y2]].map(([x, y]) => loc(planToMap(g1, x, y)));
-    parts.push(`<polygon class="g-house" stroke="none" points="${pts.map(P).join(' ')}"/>`);
-  }
-  for (const sg of outline(g1.dec)) {
-    const a = loc(planToMap(g1, sg.x1, sg.y1));
-    const b = loc(planToMap(g1, sg.x2, sg.y2));
-    parts.push(`<line class="${sg.facing === 'front' ? 'g-facade' : 'g-house'}" x1="${a[0]}" y1="${-a[1]}" x2="${b[0]}" y2="${-b[1]}"/>`);
-  }
-  const dp = doorPoint(doorNow, g1.W, g1.D);
-  const door = loc(planToMap(g1, dp.x, dp.y));
-  parts.push(`<circle class="g-door" cx="${door[0]}" cy="${-door[1]}" r="${Math.max(0.6, fs * 0.45)}"/>`);
-  const doorBearing = norm360(deg(Math.atan2(door[0], door[1])));
+  // Плоские объекты, постройки, дом
+  const flat = yard.items.filter((i) => BUILDING_BY_KEY[i.t].flat);
+  const solid = yard.items.filter((i) => !BUILDING_BY_KEY[i.t].flat);
+  const itemSvg = (it) => {
+    const b = BUILDING_BY_KEY[it.t];
+    const poly = rectPoly(it);
+    const short = b.bed ? `Зона ${b.bed}` : b.label;
+    return `<g class="y-obj${yardSel === it.id ? ' sel' : ''}${b.flat ? ' flat' : ''}${b.glass ? ' glass' : ''}" data-id="${it.id}"><polygon points="${pts(poly)}" fill="${b.color}"/>`
+      + `<text x="${it.x}" y="${Y(it.y) + fs * 0.35}" font-size="${Math.min(fs * 1.1, Math.min(it.w, it.d) * 0.45)}" text-anchor="middle">${short}</text></g>`;
+  };
+  parts.push(flat.map(itemSvg).join(''));
+  const h = yard.house;
+  parts.push(`<g class="y-obj y-house${yardSel === 'house' ? ' sel' : ''}" data-id="house"><polygon points="${pts(houseOutline(h))}"/>`
+    + `<polyline class="y-facade" points="${pts(houseFacade(h))}"/>`
+    + `<text x="${h.x}" y="${Y(h.y) + fs * 0.4}" font-size="${fs * 1.3}" text-anchor="middle">Дом</text></g>`);
+  parts.push(solid.map(itemSvg).join(''));
 
-  // Элементы
-  const evals = items.map((it, i) => {
-    const el = ELEMENT_BY_KEY[it.t];
-    const bearing = norm360(deg(Math.atan2(it.p[0], it.p[1])));
-    const pal = sectorOf(bearing - shift);
-    const st = chart.palaces[pal.lo];
-    const res = evaluate(el, { mountain: st.mountain, water: st.water, period: chart.period, bearing, dist: Math.hypot(...it.p), houseR, doorBearing });
-    const r = Math.max(el.r, fs * 0.9);
-    parts.push(`<g class="g-el lvl-${res.level}" data-i="${i}"><title>${el.label}: ${LEVEL_TEXT[res.level]}</title>`
-      + `<circle class="ring" cx="${it.p[0]}" cy="${-it.p[1]}" r="${r + fs * 0.25}" stroke-width="${fs * 0.22}"/>`
-      + `<circle class="body" cx="${it.p[0]}" cy="${-it.p[1]}" r="${r}" fill="${el.color}" stroke-width="${fs * 0.1}"/>`
-      + `<text x="${it.p[0]}" y="${-it.p[1] + fs * 0.32}" font-size="${fs * 0.8}" text-anchor="middle">${i + 1}</text></g>`);
-    return { i, el, pal, st, res };
+  // Растения
+  const checks = new Map();
+  yard.plants.forEach((p, i) => {
+    const pl = PLANT_BY_KEY[p.t];
+    const res = checkPlant(p, yard, hours.plants.hours[i], hours.plants.maxHours);
+    checks.set(p.id, { ...res, hours: hours.plants.hours[i] });
+    const r = Math.max(pl.r, fs * 0.45);
+    parts.push(`<g class="y-obj y-plant lvl-${res.level}${yardSel === p.id ? ' sel' : ''}" data-id="${p.id}"><circle cx="${p.x}" cy="${Y(p.y)}" r="${r}" fill="${pl.color}"/>`
+      + `<circle class="ring" cx="${p.x}" cy="${Y(p.y)}" r="${r + fs * 0.18}"/>`
+      + `<text x="${p.x}" y="${Y(p.y) + fs * 0.3}" font-size="${fs * 0.8}" text-anchor="middle">${i + 1}</text></g>`);
   });
 
-  // Север и масштаб
-  parts.push(`<text class="g-north" x="${-R + fs}" y="${-R + fs * 1.6}" font-size="${fs * 1.2}">С ↑</text>`,
-    `<line class="g-scale" x1="${R - fs - 10}" y1="${R - fs}" x2="${R - fs}" y2="${R - fs}"/>`,
-    `<text class="g-scale-t" x="${R - fs - 5}" y="${R - fs * 1.4}" font-size="${fs * 0.8}" text-anchor="middle">10 м</text>`);
+  // Север, солнце, масштаб
+  parts.push(`<g class="y-north" transform="translate(${W + M / 2} ${M * 0.2 + fs * 2})"><g transform="rotate(${-prot})"><path d="M0 ${-fs * 1.6} L${fs * 0.6} ${fs * 0.6} L0 0 L${-fs * 0.6} ${fs * 0.6} Z"/></g><text y="${fs * 2.2}" font-size="${fs}" text-anchor="middle">С</text></g>`);
+  if (sun.alt > 0) {
+    // Солнце — на краю рамки плана в своём направлении
+    const [sx, sy] = sunVector(sun.az, prot);
+    const edge = M + fs * 0.2;
+    const R = Math.min((W / 2 + edge) / Math.max(Math.abs(sx), 1e-6), (D / 2 + edge) / Math.max(Math.abs(sy), 1e-6));
+    const cx = W / 2 + sx * R;
+    const cy = D / 2 + sy * R;
+    parts.push(`<line class="y-sunray" x1="${cx}" y1="${Y(cy)}" x2="${W / 2}" y2="${Y(D / 2)}"/>`);
+    parts.push(`<circle class="y-sun" cx="${cx}" cy="${Y(cy)}" r="${fs * 0.9}"/>`);
+  }
+  parts.push(`<line class="y-scale" x1="0" y1="${D + M * 0.55}" x2="10" y2="${D + M * 0.55}"/><text class="y-scale-t" x="5" y="${D + M * 0.55 - fs * 0.4}" font-size="${fs * 0.8}" text-anchor="middle">10 м</text>`);
+  parts.push(`<text class="y-dim" x="${W / 2}" y="${-M * 0.3}" font-size="${fs * 0.85}" text-anchor="middle">${yFmt(W)} м</text>`);
 
-  $('garden-svg').innerHTML = `<svg viewBox="${-R} ${-R} ${2 * R} ${2 * R}" role="img" aria-label="Схема участка">${parts.join('')}</svg>`;
-  gardenView = { R };
+  // Солнце может выйти за участок — берём рамку с запасом
+  const pad = M + fs * 1.2;
+  $('y-plan').innerHTML = `<svg viewBox="${-pad} ${-pad} ${W + 2 * pad} ${D + 2 * pad}" role="img" aria-label="План участка">${parts.join('')}</svg>`;
 
-  $('garden-eval').innerHTML = evals.length
-    ? `<div class="garden-eval">${evals.map(({ i, el, pal, st, res }) => `<div class="g-item ${res.level}"><header><span>${i + 1}. ${el.label}</span><span>${pal.dir} <span class="pill-inline ${gardenStarClass(st.mountain, chart.period)}">Г${st.mountain}</span> <span class="pill-inline ${gardenStarClass(st.water, chart.period)}">В${st.water}</span></span></header>`
-      + `<ul><li><strong>${LEVEL_TEXT[res.level]}</strong></li>${res.notes.map((n) => `<li>${n}</li>`).join('')}</ul></div>`).join('')}</div>`
-    : '<p class="note">Пока ничего не поставлено. Выберите элемент слева и нажмите на схему.</p>';
+  // Часы и солнце
+  $('y-clock').innerHTML = drawClock(yard.time);
+  $('y-time-out').textContent = hhmm(yard.time);
+  if (document.activeElement !== $('y-time')) $('y-time').value = Math.round(yard.time * 60);
+  const dayText = day.polar === 'day' ? 'полярный день' : day.polar === 'night' ? 'полярная ночь' : `восход ${hhmm(day.rise ?? 0)} · закат ${hhmm(day.set ?? 24)} · день ${yFmt(Math.round(day.length * 10) / 10)} ч`;
+  $('y-sun-out').textContent = sun.alt > 0
+    ? `солнце ${Math.round(sun.alt)}° над горизонтом · азимут ${Math.round(sun.az)}° · ${dayText}`
+    : `солнце за горизонтом · ${dayText}`;
 
-  const adv = sectorAdvice(chart.palaces, chart.period, shift);
-  $('garden-advice').innerHTML = `<table class="advice-table"><thead><tr><th>Сектор</th><th>Звёзды</th><th>Что поставить</th><th>Чего избегать</th></tr></thead><tbody>${adv.map((a) => `<tr><td>${a.palace.dir}</td>`
-    + `<td><span class="pill-inline ${gardenStarClass(a.mountain, chart.period)}">Г${a.mountain}</span> <span class="pill-inline ${gardenStarClass(a.water, chart.period)}">В${a.water}</span></td>`
-    + `<td>${a.put.join('; ')}</td><td class="avoid">${a.avoid.join('; ') || '—'}</td></tr>`).join('')}</tbody></table>`;
+  const mx = hours.grid.maxHours;
+  const hr = (k) => yFmt(Math.round(mx * k * 2) / 2);
+  $('y-legend').innerHTML = yard.view === 'hours'
+    ? `<span><i style="background:${HOURS_COLOR.sun}"></i>солнце — от ${hr(LIGHT_SHARE.sun)} ч</span><span><i style="background:${HOURS_COLOR.part}"></i>полутень — ${hr(LIGHT_SHARE.part)}–${hr(LIGHT_SHARE.sun)} ч</span><span><i style="background:${HOURS_COLOR.shade}"></i>тень — меньше ${hr(LIGHT_SHARE.part)} ч</span><span class="note">Открытое место в этот день получает ${hr(1)} ч солнца выше 10° над горизонтом. Солнце — от 65 % этого, полутень — 35–65 %, тень — меньше 35 %.</span>`
+    : '<span><i class="lg-shadow"></i>тень</span><span><i class="lg-sun"></i>солнце</span><span class="note">Двигайте время или нажмите ▶.</span>';
+
+  renderYardEditor(checks);
+  renderYardWarnings(checks);
+  renderBeds();
 }
 
-$('garden-palette').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-garden]');
-  if (!b) return;
-  state.gardenTool = b.dataset.garden;
-  renderGardenPalette();
-  save();
-});
-
-$('garden-svg').addEventListener('click', (e) => {
-  const svg = $('garden-svg').querySelector('svg');
-  if (!svg || !gardenView) return;
-  const hit = e.target.closest('.g-el');
-  if (hit) {
-    state.garden.splice(Number(hit.dataset.i), 1);
-  } else {
-    const pt = new DOMPoint(e.clientX, e.clientY).matrixTransform(svg.getScreenCTM().inverse());
-    state.garden.push({ t: state.gardenTool, ll: offset(state.center, pt.x, -pt.y) });
+function renderYardEditor(checks) {
+  const o = yardSel && objById(yardSel);
+  if (!o) {
+    $('y-edit').innerHTML = yardTool
+      ? `<p class="msg mixed">Сажаем: <strong>${PLANT_BY_KEY[yardTool].name}</strong> Нажмите на план. <button type="button" class="link" data-act="tool-off">Готово</button></p>`
+      : '';
+    return;
   }
-  render();
+  if (yardSel === 'house') {
+    $('y-edit').innerHTML = '<p class="note">Выбран дом — размеры и поворот в карточке «Дом».</p>';
+    return;
+  }
+  if (o.t && PLANT_BY_KEY[o.t]) {
+    const pl = PLANT_BY_KEY[o.t];
+    const c = checks.get(o.id);
+    $('y-edit').innerHTML = `<div class="editor"><strong>${yard.plants.indexOf(o) + 1}. ${pl.name}</strong>`
+      + `<span class="note">Высота ${yFmt(pl.h)} м · свет: ${pl.light.map((l) => LIGHT_TEXT[l]).join(', ')}${pl.note ? ` · ${pl.note}` : ''}</span>`
+      + `<div class="msg ${c.level === 'good' ? 'good' : c.level === 'bad' ? 'bad' : 'mixed'}">${c.notes.join('<br>')}</div>`
+      + '<div class="row"><button type="button" class="secondary" data-act="del">Убрать</button></div></div>';
+    return;
+  }
+  const b = BUILDING_BY_KEY[o.t];
+  $('y-edit').innerHTML = `<div class="editor"><strong>${b.label}</strong><div class="grid3">`
+    + `<label>Ширина, м <input type="number" data-f="w" value="${o.w}" min="0.5" max="60" step="0.5"></label>`
+    + `<label>Длина, м <input type="number" data-f="d" value="${o.d}" min="0.5" max="60" step="0.5"></label>`
+    + (b.flat ? '' : `<label>Высота, м <input type="number" data-f="h" value="${o.h}" min="0" max="20" step="0.5"></label>`)
+    + `<label>Поворот, ° <input type="number" data-f="rot" value="${o.rot}" step="15"></label></div>`
+    + '<div class="row"><button type="button" class="secondary" data-act="rot90">Повернуть на 90°</button><button type="button" class="secondary" data-act="del">Убрать</button></div></div>';
+}
+
+function renderYardWarnings(checks) {
+  const msgs = checkBuildings(yard).map((c) => `<li class="bad">${c.text}</li>`);
+  $('y-warn').innerHTML = msgs.length ? `<ul class="y-warn">${msgs.join('')}</ul>` : '';
+  const list = yard.plants.map((p, i) => {
+    const c = checks.get(p.id);
+    return `<li class="${c.level}" data-pick="${p.id}"><b>${i + 1}. ${PLANT_BY_KEY[p.t].name}</b> — ${yFmt(c.hours)} ч солнца, ${LIGHT_TEXT[c.zone]}${c.level === 'good' ? ' ✓' : `<br><span>${c.notes.filter((n) => !n.startsWith('Свет подходит')).join(' ')}</span>`}</li>`;
+  });
+  $('y-plant-list').innerHTML = list.length
+    ? `<h3 class="sub">Посажено</h3><ul class="y-plant-list">${list.join('')}</ul><button type="button" class="link" data-act="clear-plants">Убрать все растения</button>`
+    : '';
+}
+
+function bedHours(it) {
+  // Средние часы солнца внутри клумбы — по сетке карты солнца
+  const poly = rectPoly(it);
+  const cells = yardHours().grid.grid.filter((g) => inPoly(poly, [g.x, g.y]));
+  if (!cells.length) return sunHours(yard, { year: YEAR, lat: state.center[0], lng: state.center[1], tz: yardTz() }, [{ pt: [it.x, it.y] }]).hours[0];
+  return cells.reduce((s, g) => s + g.hours, 0) / cells.length;
+}
+
+function renderBeds() {
+  const beds = yard.items.filter((i) => BUILDING_BY_KEY[i.t].bed);
+  const intro = '<p class="note">Добавьте клумбу «Зона А» или миксбордер «Зона Б» в карточке «Хозпостройки» и поставьте на план — сайт проверит, хватит ли света каждому ряду.</p>';
+  const describe = (key, hours) => {
+    const bed = BEDS[key];
+    const zone = hours == null ? null : lightZone(hours, yardHours().grid.maxHours);
+    return `<h3 class="sub">${bed.title}${hours == null ? '' : ` — ${yFmt(Math.round(hours * 10) / 10)} ч солнца, ${LIGHT_TEXT[zone]}`}</h3>`
+      + `<ol class="bed-rows">${bed.rows.map(([row, keys]) => `<li><span class="note">${row}</span><div class="chips">${keys.map((k) => {
+        const p = PLANT_BY_KEY[k];
+        const fit = !zone || p.light.includes(zone);
+        return `<span class="chip ${fit ? '' : 'chip-bad'}" title="${p.note || ''}"><span class="dot" style="background:${p.color}"></span>${p.name}${fit ? '' : ' — мало света'}</span>`;
+      }).join('')}</div></li>`).join('')}</ol>`;
+  };
+  $('y-beds').innerHTML = beds.length
+    ? beds.map((b) => describe(BUILDING_BY_KEY[b.t].bed, bedHours(b))).join('')
+    : intro + describe('A') + describe('B');
+}
+
+function renderYard() {
+  renderYardControls();
+  renderYardPlan();
+}
+
+function yardChanged(full = false) {
+  if (full) renderYardControls();
+  renderYardPlan();
+  save();
+}
+
+// ---- События конструктора ----
+
+$('y-shape').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-shape]');
+  if (!b) return;
+  yard.house.shape = b.dataset.shape;
+  yardChanged(true);
+});
+
+for (const [id, key, min, max] of [['y-hw', 'w', 4, 40], ['y-hd', 'd', 4, 40], ['y-hcw', 'cw', 1, 30], ['y-hcd', 'cd', 1, 30], ['y-hh', 'h', 2.5, 20], ['y-hrot', 'rot', -360, 360]]) {
+  $(id).addEventListener('input', (e) => {
+    const v = Number(e.target.value);
+    if (!Number.isFinite(v) || v < min || v > max) return;
+    yard.house[key] = v;
+    yardChanged();
+  });
+}
+for (const [id, key, min, max] of [['y-pw', 'w', 10, 200], ['y-pd', 'd', 10, 200], ['y-prot', 'rot', -360, 360]]) {
+  $(id).addEventListener('input', (e) => {
+    const v = Number(e.target.value);
+    if (!Number.isFinite(v) || v < min || v > max) return;
+    yard.plot[key] = v;
+    yardChanged();
+  });
+}
+$('y-tz').addEventListener('change', (e) => {
+  yard.tz = Number(e.target.value);
+  yardChanged();
+});
+
+$('y-buildings').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-add]');
+  if (!b) return;
+  const def = BUILDING_BY_KEY[b.dataset.add];
+  // Ставим в свободный угол участка: ищем точку подальше от дома и других построек
+  const { w: W, d: D } = yard.plot;
+  let best = null;
+  for (let y = def.d / 2 + 1.5; y <= D - def.d / 2 - 1.5; y += 1) {
+    for (let x = def.w / 2 + 1.5; x <= W - def.w / 2 - 1.5; x += 1) {
+      // Кандидат с запасом 1 м вокруг, чтобы постройки не слипались
+      const poly = rectPoly({ x, y, w: def.w + 2, d: def.d + 2, rot: 0 });
+      const others = [...housePieces(yard.house), ...yard.items.map((i) => rectPoly(i))];
+      const clash = others.some((o) => convexOverlap(o, poly));
+      if (clash) continue;
+      const score = -Math.hypot(x - yard.house.x, y - yard.house.y);
+      if (!best || score < best.score) best = { x, y, score };
+    }
+  }
+  const it = { id: nextId(), t: def.key, x: best ? best.x : W / 2, y: best ? best.y : def.d, w: def.w, d: def.d, h: def.h, rot: 0 };
+  yard.items.push(it);
+  yardSel = it.id;
+  yardChanged();
+});
+
+$('y-time').addEventListener('input', (e) => {
+  yard.time = Number(e.target.value) / 60;
+  renderYardPlan();
   save();
 });
 
-$('garden-undo').addEventListener('click', () => {
-  state.garden.pop();
-  render();
+$('y-play').addEventListener('click', () => {
+  if (playTimer) {
+    clearInterval(playTimer);
+    playTimer = null;
+    $('y-play').textContent = '▶';
+    return;
+  }
+  if (yard.view !== 'shadow') {
+    yard.view = 'shadow';
+    renderYardControls();
+  }
+  $('y-play').textContent = '❚❚';
+  playTimer = setInterval(() => {
+    yard.time = (yard.time + 1 / 6) % 24;
+    renderYardPlan();
+  }, 90);
+});
+
+$('y-dates').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-date]');
+  if (!b) return;
+  yard.date = b.dataset.date;
+  yardChanged(true);
+});
+
+$('y-view').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-view]');
+  if (!b) return;
+  yard.view = b.dataset.view;
+  yardChanged(true);
+});
+
+$('y-light-filter').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-light]');
+  if (!b) return;
+  lightFilter = b.dataset.light;
+  renderYardControls();
+});
+
+$('y-plants').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-plant]');
+  if (!b) return;
+  yardTool = yardTool === b.dataset.plant ? null : b.dataset.plant;
+  yardSel = null;
+  renderPlantPalette();
+  renderYardPlan();
+  if (yardTool) $('y-plan').scrollIntoView({ behavior: 'smooth', block: 'center' });
+});
+
+function yardAct(e) {
+  const a = e.target.closest('[data-act]');
+  const pick = e.target.closest('[data-pick]');
+  if (pick) {
+    yardSel = pick.dataset.pick;
+    renderYardPlan();
+    return;
+  }
+  if (!a) return;
+  const act = a.dataset.act;
+  if (act === 'tool-off') {
+    yardTool = null;
+    renderPlantPalette();
+  } else if (act === 'del') {
+    yard.items = yard.items.filter((i) => i.id !== yardSel);
+    yard.plants = yard.plants.filter((p) => p.id !== yardSel);
+    yardSel = null;
+  } else if (act === 'rot90') {
+    const o = objById(yardSel);
+    o.rot = ((o.rot || 0) + 90) % 360;
+  } else if (act === 'clear-plants') {
+    if (!window.confirm('Убрать все растения с участка?')) return;
+    yard.plants = [];
+    yardSel = null;
+  }
+  yardChanged();
+}
+$('y-edit').addEventListener('click', yardAct);
+$('y-plant-list').addEventListener('click', yardAct);
+
+$('y-edit').addEventListener('input', (e) => {
+  const f = e.target.dataset.f;
+  const o = objById(yardSel);
+  if (!f || !o) return;
+  const v = Number(e.target.value);
+  if (!Number.isFinite(v) || v < 0) return;
+  o[f] = v;
+  renderYardPlan();
   save();
 });
 
-$('garden-clear').addEventListener('click', () => {
-  if (state.garden.length && !window.confirm('Убрать все элементы с участка?')) return;
-  state.garden = [];
-  render();
-  save();
+// Перетаскивание и посадка на плане
+let drag = null;
+function planPoint(e) {
+  const svg = $('y-plan').querySelector('svg');
+  const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(svg.getScreenCTM().inverse());
+  return [p.x, yard.plot.d - p.y];
+}
+const snap = (v) => Math.round(v * 2) / 2;
+
+$('y-plan').addEventListener('pointerdown', (e) => {
+  const g = e.target.closest('[data-id]');
+  if (!g || yardTool) return;
+  const o = objById(g.dataset.id);
+  const [x, y] = planPoint(e);
+  drag = { id: g.dataset.id, dx: o.x - x, dy: o.y - y, sx: e.clientX, sy: e.clientY, moved: false };
+  $('y-plan').setPointerCapture(e.pointerId);
+});
+
+$('y-plan').addEventListener('pointermove', (e) => {
+  if (!drag) return;
+  if (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 4) return;
+  drag.moved = true;
+  const [x, y] = planPoint(e);
+  const o = objById(drag.id);
+  o.x = snap(x + drag.dx);
+  o.y = snap(y + drag.dy);
+  yardSel = drag.id;
+  renderYardPlan();
+});
+
+$('y-plan').addEventListener('pointerup', (e) => {
+  if (drag) {
+    if (!drag.moved) yardSel = yardSel === drag.id ? null : drag.id;
+    drag = null;
+    yardChanged();
+    return;
+  }
+  if (!e.target.closest('svg')) return;
+  const [x, y] = planPoint(e);
+  if (yardTool) {
+    if (x < 0 || y < 0 || x > yard.plot.w || y > yard.plot.d) return;
+    // На дом и постройки не сажаем
+    const solid = [houseOutline(yard.house), ...yard.items.filter((i) => !BUILDING_BY_KEY[i.t].flat).map((i) => rectPoly(i))];
+    if (solid.some((poly) => inPoly(poly, [x, y]))) return;
+    yard.plants.push({ id: nextId(), t: yardTool, x: snap(x), y: snap(y) });
+    yardChanged();
+  } else if (yardSel) {
+    yardSel = null;
+    renderYardPlan();
+  }
 });
 
 // ---- Вкладки ----
@@ -2284,6 +2611,8 @@ function showTab() {
   for (const a of document.querySelectorAll('.tabs a')) a.setAttribute('aria-selected', String(a.dataset.tab === tab));
   // Карта, созданная в скрытой вкладке, не знает своего размера
   if (tab === 'calc') map.invalidateSize();
+  if (tab === 'garden') renderYard();
+  else if (playTimer) $('y-play').click();
   window.scrollTo({ top: 0 });
 }
 
@@ -2291,6 +2620,6 @@ window.addEventListener('hashchange', showTab);
 
 renderShapeControls(1);
 renderShapeControls(2);
-renderGardenPalette();
+renderYard();
 showTab();
 render();

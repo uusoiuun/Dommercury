@@ -333,37 +333,112 @@
   <section class="tab-page" id="tab-garden" data-page="garden" role="tabpanel" hidden>
     <div class="intro">
       <h1>Конструктор ландшафтного озеленения</h1>
-      <p>Выберите элемент и нажмите на схему участка. Каждый элемент оценивается по звёздам своего сектора и по климату: тень зимой, ветер, а на Севере — мерзлота.</p>
+      <p>Поставьте дом и постройки на участок, выберите день и время — и посмотрите, как солнце обходит дом и куда падают тени. Затем подберите растения по свету: каждому месту — своё.</p>
     </div>
     <main class="layout garden-layout">
     <aside class="panel">
-      <section class="card g-o1">
-        <h2>Элементы</h2>
-        <div class="chips palette" id="garden-palette"></div>
-        <div class="row wrap">
-          <button type="button" id="garden-undo" class="secondary">Отменить последний</button>
-          <button type="button" id="garden-clear" class="secondary">Очистить всё</button>
+      <section class="card y-o1">
+        <h2>Дом</h2>
+        <div class="chips" id="y-shape"></div>
+        <div class="grid2">
+          <label>Ширина, м <input type="number" id="y-hw" min="4" max="40" step="0.5"></label>
+          <label id="y-hd-wrap">Глубина, м <input type="number" id="y-hd" min="4" max="40" step="0.5"></label>
         </div>
-        <p class="note">Нажмите на элемент на схеме, чтобы убрать его. Участок рисуется на вкладке расчёта кнопкой «Нарисовать участок».</p>
+        <div class="grid2" id="y-cut">
+          <label>Вырез по ширине, м <input type="number" id="y-hcw" min="1" max="30" step="0.5"></label>
+          <label>Вырез по глубине, м <input type="number" id="y-hcd" min="1" max="30" step="0.5"></label>
+        </div>
+        <div class="grid2">
+          <label>Высота до конька, м <input type="number" id="y-hh" min="2.5" max="20" step="0.5"></label>
+          <label>Поворот, ° <input type="number" id="y-hrot" min="-180" max="360" step="5"></label>
+        </div>
+        <p class="note">Дом и постройки перетаскиваются на плане пальцем или мышью. Красная линия — фасад.</p>
       </section>
-      <section class="card g-o3">
-        <h2>Оценка</h2>
-        <div id="garden-eval"></div>
+
+      <section class="card y-o3">
+        <h2>Хозпостройки</h2>
+        <div class="chips" id="y-buildings"></div>
+        <p class="note">Нажмите, чтобы добавить на участок. Размеры потом можно изменить.</p>
+      </section>
+
+      <section class="card y-o4">
+        <h2>Участок</h2>
+        <div class="grid2">
+          <label>Ширина, м <input type="number" id="y-pw" min="10" max="200" step="1"></label>
+          <label>Глубина, м <input type="number" id="y-pd" min="10" max="200" step="1"></label>
+        </div>
+        <div class="grid2">
+          <label>Верх участка смотрит на, ° <input type="number" id="y-prot" min="0" max="359" step="5"></label>
+          <label>Часовой пояс
+            <select id="y-tz"></select>
+          </label>
+        </div>
+        <p class="note" id="y-place"></p>
       </section>
     </aside>
+
     <div class="panel">
-      <section class="card g-o2">
-        <h2>Схема участка</h2>
-        <div id="garden-svg" class="garden-svg"></div>
-        <p class="note">Север сверху. Лучи — границы секторов по компасу, в подписи сектора: Г — горная звезда, В — водная. Синяя метка — входная дверь.</p>
+      <section class="card y-o2 sun-card">
+        <div class="sun-head">
+          <div id="y-clock" class="clock" aria-hidden="true"></div>
+          <div class="sun-read">
+            <output id="y-time-out" class="sun-time"></output>
+            <p class="mono" id="y-sun-out"></p>
+          </div>
+          <button type="button" id="y-play" class="secondary play" aria-label="Запустить день">▶</button>
+        </div>
+        <input type="range" id="y-time" min="0" max="1430" step="10" aria-label="Время суток">
+        <div class="chips" id="y-dates"></div>
+        <div class="row wrap y-views">
+          <span class="note">Показать:</span>
+          <div class="chips" id="y-view">
+            <button type="button" class="chip" data-view="shadow">Тени в это время</button>
+            <button type="button" class="chip" data-view="hours">Солнце за день</button>
+          </div>
+        </div>
+        <div id="y-plan" class="y-plan"></div>
+        <div id="y-legend" class="y-legend"></div>
+        <div id="y-edit"></div>
+        <div id="y-warn"></div>
       </section>
-      <section class="card g-o4">
-        <h2>Что где сажать</h2>
-        <div class="table-wrap" id="garden-advice"></div>
+
+      <section class="card y-o5">
+        <h2>Растения</h2>
+        <p class="note">Выберите растение и нажмите на план, чтобы посадить. Сайт проверит свет на этом месте за выбранный день и отступы от границы и дома.</p>
+        <div class="chips" id="y-light-filter">
+          <button type="button" class="chip" data-light="all">Все</button>
+          <button type="button" class="chip" data-light="sun">Солнце</button>
+          <button type="button" class="chip" data-light="part">Полутень</button>
+          <button type="button" class="chip" data-light="shade">Тень</button>
+        </div>
+        <div id="y-plants"></div>
+        <div id="y-plant-list"></div>
       </section>
-      <section class="card g-o5">
-        <h2>Морозостойкие растения</h2>
-        <div id="garden-plants"></div>
+
+      <section class="card y-o6">
+        <h2>Композиции</h2>
+        <div id="y-beds"></div>
+        <details>
+          <summary>Сезоны и уход</summary>
+          <div class="guide">
+            <h3>Как меняется сад по сезонам</h3>
+            <ul>
+              <li><strong>Весна</strong> — цветёт флокс шиловидный, просыпается зелень.</li>
+              <li><strong>Лето</strong> — пик: астильбы, флоксы, эхинацея, лилейники.</li>
+              <li><strong>Осень</strong> — очиток видный, поздние флоксы, золотистые метёлки злаков.</li>
+              <li><strong>Зима</strong> — красные побеги дерена, серо-зелёная хвоя можжевельника, сухие соцветия астильбы и злаков.</li>
+            </ul>
+            <h3>Уход</h3>
+            <ul>
+              <li><strong>Почва</strong> — дренированная, с органикой.</li>
+              <li><strong>Мульча</strong> — кора или щепа, защищает корни от промерзания.</li>
+              <li><strong>Полив</strong> — умеренный, без застоя воды.</li>
+              <li><strong>Обрезка</strong> — весной убрать сухие побеги и сформировать кустарники.</li>
+              <li><strong>Зимовка</strong> — большинству растений укрытие не нужно, молодые можно прикрыть лапником.</li>
+              <li><strong>Посадка</strong> — весной после оттаивания почвы или осенью до заморозков.</li>
+            </ul>
+          </div>
+        </details>
       </section>
     </div>
     </main>

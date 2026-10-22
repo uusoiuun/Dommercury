@@ -196,6 +196,7 @@ body::after {
   margin: 0 auto;
 }
 .plan-layout, .garden-layout { grid-template-columns: 360px minmax(0, 1fr); }
+.garden-layout { grid-template-columns: 340px minmax(0, 1fr); }
 
 .map-wrap { position: sticky; top: 76px; }
 .card.flush { padding: 8px; }
@@ -419,50 +420,82 @@ td.bad { color: var(--bad); }
 .handle { width: 18px; height: 18px; border-radius: 50%; background: #b23a2b; border: 3px solid #fff; box-shadow: 0 0 3px #000; cursor: grab; }
 .mover { width: 16px; height: 16px; border-radius: 3px; background: #fff; border: 3px solid #b23a2b; box-shadow: 0 0 3px #000; cursor: move; }
 
-/* ---- Конструктор озеленения ---- */
-.palette .chip { display: inline-flex; align-items: center; gap: 6px; }
-.palette .dot { width: 12px; height: 12px; border-radius: 50%; flex: none; }
-.chip-group { width: 100%; font-size: 12px; color: var(--muted); margin: 6px 0 0; text-transform: uppercase; letter-spacing: 0.06em; }
-.garden-svg svg { width: 100%; height: auto; display: block; border-radius: 10px; background: color-mix(in srgb, var(--spruce) 9%, var(--card)); touch-action: manipulation; }
-.g-site { fill: color-mix(in srgb, var(--spruce) 10%, transparent); stroke: var(--spruce); stroke-width: 0.25; stroke-dasharray: 1 0.6; }
-.g-house { fill: color-mix(in srgb, var(--accent) 25%, var(--card)); stroke: var(--text); stroke-width: 0.25; }
-.g-facade { stroke: var(--accent); stroke-width: 0.6; }
-.g-door { fill: var(--door); }
-.g-ray { stroke: var(--muted); stroke-width: 0.12; stroke-dasharray: 0.6 0.6; }
-.g-ring { fill: none; stroke: var(--line); stroke-width: 0.12; }
-.g-grid { stroke: var(--line); stroke-width: 0.06; }
-.g-sector { font-family: var(--font); font-weight: 700; fill: var(--text); paint-order: stroke; stroke: var(--card); stroke-linejoin: round; }
-.g-sector-stars { font-family: var(--font); fill: var(--muted); paint-order: stroke; stroke: var(--card); stroke-linejoin: round; }
-.g-north { fill: var(--accent); font-family: var(--display); font-weight: 700; }
-.g-el { cursor: pointer; }
-.g-el circle { stroke: var(--card); }
-.g-el text { font-family: var(--font); font-weight: 700; fill: #fff; pointer-events: none; }
-.g-el.lvl-bad circle.ring { stroke: var(--bad); }
-.g-el.lvl-mixed circle.ring { stroke: var(--mixed); }
-.g-el.lvl-good circle.ring { stroke: var(--good); }
-.g-el circle.ring { fill: none; }
-.g-el:hover circle.body { filter: brightness(1.15); }
-.g-scale { stroke: var(--text); stroke-width: 0.2; }
-.g-scale-t { font-family: var(--font); fill: var(--text); }
-.garden-eval { display: flex; flex-direction: column; gap: 8px; }
-.g-item { border: 1px solid var(--line); border-left-width: 4px; border-radius: 10px; padding: 8px 10px; font-size: 14px; }
-.g-item.good { border-left-color: var(--good); }
-.g-item.ok { border-left-color: var(--muted); }
-.g-item.mixed { border-left-color: var(--mixed); }
-.g-item.bad { border-left-color: var(--bad); }
-.g-item header { display: flex; justify-content: space-between; gap: 8px; font-weight: 600; }
-.g-item ul { margin: 4px 0 0; padding-left: 18px; color: var(--muted); }
-.advice-table td:first-child, .advice-table td:nth-child(2) { font-weight: 700; white-space: nowrap; }
-.advice-table .avoid { color: var(--bad); }
-.plants h3 { font-size: 13px; margin: 10px 0 4px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
-.plants ul { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 6px; }
-.plants li { background: color-mix(in srgb, var(--spruce) 12%, var(--card)); color: var(--text); border-radius: 999px; padding: 2px 10px; font-size: 13px; }
+/* ---- Конструктор участка ---- */
+.chip .dot { display: inline-block; width: 11px; height: 11px; border-radius: 50%; flex: none; margin-right: 6px; vertical-align: -1px; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12); }
+.chip small { margin-left: 6px; color: var(--muted); font-size: 11px; }
+.chip[aria-pressed="true"] small { color: inherit; opacity: 0.75; }
+.chip-group { width: 100%; font: 400 11px var(--mono); color: var(--muted); margin: 14px 0 2px; text-transform: uppercase; letter-spacing: 0.08em; }
+.chip-bad { border-color: var(--bad); color: var(--bad); }
+.plant-chip b { font-family: var(--mono); font-weight: 500; font-size: 11px; color: var(--accent); }
+
+.sun-head { display: flex; align-items: center; gap: 16px; }
+.clock { width: 74px; height: 74px; flex: none; }
+.clock svg { width: 100%; height: 100%; }
+.clock-face { fill: var(--snow); stroke: var(--line); stroke-width: 2; }
+.clock-ticks line { stroke: var(--muted); stroke-width: 2; stroke-linecap: round; }
+.clock-h { stroke: var(--text); stroke-width: 5; stroke-linecap: round; }
+.clock-m { stroke: var(--accent); stroke-width: 3; stroke-linecap: round; }
+.clock-pin { fill: var(--text); }
+.clock-sym { font-size: 16px; fill: #d9a52b; }
+.sun-read { flex: 1; min-width: 0; }
+.sun-time { display: block; font: 300 44px/1 var(--display); letter-spacing: -0.03em; }
+.sun-read .mono { margin: 6px 0 0; color: var(--muted); font-size: 11px; text-transform: none; }
+.play { width: 48px; height: 48px; padding: 0; font-size: 16px; flex: none; }
+#y-time { margin: 14px 0 4px; width: 100%; }
+.y-views { align-items: center; margin-top: 0; }
+.y-views .chips { margin: 0; }
+
+.y-plan { margin-top: 12px; }
+.y-plan svg { width: 100%; height: auto; max-height: 78vh; display: block; touch-action: none; user-select: none; -webkit-user-select: none; }
+.y-plot { fill: color-mix(in srgb, var(--spruce) 14%, var(--card)); stroke: var(--spruce); stroke-width: 0.15; stroke-dasharray: 0.8 0.5; }
+.y-grid { stroke: color-mix(in srgb, var(--spruce) 18%, transparent); stroke-width: 0.05; }
+.y-shadows { opacity: 0.32; }
+.y-shadows polygon { fill: #1b2214; }
+.y-shadows.glass { opacity: 0.12; }
+.y-night { fill: #1b2214; opacity: 0.35; }
+.y-obj { cursor: grab; }
+.y-obj polygon { stroke: rgba(30, 30, 20, 0.55); stroke-width: 0.12; }
+.y-obj.flat polygon { stroke-dasharray: 0.4 0.3; opacity: 0.85; }
+.y-obj.glass polygon { opacity: 0.75; }
+.y-obj text { fill: #22251c; font-family: var(--font); font-weight: 500; pointer-events: none; }
+.y-house polygon { fill: var(--linen); stroke: var(--text); stroke-width: 0.18; }
+.y-facade { fill: none; stroke: var(--accent); stroke-width: 0.5; stroke-linecap: round; }
+.y-obj.sel polygon, .y-obj.sel circle:not(.ring) { stroke: var(--accent); stroke-width: 0.3; }
+.y-plant circle { stroke: rgba(255, 255, 255, 0.85); stroke-width: 0.08; }
+.y-plant .ring { fill: none; stroke-width: 0.18; }
+.y-plant.lvl-good .ring { stroke: var(--good); }
+.y-plant.lvl-mixed .ring { stroke: var(--mixed); }
+.y-plant.lvl-bad .ring { stroke: var(--bad); stroke-dasharray: 0.4 0.25; }
+.y-plant text { fill: #fff; paint-order: stroke; stroke: rgba(0, 0, 0, 0.45); stroke-width: 0.12; }
+.y-north path { fill: var(--accent); }
+.y-north text { fill: var(--text); font-family: var(--display); font-weight: 600; }
+.y-sun { fill: #f2c94c; stroke: #fff; stroke-width: 0.2; }
+.y-sunray { stroke: #e0b030; stroke-width: 0.12; stroke-dasharray: 0.6 0.4; }
+.y-scale { stroke: var(--text); stroke-width: 0.18; }
+.y-scale-t, .y-dim { fill: var(--muted); font-family: var(--mono); }
+.y-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; margin-top: 8px; font-size: 13px; }
+.y-legend i { display: inline-block; width: 14px; height: 14px; border-radius: 4px; margin-right: 6px; vertical-align: -2px; }
+.y-legend .lg-shadow { background: #1b2214; opacity: 0.4; }
+.y-legend .lg-sun { background: #f2c94c; border-radius: 50%; }
+.y-legend .note { margin: 0; }
+.editor .grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 0 8px; }
+.editor { border-color: var(--line); background: var(--snow); border-radius: 14px; }
+.y-warn, .y-plant-list { list-style: none; padding: 0; margin: 10px 0 0; display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+.y-warn li, .y-plant-list li { border-left: 3px solid var(--muted); padding: 4px 10px; border-radius: 4px; background: var(--snow); }
+.y-plant-list li { cursor: pointer; }
+.y-warn li.bad, .y-plant-list li.bad { border-color: var(--bad); }
+.y-plant-list li.good { border-color: var(--good); }
+.y-plant-list li.mixed { border-color: var(--mixed); }
+.y-plant-list li span { color: var(--muted); font-size: 13px; }
+.bed-rows { margin: 6px 0 12px; padding-left: 20px; }
+.bed-rows li { margin: 6px 0; }
+.bed-rows .chips { margin: 4px 0 0; }
 
 @media (max-width: 1100px) {
   .plan-layout, .garden-layout { grid-template-columns: minmax(0, 1fr); }
   /* На узком экране схема участка — сразу после палитры */
   .garden-layout > .panel { display: contents; }
-  .g-o1 { order: 1; } .g-o2 { order: 2; } .g-o3 { order: 3; } .g-o4 { order: 4; } .g-o5 { order: 5; }
+  .y-o1 { order: 1; } .y-o2 { order: 2; } .y-o3 { order: 3; } .y-o4 { order: 4; } .y-o5 { order: 5; } .y-o6 { order: 6; }
 }
 
 @media (max-width: 900px) {

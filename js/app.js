@@ -2193,6 +2193,10 @@ function renderYardControls() {
   for (const [id, v] of [['y-hw', h.w], ['y-hd', h.d], ['y-hcw', h.cw], ['y-hcd', h.cd], ['y-hh', h.h], ['y-hrot', h.rot], ['y-pw', yard.plot.w], ['y-pd', yard.plot.d], ['y-prot', yard.plot.rot]]) {
     if (document.activeElement !== $(id)) $(id).value = v;
   }
+  const PLOTS = [[20, 30], [25, 40], [30, 50], [40, 50]];
+  $('y-plot-presets').innerHTML = PLOTS.map(([w, d]) => `<button type="button" class="chip" data-plot="${w}x${d}" aria-pressed="${yard.plot.w === w && yard.plot.d === d}">${w * d / 100} соток <small>${w}×${d}</small></button>`).join('');
+  const area = yard.plot.w * yard.plot.d;
+  $('y-area').textContent = `Площадь: ${yFmt(Math.round(area / 10) / 10)} соток (${Math.round(area)} м²).`;
   $('y-buildings').innerHTML = BUILDINGS.filter((b) => !b.hidden).map((b) => `<button type="button" class="chip" data-add="${b.key}"><span class="dot" style="background:${b.color}"></span>${b.label}${b.flat ? '' : ` <small>${yFmt(b.w)}×${yFmt(b.d)}</small>`}</button>`).join('');
   const tz = yardTz();
   $('y-tz').innerHTML = Array.from({ length: 15 }, (_, i) => i - 1).map((v) => `<option value="${v}"${v === tz ? ' selected' : ''}>UTC${v >= 0 ? '+' : '−'}${Math.abs(v)}</option>`).join('');
@@ -2663,14 +2667,32 @@ for (const [id, key, min, max] of [['y-hw', 'w', 4, 40], ['y-hd', 'd', 4, 40], [
     yardChanged();
   });
 }
+// Дом остаётся внутри участка, если участок уменьшили
+function keepHouseInside() {
+  const h = yard.house;
+  const r = Math.max(h.w, h.shape === 'square' ? h.w : h.d) / 2;
+  h.x = Math.min(Math.max(h.x, Math.min(r + 3, yard.plot.w / 2)), Math.max(yard.plot.w - r - 3, yard.plot.w / 2));
+  h.y = Math.min(Math.max(h.y, Math.min(r + 3, yard.plot.d / 2)), Math.max(yard.plot.d - r - 3, yard.plot.d / 2));
+}
+
 for (const [id, key, min, max] of [['y-pw', 'w', 10, 200], ['y-pd', 'd', 10, 200], ['y-prot', 'rot', -360, 360]]) {
   $(id).addEventListener('input', (e) => {
     const v = Number(e.target.value);
     if (!Number.isFinite(v) || v < min || v > max) return;
     yard.plot[key] = v;
-    yardChanged();
+    keepHouseInside();
+    yardChanged(key !== 'rot');
   });
 }
+$('y-plot-presets').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-plot]');
+  if (!b) return;
+  const [w, d] = b.dataset.plot.split('x').map(Number);
+  yard.plot.w = w;
+  yard.plot.d = d;
+  keepHouseInside();
+  yardChanged(true);
+});
 $('y-tz').addEventListener('change', (e) => {
   yard.tz = Number(e.target.value);
   yardChanged();

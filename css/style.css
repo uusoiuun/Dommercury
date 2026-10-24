@@ -547,7 +547,7 @@ td.bad { color: var(--bad); }
   .memo { position: static; }
   /* На узком экране схема участка — сразу после палитры */
   .garden-layout > .panel { display: contents; }
-  .y-o0 { order: 0; } .y-o1 { order: 1; } .y-o2 { order: 2; } .y-o3 { order: 3; } .y-o3b { order: 4; } .y-o3c { order: 5; } .y-o4 { order: 6; } .y-o5 { order: 7; } .y-o6 { order: 8; } .y-o7 { order: 9; } .y-o9 { order: 10; }
+  .y-oplot { order: -1; } .y-o0 { order: 0; } .y-o1 { order: 1; } .y-o2 { order: 2; } .y-o3 { order: 3; } .y-o3b { order: 4; } .y-o3c { order: 5; } .y-o4 { order: 6; } .y-o5 { order: 7; } .y-o6 { order: 8; } .y-o7 { order: 9; } .y-o9 { order: 10; }
 }
 
 @media (max-width: 900px) {

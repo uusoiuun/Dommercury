@@ -38,9 +38,19 @@ test('стропила: больше снега — больше сечение'
 test('рекомендация фундамента по изысканиям', async () => {
   const { geoRecommend } = await import('../js/project.js');
   assert.equal(geoRecommend({ soil: null, permafrost: 'yes' }), null);
-  assert.deepEqual(geoRecommend({ soil: 'loam', permafrost: 'yes', uniform: true }).rec, ['piles']);
-  assert.deepEqual(geoRecommend({ soil: 'peat', permafrost: 'no', uniform: true }).rec, ['piles']);
+  assert.deepEqual(geoRecommend({ soil: 'loam', permafrost: 'yes', uniform: true }).rec, ['driven', 'piles']);
+  assert.deepEqual(geoRecommend({ soil: 'peat', permafrost: 'no', uniform: true }).rec, ['piles', 'driven']);
+  assert.ok(!geoRecommend({ soil: 'sand', permafrost: 'no', uniform: true, lens: true }).rec.includes('slab'));
   assert.equal(geoRecommend({ soil: 'sand', permafrost: 'no', uniform: true }).rec[0], 'slab');
   assert.ok(!geoRecommend({ soil: 'loam', permafrost: 'no', uniform: false }).rec.includes('strip'));
   assert.ok(!geoRecommend({ soil: 'clay', permafrost: 'no', uniform: true, water: '1.2' }).rec.includes('strip'));
+});
+
+test('мини-тест: озеро и болото — высокий риск линзы', async () => {
+  const { quizResult } = await import('../js/project.js');
+  assert.equal(quizResult({}).level, null);
+  assert.equal(quizResult({ lake: 'no', bog: 'no' }).level, 'low');
+  const r = quizResult({ lake: 'yes', bog: 'yes' });
+  assert.equal(r.level, 'high');
+  assert.ok(r.lens);
 });

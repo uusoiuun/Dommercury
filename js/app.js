@@ -17,7 +17,7 @@ import {
 import { planRooms, roomsFor, kitchenSplit, dir8, isDoubleNine } from './planner.js';
 import { FURNITURE, FURN_BY_KEY, FURN_CATS, furnSvg } from './furniture.js';
 import {
-  CLIMATES, climateByLat, MATERIALS, MATERIAL_KEYS, FOUNDATIONS, FOUNDATION_COMPARE, FOUNDATION_WHEN, SITES, GEO_SOILS, GEO_PERMAFROST, geoRecommend, wallBuildUp, buildModel, normChecks, buildSheets,
+  CLIMATES, climateByLat, MATERIALS, MATERIAL_KEYS, FOUNDATIONS, FOUNDATION_COMPARE, FOUNDATION_WHEN, SITES, GEO_SOILS, GEO_PERMAFROST, geoRecommend, FOUNDATION_TYPES, QUIZ, quizResult, LENS_INFO, wallBuildUp, buildModel, normChecks, buildSheets,
 } from './project.js';
 import {
   sunPosition, localToUtc, sunDay, tzGuess, HOUSE_SHAPES, rectPoly, houseOutline, houseFacade, inPoly, sunVector, shadowsAt, sunHours,
@@ -70,7 +70,7 @@ const defaults = {
   // Утверждённая планировка для вкладки «Проектирование дома»
   approved: null,
   // Параметры проекта дома
-  project: { agree: [false, false, false], material: 'brus', site: null, geo: { soil: null, permafrost: null, ice: false, uniform: true, frost: '', water: '' }, noGeo: false, foundation: null, ceiling: null, pitch: 30, overhang: 0.5, climate: null, custom: null },
+  project: { agree: [false, false, false], material: 'brus', site: null, geo: { soil: null, permafrost: null, ice: false, uniform: true, lens: false, frost: '', water: '' }, noGeo: false, quiz: {}, foundation: null, ceiling: null, pitch: 30, overhang: 0.5, climate: null, custom: null },
   site: [],
   // Конструктор участка: дом, постройки, растения, день и время
   yard: defaultYard(),
@@ -1778,9 +1778,15 @@ const geoDone = () => state.project.noGeo || !!geoRecommend(state.project.geo);
 const projRec = () => {
   const pj = state.project;
   const g = !pj.noGeo && geoRecommend(pj.geo);
-  if (g) return { ...g, from: 'geo' };
-  if (pj.site) return { ...SITES[pj.site], from: 'site' };
-  return null;
+  let r = g ? { ...g, from: 'geo' } : pj.site ? { ...SITES[pj.site], from: 'site' } : null;
+  // Признаки линз по мини-тесту: сваи вперёд, лента и плита — в конец
+  const q = quizResult(pj.quiz);
+  if (q.level === 'high' || (q.lens && r?.from !== 'geo')) {
+    const base = r ? r.rec : ['driven', 'piles'];
+    const rec = [...base.filter((k) => !['slab', 'strip'].includes(k)), ...(q.level === 'high' ? [] : base.filter((k) => ['slab', 'strip'].includes(k)))];
+    r = { rec: rec.length ? rec : ['driven', 'piles'], note: `${r?.from === 'geo' ? `${r.note} ` : ''}По мини-тесту есть признаки линз или сложных грунтов — в первую очередь сваи, прорезающие линзу.`, from: r?.from || 'quiz' };
+  }
+  return r;
 };
 const projFoundation = () => state.project.foundation || projRec()?.rec[0] || (projClimate().permafrost ? 'piles' : 'strip');
 const projCeiling = () => state.project.ceiling || (['IА', 'IБ', 'IГ', 'IД', 'IVА'].includes(projClimate().zone) ? 2.7 : 2.5);
@@ -1801,7 +1807,7 @@ function designModel() {
       return { title: f.title || '1 этаж', geo: plain.geo, planSvg: plain.svg, furnSvg: furn.svg, preview: furn.svg };
     });
     return buildModel({
-      floors: fl, material: pj.material, site: pj.site, geo: pj.geo, noGeo: pj.noGeo, foundation: projFoundation(), climate: cl, ceiling: projCeiling(),
+      floors: fl, material: pj.material, site: pj.site, geo: pj.geo, noGeo: pj.noGeo, quiz: pj.quiz, foundation: projFoundation(), climate: cl, ceiling: projCeiling(),
       pitch: pj.pitch, overhang: pj.overhang, year: new Date().getFullYear(),
     });
   });
@@ -1828,10 +1834,12 @@ function foundationCard() {
       <label>Уровень грунтовых вод, м <input data-geo="water" inputmode="decimal" value="${escapeHtml(String(g.water ?? ''))}" placeholder="не встречены — пусто"></label>
     </div>
     <label class="check"><input type="checkbox" data-geo="uniform"${g.uniform ? ' checked' : ''}> Грунт однородный по площади дома</label>
-    <label class="check"><input type="checkbox" data-geo="ice"${g.ice ? ' checked' : ''}> Льдистый или просадочный при оттаивании</label></fieldset>
+    <label class="check"><input type="checkbox" data-geo="ice"${g.ice ? ' checked' : ''}> Льдистый или просадочный при оттаивании</label>
+    <label class="check"><input type="checkbox" data-geo="lens"${g.lens ? ' checked' : ''}> Изыскания выявили линзу: подземный лёд, талик, торф или плывун</label></fieldset>
     <label class="check nogeo"><input type="checkbox" id="pj-nogeo"${pj.noGeo ? ' checked' : ''}> Геологических изысканий нет. Выбор фундамента делаю сам, на свой риск.</label>
     ${!done ? '<p class="msg bad"><strong>Укажите итоги изысканий</strong>Грунт и наличие мерзлоты — или отметьте, что изысканий нет. Без этого проект не собирается.</p>' : ''}
-    ${rec ? `<p class="msg ${pj.noGeo ? 'bad' : 'mixed'}"><strong>${rec.from === 'geo' ? 'По изысканиям' : 'По месту строительства'} рекомендуем: ${rec.rec.map((k) => FOUNDATIONS[k].short).join(' → ')}</strong>${rec.note}${pj.noGeo ? ' Без изысканий это только предположение — решение и риск на вас.' : ''}</p>` : ''}
+    ${quizBlock()}
+    ${rec ? `<p class="msg ${pj.noGeo ? 'bad' : 'mixed'}"><strong>${rec.from === 'geo' ? 'По изысканиям' : rec.from === 'quiz' ? 'По мини-тесту' : 'По месту строительства'} рекомендуем: ${rec.rec.map((k) => FOUNDATIONS[k].short).join(' → ')}</strong>${rec.note}${pj.noGeo ? ' Без изысканий это только предположение — решение и риск на вас.' : ''}</p>` : ''}
     <div class="variants-abc"><p><b>Варианты для дома</b></p><ul>
       <li><b>А — свайный:</b> если грунтовые условия и геокриологические расчёты требуют сохранения мерзлоты.</li>
       <li><b>Б — утеплённая железобетонная плита:</b> если изыскания подтверждают возможность надёжного мелкозаглублённого основания.</li>
@@ -1839,8 +1847,25 @@ function foundationCard() {
     </ul><p class="note">Ни ленту, ни плиту не стоит назначать заранее без информации об участке.</p></div>
     <div class="found-pick">${Object.entries(FOUNDATIONS).map(([k, f]) => `<button type="button" class="chip" data-found="${k}" aria-pressed="${cur === k}"${done ? '' : ' disabled'}>${f.title}${rec?.rec[0] === k ? ' ★' : ''}</button>`).join('')}</div>
     ${w ? `<div class="found-when"><p><b>Когда выбирать «${FOUNDATIONS[cur].short}»:</b></p><ul>${w.when.map((x) => `<li>${x}</li>`).join('')}</ul><p class="note">${w.risk}</p></div>` : ''}
+    <details><summary>Какие бывают фундаменты и что распространено в Якутии</summary><div class="table-wrap"><table class="cmp"><thead><tr><th>Фундамент</th><th>В Якутии</th><th>Для каких грунтов</th><th>Замечание</th></tr></thead><tbody>${FOUNDATION_TYPES.map(([n, y, soil, note, key]) => `<tr${key && cur === key ? ' class="on-row"' : ''}><td><b>${n}</b>${key ? `<br><button type="button" class="link" data-found="${key}"${done ? '' : ' disabled'}>выбрать</button>` : ''}</td><td>${y}</td><td>${soil}</td><td>${note}</td></tr>`).join('')}</tbody></table></div></details>
+    <details${quizResult(pj.quiz).lens || g.lens ? ' open' : ''}><summary>Что такое линза в грунте и что делать, если она есть</summary><div class="lens">
+      ${LENS_INFO.what.map(([t, d]) => `<p><b>${t}.</b> ${d}</p>`).join('')}
+      <p><b>Когда стоит ждать линзу:</b></p><ul>${LENS_INFO.where.map((x) => `<li>${x}</li>`).join('')}</ul>
+      <p><b>Если линза попалась:</b></p><ol>${LENS_INFO.todo.map((x) => `<li>${x}</li>`).join('')}</ol>
+    </div></details>
     <details><summary>Сравнение фундаментов</summary><div class="table-wrap"><table class="cmp"><thead><tr><th>Критерий</th>${cols.map((c) => `<th${cur === c ? ' class="on"' : ''}>${head[c]}</th>`).join('')}</tr></thead><tbody>${FOUNDATION_COMPARE.map(([c, ...v]) => `<tr><td>${c}</td>${v.map((x, i) => `<td${cur === cols[i] ? ' class="on"' : ''}>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div></details>
   </section>`;
+}
+
+function quizBlock() {
+  const pj = state.project;
+  const q = quizResult(pj.quiz);
+  const lv = { low: ['good', 'Риск низкий'], mid: ['mixed', 'Риск средний'], high: ['bad', 'Риск высокий'] };
+  return `<details class="quiz"${Object.keys(pj.quiz).length ? ' open' : ''}><summary>Мини-тест: что может быть под участком</summary>
+    <p class="note">Ответьте по тому, что видно на участке и вокруг. Тест не заменяет изыскания, но подскажет, где искать линзы и сложные грунты.</p>
+    ${QUIZ.map(([k, t]) => `<div class="quiz-q"><span>${t}</span><span class="quiz-a">${[['yes', 'да'], ['no', 'нет'], ['unknown', 'не знаю']].map(([v, l]) => `<label><input type="radio" name="qz-${k}" data-quiz="${k}" value="${v}"${pj.quiz[k] === v ? ' checked' : ''}> ${l}</label>`).join('')}</span></div>`).join('')}
+    ${q.level ? `<div class="msg ${lv[q.level][0]}"><strong>${lv[q.level][1]}${q.lens ? ': возможна линза' : ''}</strong>${q.risks.length ? `<ul>${q.risks.map(([t, d]) => `<li><b>${t}.</b> ${d}</li>`).join('')}</ul>` : 'Явных признаков нет, но изыскания всё равно нужны.'}</div>` : ''}
+  </details>`;
 }
 
 const AGREE = [
@@ -1909,6 +1934,7 @@ $('design').addEventListener('change', (e) => {
   else if (t.id === 'pj-climate') { pj.climate = t.value; if (t.value === 'custom' && !pj.custom) pj.custom = { ...CLIMATES.yakutsk, name: 'Своё место' }; }
   else if (t.name === 'pj-site') { pj.site = t.value; pj.foundation = null; }
   else if (t.id === 'pj-nogeo') { pj.noGeo = t.checked; pj.foundation = null; }
+  else if (t.dataset.quiz) { pj.quiz = { ...pj.quiz, [t.dataset.quiz]: t.value }; pj.foundation = null; }
   else if (t.dataset.geo) {
     const k = t.dataset.geo;
     pj.geo = { ...pj.geo, [k]: t.type === 'checkbox' ? t.checked : k === 'frost' || k === 'water' ? t.value.replace(',', '.') : t.value || null };

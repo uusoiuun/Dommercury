@@ -432,7 +432,8 @@ td.bad { color: var(--bad); }
 .ufurn { cursor: grab; }
 .ufurn.sel .uf, .ufurn.sel .uf-rug { stroke: var(--accent); stroke-width: 2; }
 .plans.placing .plan { cursor: crosshair; }
-.plan.no-auto .furn, .plan.no-auto .furn-fill, .plan.no-auto .furn-label { display: none; }
+.plan.no-auto .furn, .plan.no-auto .furn-fill, .plan.no-auto .furn-label, .plan.no-auto .auto-furn { display: none; }
+.afurn { pointer-events: none; }
 #layout-plans .plan { touch-action: none; }
 .approve { font-size: 16px; padding: 12px 26px; margin-top: 8px; }
 .approve-card { border-color: color-mix(in srgb, var(--moss-2) 40%, var(--line)); }
@@ -552,6 +553,19 @@ svg.sheet { display: block; width: 100%; height: auto; font-family: "Inter Tight
 .sh-mauer { stroke: #7a4a2a; stroke-width: 0.9; }
 .sh-gutter { stroke: #2f5f8a; stroke-width: 0.5; stroke-dasharray: 2 1; }
 .sh-arrow { stroke: #000; stroke-width: 0.25; fill: none; }
+
+/* ---- Смета ---- */
+table.est { font-size: 13px; min-width: 900px; }
+table.est th { white-space: nowrap; background: var(--snow); }
+table.est td.num { text-align: right; white-space: nowrap; }
+table.est tr.est-sec td { background: color-mix(in srgb, var(--moss-2) 12%, var(--card)); font-weight: 700; }
+table.est tfoot td { font-weight: 700; border-top: 2px solid var(--line); }
+table.est td.note { font-size: 12px; margin: 0; }
+.est-price { width: 96px; text-align: right; padding: 4px 6px; margin: 0; font-size: 13px; }
+.est-price[data-edited] { border-color: var(--accent); }
+.est-total { display: flex; flex-wrap: wrap; gap: 8px 24px; margin-top: 12px; font-size: 15px; }
+.est-total b { font: 500 20px var(--display); }
+.est-btns { align-self: end; margin-bottom: 6px; }
 
 /* ---- Конструктор участка ---- */
 .chip .dot { display: inline-block; width: 11px; height: 11px; border-radius: 50%; flex: none; margin-right: 6px; vertical-align: -1px; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12); }
@@ -715,6 +729,14 @@ svg.sheet { display: block; width: 100%; height: auto; font-family: "Inter Tight
   body.print-project .sheet-wrap { width: 210mm; height: 297mm; box-shadow: none; border-radius: 0; page-break-after: always; break-after: page; overflow: hidden; }
   body.print-project svg.sheet { width: 210mm; height: 297mm; }
   body.print-project::after { display: none; }
+  @page est { size: A4 landscape; margin: 10mm; }
+  body.print-estimate > *:not(#tab-estimate), body.print-estimate .intro, body.print-estimate .est-head .params, body.print-estimate .est-head > .note { display: none !important; }
+  body.print-estimate #tab-estimate { page: est; }
+  body.print-estimate .design-wrap { padding: 0; max-width: none; }
+  body.print-estimate .card { border: 0; box-shadow: none; padding: 0; background: none; }
+  body.print-estimate table.est { min-width: 0; font-size: 9pt; }
+  body.print-estimate .est-price { border: 0; width: auto; background: none; padding: 0; }
+  body.print-estimate::after { display: none; }
   .no-print, .map-tools, .hint, button, .masthead, .intro p, .home, .foot { display: none !important; }
   .arch { max-width: none; border: 0 !important; }
   body::after { display: none; }

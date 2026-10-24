@@ -32,6 +32,13 @@ export const FURNITURE = [
   // Отдельный туалет
   { key: 'wcToilet', cat: 'wc', label: 'Унитаз', short: '', w: 0.4, d: 0.65, draw: 'toilet' },
   { key: 'miniSink', cat: 'wc', label: 'Мини-раковина', short: '', w: 0.4, d: 0.3, draw: 'sink' },
+  // Для автоматической расстановки (в каталоге не показываются)
+  { key: 'washer', cat: 'aux', label: 'Стиральная машина', short: 'СМ', w: 0.6, d: 0.6, draw: 'box' },
+  { key: 'vanity', cat: 'aux', label: 'Туалетный столик', short: 'Столик', w: 1.0, d: 0.45, draw: 'table' },
+  { key: 'coffee', cat: 'aux', label: 'Журнальный столик', short: '', w: 1.0, d: 0.55, draw: 'table' },
+  { key: 'shelf', cat: 'aux', label: 'Стеллаж', short: 'Стеллаж', w: 1.2, d: 0.45, draw: 'wardrobe' },
+  { key: 'boiler', cat: 'aux', label: 'Котёл', short: 'Котёл', w: 0.5, d: 0.45, draw: 'box' },
+  { key: 'bigTable', cat: 'aux', label: 'Обеденный стол на 6', short: 'Стол', w: 1.6, d: 0.9, draw: 'table' },
 ];
 export const FURN_BY_KEY = Object.fromEntries(FURNITURE.map((f) => [f.key, f]));
 

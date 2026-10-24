@@ -19,6 +19,7 @@ import { FURNITURE, FURN_BY_KEY, FURN_CATS, furnSvg } from './furniture.js';
 import {
   CLIMATES, climateByLat, MATERIALS, MATERIAL_KEYS, FOUNDATIONS, FOUNDATION_COMPARE, FOUNDATION_WHEN, SITES, GEO_SOILS, GEO_PERMAFROST, geoRecommend, FOUNDATION_TYPES, QUIZ, quizResult, LENS_INFO, wallBuildUp, buildModel, normChecks, buildSheets,
 } from './project.js';
+import { buildEstimate, priceEstimate } from './estimate.js';
 import {
   sunPosition, localToUtc, sunDay, tzGuess, HOUSE_SHAPES, rectPoly, houseOutline, houseFacade, inPoly, sunVector, shadowsAt, sunHours,
   BUILDINGS, BUILDING_BY_KEY, PLANTS, PLANT_BY_KEY, PLANT_GROUPS, LIGHT_TEXT, lightZone, checkPlant, checkBuildings, defaultYard, convexOverlap, housePieces, LIGHT_SHARE,
@@ -69,6 +70,8 @@ const defaults = {
   autoFurn: true,
   // Утверждённая планировка для вкладки «Проектирование дома»
   approved: null,
+  // Смета: правки цен, коэффициент региона, работы в % от материалов
+  estimate: { prices: {}, coef: 1, labor: 0 },
   // Параметры проекта дома
   project: { agree: [false, false, false], material: 'brus', site: null, geo: { soil: null, permafrost: null, ice: false, uniform: true, lens: false, frost: '', water: '' }, noGeo: false, quiz: {}, foundation: null, ceiling: null, pitch: 30, overhang: 0.5, climate: null, custom: null },
   site: [],
@@ -81,7 +84,7 @@ const defaults = {
 const saved = load();
 // Сохранения до появления плана дома открываем сразу на плане
 if (!('floor2' in saved)) delete saved.orient;
-const state = { ...defaults, ...saved, program: { ...defaults.program, ...(saved.program || {}) }, project: { ...defaults.project, ...(saved.project || {}) } };
+const state = { ...defaults, ...saved, program: { ...defaults.program, ...(saved.program || {}) }, project: { ...defaults.project, ...(saved.project || {}) }, estimate: { ...defaults.estimate, ...(saved.estimate || {}) } };
 {
   const y = defaultYard();
   const sy = saved.yard || {};
@@ -1213,6 +1216,18 @@ function guaDirScore(gua, bearing) {
  * Кровать: ногами — в направлении благоприятной водной звезды,
  * изголовье — напротив; при равенстве — по благоприятному направлению Гуа для изголовья.
  */
+const lastBedChoice = new Map();
+
+function bedOptions(chart, fsAz, gua) {
+  return ['top', 'bottom', 'left', 'right']
+    .map((feet) => {
+      const head = OPPOSITE[feet];
+      const t = towardWater(chart, fsAz, feet);
+      return { head, feet, toward: t, headDir: dir8(norm360(sideBearing(fsAz)[head])), score: t.score * 10 + guaDirScore(gua, norm360(sideBearing(fsAz)[head])) };
+    })
+    .sort((a, b) => b.score - a.score);
+}
+
 function bedPlacement(chart, fsAz, gua) {
   const sides = ['top', 'bottom', 'left', 'right'];
   return sides
@@ -1500,7 +1515,8 @@ function archSvg(chart, fsAz, f, adults, children, opt = {}) {
   const toM = (px, py) => [(px - bx0) / S, D - (py - by0) / S];
   const pick = (cls) => [...base.matchAll(new RegExp(`<(?:rect|circle|ellipse|line|path|text)[^>]*class="${cls}"[^>]*?(?:/>|>[^<]*</text>)`, 'g'))].map((m) => m[0]);
   const num = (s, n) => Number((s.match(new RegExp(`\\b${n}="([-\\d.]+)"`)) || [])[1]);
-  const furn = showFurn && state.autoFurn ? [...pick('furn'), ...pick('furn-fill'), ...pick('furn-label')] : [];
+  const afm = base.match(/<!--af-->([\s\S]*?)<!--\/af-->/);
+  const furn = showFurn && state.autoFurn && afm ? [afm[1]] : [];
   const ufurn = !showFurn ? [] : [...base.matchAll(/<g class="ufurn[^"]*"[\s\S]*?<\/g>/g)].map((m) => m[0].replace(/ sel"/, '"'));
   const doorGaps = pick('door-gap').map((s) => [toM(num(s, 'x1'), num(s, 'y1')), toM(num(s, 'x2'), num(s, 'y2'))]);
   const leaves = pick('door-leaf');
@@ -1792,6 +1808,13 @@ const projFoundation = () => state.project.foundation || projRec()?.rec[0] || (p
 const projCeiling = () => state.project.ceiling || (['IА', 'IБ', 'IГ', 'IД', 'IVА'].includes(projClimate().zone) ? 2.7 : 2.5);
 
 let designCache = { key: '', html: '' };
+let modelCache = { key: '', m: null };
+const modelKey = () => JSON.stringify([state.approved?.at, state.project, state.center]);
+function currentModel() {
+  const key = modelKey();
+  if (modelCache.key !== key) modelCache = { key, m: designModel() };
+  return modelCache.m;
+}
 
 function designModel() {
   const pj = state.project;
@@ -1892,9 +1915,9 @@ function renderDesign() {
     $('design').innerHTML = `${agreeCard.replace('<section class="card agree-card">', '<details class="card agree-card"><summary>Условия приняты</summary>').replace(/<\/section>$/, '</details>')}${foundationCard()}`;
     return;
   }
-  const key = JSON.stringify([a.at, pj, state.center]);
+  const key = modelKey();
   if (designCache.key !== key) {
-    const m = designModel();
+    const m = currentModel();
     const checks = normChecks(m);
     const sheets = buildSheets(m, checks);
     const cl = m.cl;
@@ -1925,6 +1948,88 @@ function renderDesign() {
   }
   $('design').innerHTML = designCache.html;
 }
+
+// ---- Смета ----
+
+const rub = (n) => Math.round(n).toLocaleString('ru-RU');
+const qtyF = (n) => (Number.isInteger(n) ? String(n) : n.toFixed(2).replace('.', ','));
+
+function renderEstimate() {
+  if ($('tab-estimate').hidden) return;
+  const pj = state.project;
+  if (!state.approved?.snap || !pj.agree.every(Boolean) || !geoDone()) {
+    $('estimate').innerHTML = '<section class="card"><h2>Сначала — проект</h2><p class="note">Смета считается по эскизному проекту. Утвердите планировку, отметьте условия и укажите грунты во вкладке «Проектирование дома».</p><p><a class="btn" href="#design">К проектированию</a></p></section>';
+    return;
+  }
+  const m = currentModel();
+  const est = state.estimate;
+  const priced = priceEstimate(buildEstimate(m), est.prices, est.coef);
+  const labor = (priced.total * (est.labor || 0)) / 100;
+  const body = priced.sections.map((s, si) => `<tr class="est-sec"><td>${si + 1}.</td><td colspan="5">${s.title}</td><td class="num">${rub(s.sum)}</td><td></td></tr>`
+    + s.rows.map((r, ri) => `<tr><td>${si + 1}.${ri + 1}.</td><td>${escapeHtml(r.work || '')}</td><td>${escapeHtml(r.name)}</td><td class="num">${qtyF(r.qty)}</td><td>${r.unit}</td><td class="num"><input class="est-price" data-pkey="${r.key}" value="${r.base}" inputmode="decimal"${est.prices[r.key] != null ? ' data-edited' : ''}></td><td class="num">${rub(r.cost)}</td><td class="note">${r.note || ''}</td></tr>`).join('')).join('');
+  const total = priced.total + labor;
+  $('estimate').innerHTML = `<section class="card est-head"><h2>Смета дома ${fmt(m.W, 1)} × ${fmt(m.D, 1)} м — ${m.mat.title.toLowerCase()}, фундамент ${FOUNDATIONS[m.foundation].short}</h2>
+      <div class="grid3 params">
+        <label>Коэффициент цен региона <input id="est-coef" inputmode="decimal" value="${est.coef}"></label>
+        <label>Работы, % от материалов <input id="est-labor" inputmode="decimal" value="${est.labor || 0}"></label>
+        <div class="row wrap est-btns"><button type="button" id="est-pdf">Скачать смету в PDF</button><button type="button" class="secondary" id="est-csv">Скачать для Excel</button><button type="button" class="link" id="est-reset">Вернуть цены по умолчанию</button></div>
+      </div>
+      <p class="note">Работы обычно стоят 60–100 % от материалов; 0 — только материалы. Количества — по проекту с запасом на подрезку; цены можно менять прямо в таблице.</p>
+      <div class="est-total"><span>Материалы: <b>${rub(priced.total)} ₽</b></span>${labor ? `<span>Работы: <b>${rub(labor)} ₽</b></span>` : ''}<span>Итого: <b>${rub(total)} ₽</b></span><span>За м² общей площади: <b>${rub(total / Math.max(1, m.total))} ₽</b></span></div>
+    </section>
+    <section class="card est-card"><div class="table-wrap"><table class="est"><thead><tr><th>№</th><th>Наименование работ</th><th>Наименование материала</th><th>Кол-во</th><th>Ед. изм.</th><th>Расценка, ₽</th><th>Стоимость, ₽</th><th>Примечание</th></tr></thead><tbody>${body}</tbody>
+    <tfoot><tr><td></td><td colspan="5">Стоимость материалов</td><td class="num">${rub(priced.total)}</td><td></td></tr>${labor ? `<tr><td></td><td colspan="5">Работы (${est.labor} %)</td><td class="num">${rub(labor)}</td><td></td></tr><tr><td></td><td colspan="5">Итого</td><td class="num">${rub(total)}</td><td></td></tr>` : ''}</tfoot></table></div>
+    <p class="note">Смета ориентировочная, по эскизному проекту; не является сметной документацией. Цены — средние по Якутску на 2025–2026 годы, уточняйте у поставщиков.</p></section>`;
+}
+
+$('estimate').addEventListener('change', (e) => {
+  const t = e.target;
+  const est = state.estimate;
+  const num = (v) => Number(String(v).replace(/\s/g, '').replace(',', '.'));
+  if (t.dataset.pkey) {
+    const v = num(t.value);
+    if (Number.isFinite(v) && v >= 0) est.prices = { ...est.prices, [t.dataset.pkey]: v };
+  } else if (t.id === 'est-coef') {
+    const v = num(t.value);
+    if (Number.isFinite(v) && v > 0) est.coef = v;
+  } else if (t.id === 'est-labor') {
+    const v = num(t.value);
+    if (Number.isFinite(v) && v >= 0) est.labor = v;
+  } else return;
+  save();
+  renderEstimate();
+});
+$('estimate').addEventListener('click', (e) => {
+  if (e.target.closest('#est-reset')) {
+    if (!window.confirm('Вернуть все цены по умолчанию?')) return;
+    state.estimate.prices = {};
+    save();
+    renderEstimate();
+  }
+  if (e.target.closest('#est-pdf')) {
+    document.body.classList.add('print-estimate');
+    window.print();
+  }
+  if (e.target.closest('#est-csv')) {
+    const m = currentModel();
+    const est = state.estimate;
+    const priced = priceEstimate(buildEstimate(m), est.prices, est.coef);
+    const q = (v) => `"${String(v).replace(/"/g, '""')}"`;
+    const lines = [['№', 'Наименование работ', 'Наименование материала', 'Кол-во', 'Ед. изм.', 'Расценка', 'Стоимость', 'Примечание'].map(q).join(';')];
+    priced.sections.forEach((s, si) => {
+      lines.push([`${si + 1}.`, s.title, '', '', '', '', Math.round(s.sum), ''].map(q).join(';'));
+      s.rows.forEach((r, ri) => lines.push([`${si + 1}.${ri + 1}.`, r.work || '', r.name, String(r.qty).replace('.', ','), r.unit, String(r.unitPrice).replace('.', ','), String(r.cost).replace('.', ','), r.note || ''].map(q).join(';')));
+    });
+    lines.push(['', 'Стоимость материалов', '', '', '', '', Math.round(priced.total), ''].map(q).join(';'));
+    const blob = new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `Смета-дом-${fmt(m.W, 0)}x${fmt(m.D, 0)}.csv`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+});
+window.addEventListener('afterprint', () => document.body.classList.remove('print-estimate'));
 
 $('btn-approve').addEventListener('click', approveLayout);
 $('design').addEventListener('change', (e) => {
@@ -2224,8 +2329,8 @@ function roomNotes(chart, fsAz, f, adults, children) {
         text += ` Рабочая зона: стол, сидеть лицом на ${desk.toward.dir} — там водная ${desk.toward.w}. Пользуйтесь ею каждый день: водную звезду лучше всего «будит» присутствие людей. Активаторы для спальни: принтер, свечи, аромадиффузор, кондиционер, мобиль, живые растения в меру. Фонтан и аквариум в спальне лучше не ставить.`;
       }
       if (isDoubleNine(c) && (!f.title || f.n === 1)) text += room.work ? ' Сектор двойной 9: горная 9 — для сна, водная 9 — для работы.' : '';
-      const bed = bedPlacement(chart, fsAz, owner?.gua);
-      text += ` Кровать ногами на ${bed.toward.dir} — там водная ${bed.toward.w}${bed.toward.score ? '' : ' (благоприятной водной рядом нет)'}, изголовье на ${bed.headDir}.`;
+      const bed = lastBedChoice.get(`${f.n}:${room.key}`) || bedPlacement(chart, fsAz, owner?.gua);
+      text += ` Кровать изголовьем к глухой стене — не под окном и не ногами в дверь. Ногами на ${bed.toward.dir} — там водная ${bed.toward.w}${bed.toward.score ? '' : ' (благоприятной водной рядом нет)'}, изголовье на ${bed.headDir}.`;
       if (owner) {
         const g = guaDirScore(owner.gua, DIR_BEARING[bed.headDir]);
         if (g > 0) text += ` Изголовье на благоприятное направление Гуа ${owner.gua}${owner.name ? ` (${escapeHtml(owner.name)})` : ''}.`;
@@ -2281,23 +2386,6 @@ function roomNotes(chart, fsAz, f, adults, children) {
 const PUBLIC = ['hall', 'entry', 'kitchen', 'lounge'];
 
 // Прямоугольники мебели [x, y, w, h] из нарисованных фигур
-function furnitureBoxes(svgParts) {
-  const num = (str, name) => Number((str.match(new RegExp(`\\b${name}="([-\\d.]+)"`)) || [])[1]);
-  const boxes = [];
-  for (const p of svgParts) {
-    if (!/class="furn(-fill)?"/.test(p)) continue;
-    if (p.startsWith('<rect')) boxes.push([num(p, 'x'), num(p, 'y'), num(p, 'width'), num(p, 'height')]);
-    else if (p.startsWith('<circle')) {
-      const r = num(p, 'r');
-      boxes.push([num(p, 'cx') - r, num(p, 'cy') - r, 2 * r, 2 * r]);
-    } else if (p.startsWith('<ellipse')) {
-      const rx = num(p, 'rx');
-      const ry = num(p, 'ry');
-      boxes.push([num(p, 'cx') - rx, num(p, 'cy') - ry, 2 * rx, 2 * ry]);
-    }
-  }
-  return boxes.filter((b) => b.every(Number.isFinite));
-}
 
 // Площадь пересечения прямоугольника с мебелью
 function furnitureOverlap(rect, boxes) {
@@ -2314,34 +2402,129 @@ function furnitureOverlap(rect, boxes) {
 }
 const SUN_WINDOW = { Ю: 1.8, ЮВ: 1.8, ЮЗ: 1.8, В: 1.2, З: 1.2, С: 0.9, СВ: 0.9, СЗ: 0.9 };
 
-function openingsSvg(f, cells, all, rooms, geo) {
-  const { x0, y0, cw, ch, scale, W, D, pt, auxPart, stripOf, furniture = [] } = geo;
-  const out = [];
+const FACING_SIDE = { front: 'bottom', back: 'top', left: 'left', right: 'right' };
+const isWetRoom = (r) => !!r && (r.wet || /^bath|^suitebath|^laundry/.test(r.key));
+const sideToward = (a, b) => (b.row < a.row ? 'top' : b.row > a.row ? 'bottom' : b.col < a.col ? 'left' : 'right');
+
+/**
+ * Двери, проходы и окна этажа — до расстановки мебели, чтобы мебель знала, где они.
+ * Каждая комната получает проход; каждая комната с наружной стеной — окно.
+ */
+function openingPlan(f, cells, all, rooms, auxPart) {
+  const { W, D } = f.g;
   const key = (c) => `${c.row}-${c.col}`;
   const roomOf = (c) => all[key(c)];
   const adj = (a, b) => Math.abs(a.row - b.row) + Math.abs(a.col - b.col) === 1;
+  const links = [];
+  const list = [...rooms.values()];
+  const connected = new Set(list.filter((x) => x.room.type === 'hall').map((x) => x.room.key));
+  if (!connected.size && list.length) connected.add((list.find((x) => x.room.type === 'entry') || list[0]).room.key);
+  // Проходы: сначала через холл и общие зоны; если не вышло — через соседнюю сухую комнату; в крайнем случае — через любую
+  for (const pass of [0, 1, 2]) {
+    for (let guard = 0; guard < 12; guard++) {
+      let progress = false;
+      for (const { room, cells: rc } of list) {
+        if (connected.has(room.key) || auxPart(room)) continue;
+        const targets = room.key === 'suitebath' ? ['master'] : null;
+        let best = null;
+        for (const c of rc) {
+          for (const o of cells) {
+            const r = roomOf(o);
+            if (!r || r.key === room.key || auxPart(r) || !adj(c, o) || !connected.has(r.key)) continue;
+            if (targets && pass === 0 && !targets.includes(r.key)) continue;
+            if (!targets && pass === 0 && !PUBLIC.includes(r.type) && r.type !== 'office') continue;
+            if (pass === 1 && isWetRoom(r)) continue;
+            const rank = (r.type === 'hall' ? 0 : r.type === 'entry' ? 1 : PUBLIC.includes(r.type) ? 2 : 3) + (c === rc[0] ? 0 : 0.1);
+            if (!best || rank < best.rank) best = { from: o, to: c, rank, target: r };
+          }
+        }
+        if (!best) continue;
+        const open = PUBLIC.includes(room.type) && PUBLIC.includes(best.target.type) && !(room.type === 'entry' || best.target.type === 'entry');
+        links.push({ a: best.from, b: best.to, kind: open ? 'open' : 'door' });
+        connected.add(room.key);
+        progress = true;
+      }
+      if (!progress) break;
+    }
+  }
+  const aux = list.filter(({ room }) => auxPart(room)).map(({ room, cells: rc }) => ({ room, cell: rc[0] }));
 
-  // Дверь (с дугой открывания в комнату to) или проём на общей стене клеток a и b
+  // Окна
+  const segs = outline(f.g.dec);
+  const eps = 1e-6;
+  const segsOf = (c) => {
+    const xA = (c.col * W) / 3;
+    const xB = ((c.col + 1) * W) / 3;
+    const yA = ((2 - c.row) * D) / 3;
+    const yB = ((3 - c.row) * D) / 3;
+    return segs
+      .map((sg) => {
+        const x1 = Math.max(Math.min(sg.x1, sg.x2), xA);
+        const x2 = Math.min(Math.max(sg.x1, sg.x2), xB);
+        const y1 = Math.max(Math.min(sg.y1, sg.y2), yA);
+        const y2 = Math.min(Math.max(sg.y1, sg.y2), yB);
+        if (x2 < x1 - eps || y2 < y1 - eps) return null;
+        return { c, x1, x2, y1, y2, facing: sg.facing, len: Math.hypot(x2 - x1, y2 - y1) };
+      })
+      .filter((sg) => sg && sg.len > 1.2)
+      // Стена с входной дверью — без окна
+      .filter((sg) => !(f.door && f.doorPos === key(c) && sg.facing === f.door.side))
+      .sort((a, b) => b.len - a.len);
+  };
+  const windows = [];
+  const add = (sg, room, small) => {
+    const dir = dir8(norm360(state.az + SIDE_BEARING[sg.facing]));
+    const len = Math.min(small ? 0.6 : SUN_WINDOW[dir] || 1.2, sg.len - 0.6);
+    windows.push({ ...sg, room: room.key, side: FACING_SIDE[sg.facing], len, mx: (sg.x1 + sg.x2) / 2, my: (sg.y1 + sg.y2) / 2, horiz: sg.facing === 'front' || sg.facing === 'back' });
+  };
+  for (const { room, cells: rc } of list) {
+    if (['hall', 'entry'].includes(room.type)) continue;
+    const cand = rc.flatMap(segsOf);
+    if (!cand.length) continue;
+    // Санузлы, котельная, гардеробные и кладовые — одно небольшое окно
+    if (room.type === 'utility' && !room.key.startsWith('custom')) {
+      add(cand[0], room, true);
+    } else if (room.type === 'kitchen') {
+      // Кухня с выходом на две стороны — два окна
+      const byFacing = new Map();
+      for (const sg of cand) if (!byFacing.has(sg.facing) || byFacing.get(sg.facing).len < sg.len) byFacing.set(sg.facing, sg);
+      const best = [...byFacing.values()].sort((a, b) => b.len - a.len).slice(0, 2);
+      const perCell = new Map();
+      for (const sg of cand) if (!perCell.has(key(sg.c))) perCell.set(key(sg.c), sg);
+      const chosen = new Set(best);
+      for (const sg of perCell.values()) if (![...chosen].some((x) => x.c === sg.c)) chosen.add(sg);
+      for (const sg of chosen) add(sg, room, false);
+    } else {
+      const seen = new Set();
+      for (const sg of cand) {
+        if (seen.has(key(sg.c))) continue;
+        seen.add(key(sg.c));
+        add(sg, room, false);
+      }
+    }
+  }
+  return { links, aux, windows };
+}
+
+function openingsSvg(f, plan, geo) {
+  const { x0, y0, cw, ch, scale, pt, stripOf, furniture = [] } = geo;
+  const out = [];
   const opening = (a, b, kind) => {
-    // Вдоль общей стены ищем место, где ни проём, ни открывание двери не задевают мебель
     const vertical = a.row === b.row;
     const span = vertical ? ch : cw;
     const w = Math.min((kind === 'open' ? 1.4 : 0.8) * scale, span * 0.6);
-    const clear = 0.6 * scale; // свободная полоса перед проёмом
+    const clear = 0.6 * scale;
     const n = vertical ? [b.col > a.col ? 1 : -1, 0] : [0, b.row > a.row ? 1 : -1];
     const edge = vertical ? x0 + Math.max(a.col, b.col) * cw : y0 + Math.max(a.row, b.row) * ch;
     const start0 = vertical ? y0 + a.row * ch : x0 + a.col * cw;
     let best = null;
-    // Кандидаты — от середины стены к краям, с шагом 2 px
     const offsets = [0];
     for (let d = 2; d < span / 2; d += 2) offsets.push(d, -d);
     for (const off of offsets) {
       const c = start0 + span / 2 + off;
       if (c - w / 2 < start0 + 2 || c + w / 2 > start0 + span - 2) continue;
-      // Зона открывания (в комнату «b») и полоса подхода (со стороны «a»)
       const swing = vertical ? [edge, c - w / 2, n[0] * Math.max(w, clear), w] : [c - w / 2, edge, w, n[1] * Math.max(w, clear)];
       const approach = vertical ? [edge, c - w / 2, -n[0] * clear, w] : [c - w / 2, edge, w, -n[1] * clear];
-      // Мебель в самом проёме недопустима, в зоне открывания и подхода — нежелательна
       const gapRect = vertical ? [edge - 3, c - w / 2, 6, w] : [c - w / 2, edge - 3, w, 6];
       const hit = furnitureOverlap(gapRect, furniture) * 100 + furnitureOverlap(swing, furniture) + furnitureOverlap(approach, furniture);
       if (!best || hit < best.hit - 0.5) best = { c, hit };
@@ -2352,49 +2535,18 @@ function openingsSvg(f, cells, all, rooms, geo) {
     const p2 = vertical ? [edge, cpos + w / 2] : [cpos + w / 2, edge];
     out.push(`<line class="door-gap" x1="${p1[0]}" y1="${p1[1]}" x2="${p2[0]}" y2="${p2[1]}"/>`);
     if (kind === 'door') {
-      const w = Math.hypot(p2[0] - p1[0], p2[1] - p1[1]);
-      const leaf = [p1[0] + n[0] * w, p1[1] + n[1] * w];
-      const e = [(p2[0] - p1[0]) / w, (p2[1] - p1[1]) / w];
+      const ww = Math.hypot(p2[0] - p1[0], p2[1] - p1[1]);
+      const leaf = [p1[0] + n[0] * ww, p1[1] + n[1] * ww];
+      const e = [(p2[0] - p1[0]) / ww, (p2[1] - p1[1]) / ww];
       const sweep = n[0] * e[1] - n[1] * e[0] > 0 ? 1 : 0;
-      out.push(`<path class="door-leaf" d="M${p1[0]} ${p1[1]} L${leaf[0]} ${leaf[1]} A${w} ${w} 0 0 ${sweep} ${p2[0]} ${p2[1]}"/>`);
+      out.push(`<path class="door-leaf" d="M${p1[0]} ${p1[1]} L${leaf[0]} ${leaf[1]} A${ww} ${ww} 0 0 ${sweep} ${p2[0]} ${p2[1]}"/>`);
     }
   };
-
-  // Связи: каждая комната — через холл, прихожую или общую зону; ванная мастер-спальни — только из спальни
-  const list = [...rooms.values()];
-  const connected = new Set(list.filter((x) => x.room.type === 'hall').map((x) => x.room.key));
-  for (let guard = 0; guard < 10; guard++) {
-    let progress = false;
-    for (const { room, cells: rc } of list) {
-      if (connected.has(room.key) || auxPart(room)) continue;
-      const targets = room.key === 'suitebath' ? ['master'] : null;
-      let best = null;
-      for (const c of rc) {
-        for (const o of cells) {
-          const r = roomOf(o);
-          if (!r || r.key === room.key || !adj(c, o) || !connected.has(r.key)) continue;
-          if (targets && !targets.includes(r.key)) continue;
-          // Через спальни и санузлы не проходим
-          if (!targets && !PUBLIC.includes(r.type) && r.type !== 'office') continue;
-          const rank = (r.type === 'hall' ? 0 : r.type === 'entry' ? 1 : 2) + (c === rc[0] ? 0 : 0.1);
-          if (!best || rank < best.rank) best = { from: o, to: c, rank, target: r };
-        }
-      }
-      if (!best) continue;
-      const open = PUBLIC.includes(room.type) && PUBLIC.includes(best.target.type) && !(room.type === 'entry' || best.target.type === 'entry');
-      opening(best.from, best.to, open ? 'open' : 'door');
-      connected.add(room.key);
-      progress = true;
-    }
-    if (!progress) break;
-  }
-
+  for (const l of plan.links) opening(l.a, l.b, l.kind);
   // Небольшое подсобное — дверь из соседней комнаты в полосу у стены
-  for (const { room, cells: rc } of list) {
-    if (!auxPart(room)) continue;
-    const [sx, sy, sw, sh] = stripOf(rc[0]);
-    const c = rc[0];
-    const side = c.row === 0 ? 'top' : c.row === 2 ? 'bottom' : c.col === 0 ? 'left' : 'right';
+  for (const { cell: c } of plan.aux) {
+    const [sx, sy, sw, sh] = stripOf(c);
+    const side = outerSide(c.row, c.col);
     const w = Math.min(0.8 * scale, (side === 'top' || side === 'bottom' ? sw : sh) * 0.5);
     if (side === 'top' || side === 'bottom') {
       const y = side === 'top' ? sy + sh : sy;
@@ -2404,46 +2556,12 @@ function openingsSvg(f, cells, all, rooms, geo) {
       out.push(`<line class="door-gap" x1="${x}" y1="${sy + sh / 2 - w / 2}" x2="${x}" y2="${sy + sh / 2 + w / 2}"/>`);
     }
   }
-
-  // Окна на наружных стенах: размер по стороне света (в Якутии на север — небольшие)
-  const segs = outline(f.g.dec);
-  for (const c of cells) {
-    const r = roomOf(c);
-    if (!r || ['hall', 'entry'].includes(r.type)) continue;
-    const boiler = r.key === 'boiler';
-    if (r.type === 'utility' && !boiler && !r.key.startsWith('custom')) continue;
-    const xA = (c.col * W) / 3;
-    const xB = ((c.col + 1) * W) / 3;
-    const yA = ((2 - c.row) * D) / 3;
-    const yB = ((3 - c.row) * D) / 3;
-    const eps = 1e-6;
-    const inCell = segs
-      .map((sg) => {
-        // Часть наружной стены, проходящая по клетке
-        const x1 = Math.max(Math.min(sg.x1, sg.x2), xA);
-        const x2 = Math.min(Math.max(sg.x1, sg.x2), xB);
-        const y1 = Math.max(Math.min(sg.y1, sg.y2), yA);
-        const y2 = Math.min(Math.max(sg.y1, sg.y2), yB);
-        if (x2 < x1 - eps || y2 < y1 - eps) return null;
-        return { x1, x2, y1, y2, facing: sg.facing, len: Math.hypot(x2 - x1, y2 - y1) };
-      })
-      .filter((sg) => sg && sg.len > 1.2)
-      .sort((a, b) => b.len - a.len);
-    const sg = inCell[0];
-    if (!sg) continue;
-    // Дверь входа на этой стене — окно не ставим
-    if (f.door && f.doorPos === key(c) && sg.facing === f.door.side) continue;
-    const dir = dir8(norm360(state.az + SIDE_BEARING[sg.facing]));
-    const len = Math.min(boiler ? 0.6 : SUN_WINDOW[dir] || 1.2, sg.len - 0.6);
-    const mx = (sg.x1 + sg.x2) / 2;
-    const my = (sg.y1 + sg.y2) / 2;
-    const horiz = sg.facing === 'front' || sg.facing === 'back';
-    const [ax, ay] = pt(horiz ? mx - len / 2 : mx, horiz ? my : my - len / 2);
-    const [bx, by] = pt(horiz ? mx + len / 2 : mx, horiz ? my : my + len / 2);
+  for (const wdw of plan.windows) {
+    const [ax, ay] = pt(wdw.horiz ? wdw.mx - wdw.len / 2 : wdw.mx, wdw.horiz ? wdw.my : wdw.my - wdw.len / 2);
+    const [bx, by] = pt(wdw.horiz ? wdw.mx + wdw.len / 2 : wdw.mx, wdw.horiz ? wdw.my : wdw.my + wdw.len / 2);
     out.push(`<line class="window-gap" x1="${ax}" y1="${ay}" x2="${bx}" y2="${by}"/>`);
-    const o = 2;
-    for (const d of [-o, 0, o]) {
-      out.push(horiz
+    for (const d of [-2, 0, 2]) {
+      out.push(wdw.horiz
         ? `<line class="window-line" x1="${ax}" y1="${ay + d}" x2="${bx}" y2="${by + d}"/>`
         : `<line class="window-line" x1="${ax + d}" y1="${ay}" x2="${bx + d}" y2="${by}"/>`);
     }
@@ -2525,120 +2643,200 @@ function layoutSvg(chart, fsAz, f, scale, adults, children, mini = false) {
     parts.push(`<line class="plan-door" x1="${ax}" y1="${ay}" x2="${bx}" y2="${by}"/>`);
   }
 
-  // Мебель: прямоугольник у стены side в клетке
-  const along = (rect, side, w, d, cls = 'furn') => {
-    const [x, y, cwid, chei] = rect;
-    const inset = 3;
-    let fx;
-    let fy;
-    let fw;
-    let fh;
-    if (side === 'top' || side === 'bottom') {
-      fw = Math.min(w, cwid - 2 * inset);
-      fh = Math.min(d, chei - 2 * inset);
-      fx = x + (cwid - fw) / 2;
-      fy = side === 'top' ? y + inset : y + chei - inset - fh;
-    } else {
-      fw = Math.min(d, cwid - 2 * inset);
-      fh = Math.min(w, chei - 2 * inset);
-      fy = y + (chei - fh) / 2;
-      fx = side === 'left' ? x + inset : x + cwid - inset - fw;
-    }
-    parts.push(`<rect class="${cls}" x="${fx}" y="${fy}" width="${fw}" height="${fh}" rx="2"/>`);
-    return [fx, fy, fw, fh];
+  // Двери и окна известны заранее — мебель ставим с их учётом
+  const plan = openingPlan(f, cells, all, rooms, auxPart);
+  const keyOf = (c) => `${c.row}-${c.col}`;
+  const doorSides = new Map();
+  const winSides = new Map();
+  const mark = (map, c, side) => {
+    if (!map.has(keyOf(c))) map.set(keyOf(c), new Set());
+    map.get(keyOf(c)).add(side);
   };
-  const cellRect = (c) => [x0 + c.col * cw, y0 + c.row * ch, cw, ch];
+  for (const l of plan.links) { mark(doorSides, l.a, sideToward(l.a, l.b)); mark(doorSides, l.b, sideToward(l.b, l.a)); }
+  if (f.door && f.doorPos) {
+    const dc = cells.find((c) => keyOf(c) === f.doorPos);
+    if (dc) mark(doorSides, dc, FACING_SIDE[f.door.side]);
+  }
+  for (const w of plan.windows) mark(winSides, w.c, w.side);
+  const hasDoor = (c, side) => !!doorSides.get(keyOf(c))?.has(side);
+  const hasWin = (c, side) => !!winSides.get(keyOf(c))?.has(side);
+  const SIDES = ['top', 'right', 'bottom', 'left'];
+  const ROT = { top: 0, right: 90, bottom: 180, left: 270 };
 
-  const furnStart = parts.length;
+  // Автоматическая мебель: предметы из каталога, у стены или свободно, без наложений
+  const af = [];
+  const boxes = [];
+  const cellRect = (c) => [x0 + c.col * cw, y0 + c.row * ch, cw, ch];
+  const overlaps = (b) => boxes.some(([x, y, w, h]) => Math.min(b[0] + b[2], x + w) - Math.max(b[0], x) > 1 && Math.min(b[1] + b[3], y + h) - Math.max(b[1], y) > 1);
+  const putAt = (k, cx, cy, rot, force = false) => {
+    const def = FURN_BY_KEY[k];
+    const vert = rot % 180 !== 0;
+    const bw = (vert ? def.d : def.w) * scale;
+    const bh = (vert ? def.w : def.d) * scale;
+    const box = [cx - bw / 2, cy - bh / 2, bw, bh];
+    if (!force && overlaps(box)) return null;
+    boxes.push(box);
+    af.push(furnSvg(def, [cx, cy], scale, rot).replace('class="ufurn"', 'class="afurn"'));
+    return box;
+  };
+  // У стены side прямоугольника rect, в доле frac вдоль стены
+  const wallPos = (k, rect, side, frac) => {
+    const def = FURN_BY_KEY[k];
+    const [rx, ry, rw, rh] = rect;
+    const inset = 3;
+    const w = def.w * scale;
+    const d = def.d * scale;
+    const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+    if (side === 'top' || side === 'bottom') {
+      if (w > rw - 2 * inset || d > rh - 2 * inset) return null;
+      return [clamp(rx + frac * rw, rx + inset + w / 2, rx + rw - inset - w / 2), side === 'top' ? ry + inset + d / 2 : ry + rh - inset - d / 2];
+    }
+    if (w > rh - 2 * inset || d > rw - 2 * inset) return null;
+    return [side === 'left' ? rx + inset + d / 2 : rx + rw - inset - d / 2, clamp(ry + frac * rh, ry + inset + w / 2, ry + rh - inset - w / 2)];
+  };
+  const put = (k, rect, sides, fracs = [0.5, 0.25, 0.75]) => {
+    for (const side of sides) {
+      for (const fr of fracs) {
+        const p = wallPos(k, rect, side, fr);
+        if (!p) continue;
+        const b = putAt(k, p[0], p[1], ROT[side]);
+        if (b) return { box: b, side, at: p };
+      }
+    }
+    return null;
+  };
+  // Свободные стены клетки: без дверей и окон, внешние — в конце
+  const freeSides = (c, avoid = []) => SIDES.filter((s2) => !hasDoor(c, s2) && !hasWin(c, s2) && !avoid.includes(s2));
+  const quietSides = (c, avoid = []) => SIDES.filter((s2) => !hasDoor(c, s2) && !avoid.includes(s2));
+  const inward = (side, px) => ({ top: [0, px], bottom: [0, -px], left: [px, 0], right: [-px, 0] })[side];
+
   for (const { room, cells: rc } of rooms.values()) {
-    // В мини-плане вариантов мебель не рисуем
     if (mini) break;
+    const c = primaryCell(room, rc);
+    const rect = cellRect(c);
     if (room.key === 'suitebath') {
-      const c = primaryCell(room, rc);
-      // Сторона к спальне: там проходная гардеробная, дальше — ванная
+      // Проходная гардеробная со стороны спальни, дальше — ванная
       const mc = cells.find((o) => `${o.row}-${o.col}` === all[`${o.row}-${o.col}`]?.primary && all[`${o.row}-${o.col}`]?.key === 'master');
-      const toward = !mc ? 'top' : mc.row < c.row ? 'top' : mc.row > c.row ? 'bottom' : mc.col < c.col ? 'left' : 'right';
-      const [x, y, w, h] = cellRect(c);
+      const toward = mc ? sideToward(c, mc) : 'top';
+      const [x, y, w, h] = rect;
       const vertical = toward === 'top' || toward === 'bottom';
-      // Проходная гардеробная — первая половина клетки со шкафами по двум сторонам
       const half = vertical ? h / 2 : w / 2;
-      const gx = toward === 'right' ? x + w - half : x;
-      const gy = toward === 'bottom' ? y + h - half : y;
-      const gw = vertical ? w : half;
-      const gh = vertical ? half : h;
-      const d = m(0.55);
-      if (vertical) {
-        parts.push(`<rect class="furn" x="${gx + 3}" y="${gy + 3}" width="${Math.min(d, gw / 3)}" height="${gh - 6}"/>`);
-        parts.push(`<rect class="furn" x="${gx + gw - 3 - Math.min(d, gw / 3)}" y="${gy + 3}" width="${Math.min(d, gw / 3)}" height="${gh - 6}"/>`);
-        parts.push(`<line class="plan-wall" stroke-width="1" x1="${x}" y1="${toward === 'top' ? y + half : y + h - half}" x2="${x + w}" y2="${toward === 'top' ? y + half : y + h - half}"/>`);
-      } else {
-        parts.push(`<rect class="furn" x="${gx + 3}" y="${gy + 3}" width="${gw - 6}" height="${Math.min(d, gh / 3)}"/>`);
-        parts.push(`<rect class="furn" x="${gx + 3}" y="${gy + gh - 3 - Math.min(d, gh / 3)}" width="${gw - 6}" height="${Math.min(d, gh / 3)}"/>`);
-        parts.push(`<line class="plan-wall" stroke-width="1" x1="${toward === 'left' ? x + half : x + w - half}" y1="${y}" x2="${toward === 'left' ? x + half : x + w - half}" y2="${y + h}"/>`);
-      }
-      // Ванная — вторая половина: ванна у дальней стены и унитаз
-      const far = { top: 'bottom', bottom: 'top', left: 'right', right: 'left' }[toward];
-      const bathRect = vertical ? [x, toward === 'top' ? y + half : y, w, half] : [toward === 'left' ? x + half : x, y, half, h];
-      along(bathRect, far, m(1.7), m(0.75));
-      parts.push(`<ellipse class="furn" cx="${bathRect[0] + bathRect[2] / 2}" cy="${bathRect[1] + bathRect[3] / 2}" rx="${m(0.18)}" ry="${m(0.28)}"/>`);
+      const gRect = vertical ? [x, toward === 'top' ? y : y + h - half, w, half] : [toward === 'left' ? x : x + w - half, y, half, h];
+      const bRect = vertical ? [x, toward === 'top' ? y + half : y, w, half] : [toward === 'left' ? x + half : x, y, half, h];
+      const sideWalls = vertical ? ['left', 'right'] : ['top', 'bottom'];
+      for (const sw of sideWalls) put('wardrobe', gRect, [sw], [0.5]) || put('shelf', gRect, [sw], [0.5]);
+      parts.push(vertical
+        ? `<line class="plan-wall" stroke-width="1" x1="${x}" y1="${toward === 'top' ? y + half : y + h - half}" x2="${x + w}" y2="${toward === 'top' ? y + half : y + h - half}"/>`
+        : `<line class="plan-wall" stroke-width="1" x1="${toward === 'left' ? x + half : x + w - half}" y1="${y}" x2="${toward === 'left' ? x + half : x + w - half}" y2="${y + h}"/>`);
+      const far = OPPOSITE[toward];
+      put('bath', bRect, [far, ...sideWalls]);
+      put('toilet', bRect, sideWalls, [0.8, 0.2]);
+      put('sink', bRect, sideWalls, [0.3, 0.7]);
     } else if (room.type === 'bedroom') {
-      const c = primaryCell(room, rc);
       const owner = bedroomOwner(room, adults, children);
-      const side = bedPlacement(chart, fsAz, owner?.gua).head;
-      if (room.work) {
-        const desk = bedroomDesk(chart, fsAz, owner?.gua, side);
-        along(cellRect(c), desk.face, m(1.2), m(0.6));
+      const kid = room.key.startsWith('kid');
+      const opts = bedOptions(chart, fsAz, owner?.gua);
+      // Кровать: не под окном, не ногами в дверь; изголовье — к глухой стене
+      const penalty = (o) => (hasWin(c, o.head) ? 100 : 0) + (hasDoor(c, o.feet) ? 100 : 0) + (hasDoor(c, o.head) ? 30 : 0) + (hasWin(c, o.feet) ? 5 : 0);
+      const choice = [...opts].sort((a, b) => penalty(a) - penalty(b) || b.score - a.score)[0];
+      lastBedChoice.set(`${n}:${room.key}`, choice);
+      const minSide = Math.min(cw, ch) / scale;
+      const bedKey = kid ? 'bed90' : minSide >= 3.6 ? 'bed180' : 'bed160';
+      const bed = put(bedKey, rect, [choice.head], kid ? [0.25, 0.75, 0.5] : [0.5, 0.4, 0.6]);
+      if (bed && !kid) {
+        // Тумбочки по обе стороны кровати
+        const bw = FURN_BY_KEY[bedKey].w * scale;
+        const [bx, by] = bed.at;
+        const horiz = choice.head === 'top' || choice.head === 'bottom';
+        const nd = FURN_BY_KEY.nightstand;
+        const off = bw / 2 + (nd.w * scale) / 2 + 3;
+        const ny = horiz ? (choice.head === 'top' ? rect[1] + 3 + (nd.d * scale) / 2 : rect[1] + rect[3] - 3 - (nd.d * scale) / 2) : null;
+        const nx = !horiz ? (choice.head === 'left' ? rect[0] + 3 + (nd.d * scale) / 2 : rect[0] + rect[2] - 3 - (nd.d * scale) / 2) : null;
+        for (const sgn of [-1, 1]) putAt('nightstand', horiz ? bx + sgn * off : nx, horiz ? ny : by + sgn * off, ROT[choice.head]);
       }
-      if (room.suite) {
-        // Туалетный столик — у стены, противоположной изголовью
-        const opposite = { top: 'bottom', bottom: 'top', left: 'right', right: 'left' }[side];
-        along(cellRect(c), opposite, m(1.0), m(0.45));
+      // Шкаф — к глухой стене; стол — у окна (днём свет слева или спереди)
+      put(kid ? 'kidWardrobe' : 'wardrobe', rect, [...freeSides(c, [choice.head]), ...quietSides(c, [choice.head])], [0.8, 0.2, 0.5]);
+      if (kid || room.work) {
+        const winWalls = SIDES.filter((s2) => hasWin(c, s2) && s2 !== choice.head);
+        const desk = put('desk', rect, [...winWalls, ...quietSides(c, [choice.head])], [0.5, 0.3, 0.7]);
+        if (desk) { const [ix, iy] = inward(desk.side, (FURN_BY_KEY.desk.d / 2 + 0.3) * scale); putAt('kidChair', desk.at[0] + ix, desk.at[1] + iy, ROT[OPPOSITE[desk.side]]); }
       }
-      const wide = room.key === 'master' ? 1.6 : 0.9;
-      const [fx, fy, fw, fh] = along(cellRect(c), side, m(wide), m(2.0));
-      // Подушка у изголовья
-      const pillow = 0.35 * scale;
-      if (side === 'top') parts.push(`<rect class="furn-fill" x="${fx}" y="${fy}" width="${fw}" height="${Math.min(pillow, fh)}"/>`);
-      if (side === 'bottom') parts.push(`<rect class="furn-fill" x="${fx}" y="${fy + fh - Math.min(pillow, fh)}" width="${fw}" height="${Math.min(pillow, fh)}"/>`);
-      if (side === 'left') parts.push(`<rect class="furn-fill" x="${fx}" y="${fy}" width="${Math.min(pillow, fw)}" height="${fh}"/>`);
-      if (side === 'right') parts.push(`<rect class="furn-fill" x="${fx + fw - Math.min(pillow, fw)}" y="${fy}" width="${Math.min(pillow, fw)}" height="${fh}"/>`);
+      if (room.suite) put('vanity', rect, quietSides(c, [choice.head]), [0.5, 0.2, 0.8]);
     } else if (room.type === 'kitchen') {
       const z = kitchenZones(room, rc);
       const st = z.kitchen;
-      const [sx, sy, sw, sh] = along(cellRect(st), stovePlacement(chart, fsAz, st).wall, m(2.0), m(0.6));
-      parts.push(`<rect class="furn-fill" x="${sx + sw / 2 - m(0.3)}" y="${sy + sh / 2 - m(0.3)}" width="${m(0.6)}" height="${m(0.6)}"/>`);
-      parts.push(`<text class="furn-label" x="${sx + sw / 2}" y="${sy + sh / 2 + 3}" text-anchor="middle">плита</text>`);
-      const other = z.living;
-      const [cx, cy] = [x0 + (other.col + 0.5) * cw, y0 + (other.row + 0.5) * ch];
-      if (other !== st) {
-        const [dx, dy, dw, dh] = along(cellRect(other), outerSide(other.row, other.col), m(2.0), m(0.9));
-        parts.push(`<text class="furn-label" x="${dx + dw / 2}" y="${dy + dh / 2 + 3}" text-anchor="middle">диван</text>`);
+      const sRect = cellRect(st);
+      const wall = stovePlacement(chart, fsAz, st).wall;
+      const walls = [wall, ...quietSides(st, [wall])];
+      const counter = put('kCabinets', sRect, walls, [0.5, 0.35, 0.65]);
+      if (counter) {
+        // Плита — в середине столешницы, холодильник — с краю
+        putAt('stove', counter.at[0], counter.at[1], ROT[counter.side], true);
+        put('fridge', sRect, [counter.side], [0.04, 0.96]) || put('fridge', sRect, quietSides(st, [counter.side]), [0.1, 0.9]);
       }
-      parts.push(`<circle class="furn" cx="${cx}" cy="${cy + (other === st ? ch * 0.15 : 0)}" r="${Math.min(m(0.6), cw / 5)}"/>`);
-    } else if (room.type === 'utility') {
-      const c = primaryCell(room, rc);
-      const side = outerSide(c.row, c.col);
-      if (room.key.startsWith('bath')) {
-        along(cellRect(c), side, m(1.7), m(0.75));
-        parts.push(`<ellipse class="furn" cx="${x0 + (c.col + 0.5) * cw}" cy="${y0 + (c.row + 0.5) * ch}" rx="${m(0.2)}" ry="${m(0.32)}"/>`);
-      } else if (room.key === 'boiler') {
-        parts.push(`<circle class="furn" cx="${x0 + (c.col + 0.5) * cw}" cy="${y0 + (c.row + 0.5) * ch}" r="${m(0.35)}"/>`);
-        parts.push(`<text class="furn-label" x="${x0 + (c.col + 0.5) * cw}" y="${y0 + (c.row + 0.5) * ch + m(0.35) + 10}" text-anchor="middle">котёл</text>`);
-      } else if (auxPart(room)) {
-        const [sx, sy, sw, sh] = stripOf(c);
-        along([sx, sy, sw, sh], side, Math.max(sw, sh) * 0.8, m(0.45));
-      } else {
-        along(cellRect(c), side, cw * 0.8, m(0.6));
+      const liv = z.living;
+      const lRect = cellRect(liv);
+      // Обеденная группа — в центре кухонной зоны (или ближе к гостиной)
+      const [tx, ty] = liv !== st ? [(sRect[0] + sRect[2] / 2 + lRect[0] + lRect[2] / 2) / 2, (sRect[1] + sRect[3] / 2 + lRect[1] + lRect[3] / 2) / 2] : [sRect[0] + sRect[2] / 2, sRect[1] + sRect[3] / 2 + (counter && counter.side === 'top' ? 0.4 * scale : counter && counter.side === 'bottom' ? -0.4 * scale : 0)];
+      const tableKey = liv !== st ? 'bigTable' : 'diningTable';
+      if (putAt(tableKey, tx, ty, 0)) {
+        const td = FURN_BY_KEY[tableKey];
+        const cdx = (td.w / 4) * scale;
+        for (const sgn of [-1, 1]) for (const k2 of liv !== st ? [-1, 1] : [0]) {
+          putAt('chair', tx + k2 * cdx, ty + sgn * ((td.d / 2 + 0.3) * scale), sgn < 0 ? 0 : 180);
+        }
+      }
+      if (liv !== st) {
+        // Гостиная: диван у глухой стены, напротив — телевизор
+        const sofa = put('sofa3', lRect, [...freeSides(liv), ...quietSides(liv)], [0.5, 0.4, 0.6]);
+        if (sofa) {
+          const opp = OPPOSITE[sofa.side];
+          put('tvStand', lRect, [opp], [0.5, 0.4, 0.6]) && put('tv', lRect, [opp], [0.5, 0.4, 0.6]);
+          const [ix, iy] = inward(sofa.side, (FURN_BY_KEY.sofa3.d + 0.6) * scale);
+          putAt('coffee', sofa.at[0] + ix, sofa.at[1] + iy, ROT[sofa.side]);
+          put('armchair', lRect, quietSides(liv, [sofa.side, opp]), [0.3, 0.7]);
+        }
+      }
+    } else if (room.type === 'lounge' || room.type === 'extra') {
+      const sofa = put('sofa3', rect, [...freeSides(c), ...quietSides(c)], [0.5, 0.4, 0.6]);
+      if (sofa) {
+        put('tvStand', rect, [OPPOSITE[sofa.side]], [0.5]) && put('tv', rect, [OPPOSITE[sofa.side]], [0.5]);
+        const [ix, iy] = inward(sofa.side, (FURN_BY_KEY.sofa3.d + 0.6) * scale);
+        putAt('coffee', sofa.at[0] + ix, sofa.at[1] + iy, ROT[sofa.side]);
       }
     } else if (room.type === 'office') {
-      const c = primaryCell(room, rc);
-      along(cellRect(c), deskPlacement(chart, fsAz, adults[0]?.gua).face, m(1.4), m(0.7));
+      const face = deskPlacement(chart, fsAz, adults[0]?.gua).face;
+      const desk = put('desk', rect, [face, ...quietSides(c, [face])], [0.5, 0.3, 0.7]);
+      if (desk) { const [ix, iy] = inward(desk.side, (FURN_BY_KEY.desk.d / 2 + 0.3) * scale); putAt('kidChair', desk.at[0] + ix, desk.at[1] + iy, ROT[OPPOSITE[desk.side]]); }
+      put('shelf', rect, [...freeSides(c, desk ? [desk.side] : []), ...quietSides(c)], [0.5, 0.2, 0.8]);
+    } else if (room.type === 'utility') {
+      const aux = auxPart(room);
+      const uRect = aux ? stripOf(c) : rect;
+      if (room.key.startsWith('bath') || isWetRoom(room) && !/laundry/.test(room.key)) {
+        put('bath', uRect, [...quietSides(c), ...SIDES], [0.5, 0.3, 0.7]);
+        put('toilet', uRect, quietSides(c), [0.8, 0.2, 0.5]);
+        put('sink', uRect, quietSides(c), [0.3, 0.7, 0.5]);
+        if (room.key === 'bath0' || /laundry/.test(room.key)) put('washer', uRect, quietSides(c), [0.15, 0.85]);
+      } else if (/laundry/.test(room.key)) {
+        put('washer', uRect, quietSides(c), [0.2, 0.5]);
+        put('washer', uRect, quietSides(c), [0.5, 0.8]);
+        put('sink', uRect, quietSides(c), [0.8, 0.5]);
+      } else if (room.key === 'boiler') {
+        put('boiler', uRect, [...freeSides(c), ...quietSides(c)], [0.5, 0.3]);
+      } else if (aux) {
+        put('shelf', uRect, [outerSide(c.row, c.col)], [0.5, 0.25, 0.75]);
+      } else {
+        // Гардеробная, кладовая — стеллажи и шкафы вдоль глухих стен
+        const first = put('wardrobe', uRect, [...freeSides(c), ...quietSides(c)], [0.5]);
+        put('shelf', uRect, [...freeSides(c, first ? [first.side] : []), ...quietSides(c, first ? [first.side] : [])], [0.5]);
+      }
     }
   }
+  if (af.length) parts.push(`<!--af--><g class="auto-furn">${af.join('')}</g><!--/af-->`);
 
   // Где стоит мебель — чтобы двери не попадали на неё
-  const furniture = furnitureBoxes(parts.slice(furnStart));
-  if (!mini) parts.push(openingsSvg(f, cells, all, rooms, { x0, y0, cw, ch, scale, W, D, pt, auxPart, stripOf, furniture }));
+  const furniture = boxes;
+  if (!mini) parts.push(openingsSvg(f, plan, { x0, y0, cw, ch, scale, pt, stripOf, furniture }));
 
   // Подписи комнат и звёзды
   for (const { room, cells: all2 } of rooms.values()) {
@@ -3631,7 +3829,7 @@ $('y-plan').addEventListener('pointerup', (e) => {
 
 // ---- Вкладки ----
 
-const TABS = ['home', 'calc', 'plan', 'design', 'garden'];
+const TABS = ['home', 'calc', 'plan', 'design', 'estimate', 'garden'];
 
 function showTab() {
   const id = location.hash.slice(1);
@@ -3642,6 +3840,7 @@ function showTab() {
   if (tab === 'calc') map.invalidateSize();
   if (tab === 'garden') renderYard();
   if (tab === 'design') renderDesign();
+  if (tab === 'estimate') renderEstimate();
   else if (playTimer) $('y-play').click();
   window.scrollTo({ top: 0 });
 }

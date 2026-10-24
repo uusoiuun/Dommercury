@@ -17,7 +17,7 @@ import {
 import { planRooms, roomsFor, kitchenSplit, dir8, isDoubleNine } from './planner.js';
 import { FURNITURE, FURN_BY_KEY, FURN_CATS, furnSvg } from './furniture.js';
 import {
-  CLIMATES, climateByLat, MATERIALS, MATERIAL_KEYS, FOUNDATIONS, wallBuildUp, buildModel, normChecks, buildSheets,
+  CLIMATES, climateByLat, MATERIALS, MATERIAL_KEYS, FOUNDATIONS, FOUNDATION_COMPARE, FOUNDATION_WHEN, SITES, wallBuildUp, buildModel, normChecks, buildSheets,
 } from './project.js';
 import {
   sunPosition, localToUtc, sunDay, tzGuess, HOUSE_SHAPES, rectPoly, houseOutline, houseFacade, inPoly, sunVector, shadowsAt, sunHours,
@@ -70,7 +70,7 @@ const defaults = {
   // Утверждённая планировка для вкладки «Проектирование дома»
   approved: null,
   // Параметры проекта дома
-  project: { agree: [false, false, false], material: 'brus', foundation: null, ceiling: null, pitch: 30, overhang: 0.5, climate: null, custom: null },
+  project: { agree: [false, false, false], material: 'brus', site: null, foundation: null, ceiling: null, pitch: 30, overhang: 0.5, climate: null, custom: null },
   site: [],
   // Конструктор участка: дом, постройки, растения, день и время
   yard: defaultYard(),
@@ -1774,7 +1774,7 @@ const projClimate = () => {
   return key === 'custom' && pj.custom ? { ...CLIMATES.yakutsk, ...pj.custom, name: pj.custom.name || 'Своё место' } : CLIMATES[key === 'custom' ? 'yakutsk' : key];
 };
 const projClimateKey = () => state.project.climate || climateByLat(state.approved?.snap?.center?.[0] ?? state.center[0]);
-const projFoundation = () => state.project.foundation || (projClimate().permafrost ? 'piles' : 'strip');
+const projFoundation = () => state.project.foundation || (state.project.site ? SITES[state.project.site].rec[0] : projClimate().permafrost ? 'piles' : 'strip');
 const projCeiling = () => state.project.ceiling || (['IА', 'IБ', 'IГ', 'IД', 'IVА'].includes(projClimate().zone) ? 2.7 : 2.5);
 
 let designCache = { key: '', html: '' };
@@ -1793,10 +1793,28 @@ function designModel() {
       return { title: f.title || '1 этаж', geo: plain.geo, planSvg: plain.svg, furnSvg: furn.svg, preview: furn.svg };
     });
     return buildModel({
-      floors: fl, material: pj.material, foundation: projFoundation(), climate: cl, ceiling: projCeiling(),
+      floors: fl, material: pj.material, site: pj.site, foundation: projFoundation(), climate: cl, ceiling: projCeiling(),
       pitch: pj.pitch, overhang: pj.overhang, year: new Date().getFullYear(),
     });
   });
+}
+
+function foundationCard() {
+  const pj = state.project;
+  const cur = projFoundation();
+  const site = pj.site && SITES[pj.site];
+  const cols = ['strip', 'slab', 'piles'];
+  const head = { strip: 'Ленточный', slab: 'Сплошная плита', piles: 'Свайный' };
+  const w = FOUNDATION_WHEN[cur];
+  return `<section class="card"><h2>Фундамент</h2>
+    <p class="chip-group">Где планируется строительство?</p>
+    <div class="sites">${Object.entries(SITES).map(([k, v]) => `<label class="check"><input type="radio" name="pj-site" value="${k}"${pj.site === k ? ' checked' : ''}> ${v.label}</label>`).join('')}</div>
+    ${site ? `<p class="msg mixed"><strong>Рекомендуем: ${site.rec.map((k) => FOUNDATIONS[k].short).join(' → ')}</strong>${site.note}</p>` : '<p class="note">Ответьте на вопрос — сайт подскажет подходящие варианты.</p>'}
+    <div class="found-pick">${Object.entries(FOUNDATIONS).map(([k, f]) => `<button type="button" class="chip" data-found="${k}" aria-pressed="${cur === k}">${f.title}${site?.rec[0] === k ? ' ★' : ''}</button>`).join('')}</div>
+    ${w ? `<div class="found-when"><p><b>Когда выбирать «${FOUNDATIONS[cur].short}»:</b></p><ul>${w.when.map((x) => `<li>${x}</li>`).join('')}</ul><p class="note">${w.risk}</p></div>` : ''}
+    <details><summary>Сравнение фундаментов</summary><div class="table-wrap"><table class="cmp"><thead><tr><th>Критерий</th>${cols.map((c) => `<th${cur === c ? ' class="on"' : ''}>${head[c]}</th>`).join('')}</tr></thead><tbody>${FOUNDATION_COMPARE.map(([c, ...v]) => `<tr><td>${c}</td>${v.map((x, i) => `<td${cur === cols[i] ? ' class="on"' : ''}>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
+    <p class="note">Ни ленту, ни плиту не стоит назначать заранее без информации об участке: сначала инженерно-геологические и геокриологические изыскания.</p></details>
+  </section>`;
 }
 
 const AGREE = [
@@ -1839,9 +1857,9 @@ function renderDesign() {
       key,
       html: `${agreeCard.replace('<section class="card agree-card">', '<details class="card agree-card"><summary>Условия приняты</summary>').replace(/<\/section>$/, '</details>')}
       <section class="card"><h2>Материал стен</h2><div class="mats">${matCards}</div></section>
+      ${foundationCard()}
       <section class="card"><h2>Параметры</h2><div class="grid3 params">
         <label>Климат ${sel('pj-climate', [...Object.entries(CLIMATES).map(([k, c]) => [k, `${c.name} (район ${c.zone})`]), ['custom', 'Своё место…']], ck)}</label>
-        <label>Фундамент ${sel('pj-found', Object.entries(FOUNDATIONS).map(([k, f]) => [k, f.title]), projFoundation())}</label>
         <label>Высота потолков ${sel('pj-ceil', [[2.5, '2,5 м'], [2.7, '2,7 м'], [3.0, '3,0 м']], projCeiling())}</label>
         <label>Уклон кровли ${sel('pj-pitch', [[25, '25°'], [30, '30°'], [35, '35°'], [40, '40°'], [45, '45°']], pj.pitch)}</label>
         <label>Свес кровли ${sel('pj-ovh', [[0.4, '400 мм'], [0.5, '500 мм'], [0.6, '600 мм']], pj.overhang)}</label>
@@ -1859,7 +1877,7 @@ $('design').addEventListener('change', (e) => {
   const pj = state.project;
   if (t.dataset.agree !== undefined) pj.agree[Number(t.dataset.agree)] = t.checked;
   else if (t.id === 'pj-climate') { pj.climate = t.value; if (t.value === 'custom' && !pj.custom) pj.custom = { ...CLIMATES.yakutsk, name: 'Своё место' }; }
-  else if (t.id === 'pj-found') pj.foundation = t.value;
+  else if (t.name === 'pj-site') { pj.site = t.value; pj.foundation = null; }
   else if (t.id === 'pj-ceil') pj.ceiling = Number(t.value);
   else if (t.id === 'pj-pitch') pj.pitch = Number(t.value);
   else if (t.id === 'pj-ovh') pj.overhang = Number(t.value);
@@ -1871,6 +1889,13 @@ $('design').addEventListener('change', (e) => {
   renderDesign();
 });
 $('design').addEventListener('click', (e) => {
+  const fb = e.target.closest('[data-found]');
+  if (fb) {
+    state.project.foundation = fb.dataset.found;
+    save();
+    renderDesign();
+    return;
+  }
   const b = e.target.closest('[data-mat]');
   if (b) {
     state.project.material = b.dataset.mat;

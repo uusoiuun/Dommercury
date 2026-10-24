@@ -494,6 +494,11 @@ td.bad { color: var(--bad); }
 .mat span { font-size: 13px; color: var(--moss-2); }
 .mat .note { color: var(--muted); margin: 0; }
 .grid3.params { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 0 12px; }
+.sites label.check { margin: 4px 0; }
+.found-pick { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+.found-when ul { margin: 4px 0; padding-left: 20px; font-size: 14px; }
+.found-when p { margin: 4px 0; }
+table.cmp th.on, table.cmp td.on { background: color-mix(in srgb, var(--moss-2) 10%, transparent); }
 .checks { list-style: none; padding: 0; margin: 8px 0 0; display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
 .checks li { border-left: 3px solid var(--muted); background: var(--snow); border-radius: 4px; padding: 6px 10px; }
 .checks li.good { border-color: var(--good); }

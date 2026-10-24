@@ -1459,44 +1459,266 @@ $('layout-plans').addEventListener('pointerup', (e) => {
   furnChanged();
 });
 
-// ---- Утверждение планировки ----
+// ---- Чертёж «План расстановки мебели» по образцу рабочего проекта ----
 
-function roomSchedule(f) {
-  const cellA = (f.g.W / 3) * (f.g.D / 3);
+const ARCH_S = 60; // пикселей в метре
+const T_EXT = 0.3; // наружная стена, м
+const T_INT = 0.12; // перегородка, м
+const AXIS_LETTERS = ['А', 'Б', 'В', 'Г', 'Д', 'Е'];
+const mm = (m) => String(Math.round(m * 1000));
+
+function archSvg(chart, fsAz, f, adults, children) {
+  const S = ARCH_S;
+  const { W, D } = f.g;
+  const L = 190; const R = 150; const T = 200; const B = 250;
+  const vw = W * S + L + R;
+  const vh = D * S + T + B;
+  const x0 = L;
+  const y0 = T;
+  const P = (x, y) => [x0 + x * S, y0 + (D - y) * S];
+  const cells = floorCells(chart, f.g);
   const all = { ...f.res.assign, ...f.fixed };
-  const area = new Map();
-  const add = (r, a) => {
-    if (!r) return;
-    const k = r.key;
-    const cur = area.get(k) || { label: r.label, area: 0 };
-    cur.area += a;
-    area.set(k, cur);
-  };
+  const rooms = roomsOfFloor(f, cells);
   const byKey = Object.fromEntries(Object.values(all).map((r) => [r.key, r]));
-  for (let row = 0; row < 3; row++) {
-    for (let col = 0; col < 3; col++) {
-      const cov = f.g.cov[row][col];
-      if (!cov) continue;
-      const r = all[`${row}-${col}`];
-      const a = cellA * Math.min(1, cov);
-      if (r?.small && r.sharedWith && byKey[r.sharedWith]) {
-        add(r, a * 0.4);
-        add(byKey[r.sharedWith], a * 0.6);
-      } else add(r, a);
+  const auxPart = (r) => (r?.small && r.sharedWith ? byKey[r.sharedWith] : null);
+  const wallKey = (r) => auxPart(r)?.key ?? r?.key;
+  const out = [];
+
+  // Мебель, двери и окна — из той же планировки, что во вкладке «Планировочное решение»
+  const base = layoutSvg(chart, fsAz, f, S, adults, children);
+  const bx0 = 34;
+  const by0 = f.title ? 40 : 26;
+  const dx = x0 - bx0;
+  const dy = y0 - by0;
+  const toM = (px, py) => [(px - bx0) / S, D - (py - by0) / S];
+  const pick = (cls) => [...base.matchAll(new RegExp(`<(?:rect|circle|ellipse|line|path|text)[^>]*class="${cls}"[^>]*?(?:/>|>[^<]*</text>)`, 'g'))].map((m) => m[0]);
+  const num = (s, n) => Number((s.match(new RegExp(`\\b${n}="([-\\d.]+)"`)) || [])[1]);
+  const furn = state.autoFurn ? [...pick('furn'), ...pick('furn-fill'), ...pick('furn-label')] : [];
+  const ufurn = [...base.matchAll(/<g class="ufurn[^"]*"[\s\S]*?<\/g>/g)].map((m) => m[0].replace(/ sel"/, '"'));
+  const doorGaps = pick('door-gap').map((s) => [toM(num(s, 'x1'), num(s, 'y1')), toM(num(s, 'x2'), num(s, 'y2'))]);
+  const leaves = pick('door-leaf');
+  const windows = pick('window-gap').map((s) => {
+    const a = toM(num(s, 'x1'), num(s, 'y1'));
+    const b = toM(num(s, 'x2'), num(s, 'y2'));
+    return { a, b, len: Math.hypot(b[0] - a[0], b[1] - a[1]), horiz: Math.abs(a[1] - b[1]) < 1e-6 };
+  });
+  const entry = pick('plan-door').map((s) => [toM(num(s, 'x1'), num(s, 'y1')), toM(num(s, 'x2'), num(s, 'y2'))])[0];
+
+  // Заливка помещений и отсутствующих частей
+  for (const p of pieces(f.g.dec)) {
+    if (!p.inside) continue;
+    const [ax, ay] = P(p.x1, p.y2);
+    out.push(`<rect class="a-floor" x="${ax}" y="${ay}" width="${(p.x2 - p.x1) * S}" height="${(p.y2 - p.y1) * S}"/>`);
+  }
+
+  // Мебель — тонкими линиями
+  out.push(`<g class="a-furn" transform="translate(${dx} ${dy})">${furn.join('')}${ufurn.join('')}</g>`);
+
+  // Перегородки между разными помещениями
+  const cx = (col) => (col * W) / 3;
+  const cy = (row) => ((3 - row) * D) / 3;
+  const walls = [];
+  for (const c of cells) {
+    const r = all[`${c.row}-${c.col}`];
+    const right = cells.find((o) => o.row === c.row && o.col === c.col + 1);
+    const below = cells.find((o) => o.row === c.row + 1 && o.col === c.col);
+    if (right && wallKey(all[`${right.row}-${right.col}`]) !== wallKey(r)) walls.push([[cx(c.col + 1), cy(c.row)], [cx(c.col + 1), cy(c.row + 1)]]);
+    if (below && wallKey(all[`${below.row}-${below.col}`]) !== wallKey(r)) walls.push([[cx(c.col), cy(c.row + 1)], [cx(c.col + 1), cy(c.row + 1)]]);
+    // Стенка небольшого подсобного (полоса у наружной стены)
+    if (auxPart(r)) {
+      const side = outerSide(c.row, c.col);
+      const xA = cx(c.col); const xB = cx(c.col + 1); const yA = cy(c.row + 1); const yB = cy(c.row);
+      const k = 0.4;
+      if (side === 'top') walls.push([[xA, yB - (yB - yA) * k], [xB, yB - (yB - yA) * k]]);
+      if (side === 'bottom') walls.push([[xA, yA + (yB - yA) * k], [xB, yA + (yB - yA) * k]]);
+      if (side === 'left') walls.push([[xA + (xB - xA) * k, yA], [xA + (xB - xA) * k, yB]]);
+      if (side === 'right') walls.push([[xB - (xB - xA) * k, yA], [xB - (xB - xA) * k, yB]]);
     }
   }
-  return [...area.values()];
+  for (const [a, b] of walls) {
+    const [ax, ay] = P(...a);
+    const [bx, by] = P(...b);
+    out.push(`<line class="a-wall-int" x1="${ax}" y1="${ay}" x2="${bx}" y2="${by}" stroke-width="${T_INT * S}"/>`);
+  }
+  // Наружные стены: двойная линия и красная линия утеплителя
+  const segs = outline(f.g.dec);
+  for (const sg of segs) {
+    const [ax, ay] = P(sg.x1, sg.y1);
+    const [bx, by] = P(sg.x2, sg.y2);
+    out.push(`<line class="a-wall-ext" x1="${ax}" y1="${ay}" x2="${bx}" y2="${by}" stroke-width="${T_EXT * S}"/>`,
+      `<line class="a-wall-core" x1="${ax}" y1="${ay}" x2="${bx}" y2="${by}" stroke-width="${T_EXT * S - 3}"/>`,
+      `<line class="a-wall-ins" x1="${ax}" y1="${ay}" x2="${bx}" y2="${by}"/>`);
+  }
+
+  // Проёмы дверей, окна
+  for (const [a, b] of doorGaps) {
+    const [ax, ay] = P(...a);
+    const [bx, by] = P(...b);
+    out.push(`<line class="a-gap" x1="${ax}" y1="${ay}" x2="${bx}" y2="${by}" stroke-width="${T_INT * S + 2}"/>`);
+  }
+  out.push(`<g class="a-leaf" transform="translate(${dx} ${dy})">${leaves.join('')}</g>`);
+  if (entry) {
+    // Входная дверь: проём в наружной стене и полотно, открывающееся внутрь
+    const [ax, ay] = P(...entry[0]);
+    const [bx, by] = P(...entry[1]);
+    out.push(`<line class="a-gap" x1="${ax}" y1="${ay}" x2="${bx}" y2="${by}" stroke-width="${T_EXT * S + 2}"/>`);
+    const w = Math.hypot(bx - ax, by - ay);
+    const [ccx, ccy] = P(W / 2, D / 2);
+    const mxp = (ax + bx) / 2;
+    const myp = (ay + by) / 2;
+    const horiz = Math.abs(ay - by) < 1e-6;
+    const n = horiz ? [0, Math.sign(ccy - myp) || 1] : [Math.sign(ccx - mxp) || 1, 0];
+    const e = [(bx - ax) / w, (by - ay) / w];
+    const sweep = n[0] * e[1] - n[1] * e[0] > 0 ? 1 : 0;
+    out.push(`<path class="a-entry" d="M${ax} ${ay} L${ax + n[0] * w} ${ay + n[1] * w} A${w} ${w} 0 0 ${sweep} ${bx} ${by}"/>`);
+    out.push(`<text class="a-mark" x="${mxp - n[0] * 40}" y="${myp - n[1] * 34 + 5}" text-anchor="middle">Вход</text>`);
+  }
+  const sizes = [...new Set(windows.map((w) => Math.round(w.len * 100) / 100))].sort((a, b) => b - a);
+  const mark = (len) => `ОК-${sizes.indexOf(Math.round(len * 100) / 100) + 1}`;
+  const centerX = W / 2;
+  const centerY = D / 2;
+  for (const w of windows) {
+    const [ax, ay] = P(...w.a);
+    const [bx, by] = P(...w.b);
+    const t = T_EXT * S;
+    const rx = Math.min(ax, bx) - (w.horiz ? 0 : t / 2);
+    const ry = Math.min(ay, by) - (w.horiz ? t / 2 : 0);
+    const rw = w.horiz ? Math.abs(bx - ax) : t;
+    const rh = w.horiz ? t : Math.abs(by - ay);
+    out.push(`<rect class="a-gap-fill" x="${rx}" y="${ry}" width="${rw}" height="${rh}"/>`,
+      w.horiz ? `<rect class="a-window" x="${rx}" y="${ry + t * 0.3}" width="${rw}" height="${t * 0.4}"/>` : `<rect class="a-window" x="${rx + t * 0.3}" y="${ry}" width="${t * 0.4}" height="${rh}"/>`);
+    // Марка окна — снаружи
+    const mxm = (w.a[0] + w.b[0]) / 2;
+    const mym = (w.a[1] + w.b[1]) / 2;
+    const nx = w.horiz ? 0 : Math.sign(mxm - centerX) || 1;
+    const ny = w.horiz ? Math.sign(mym - centerY) || 1 : 0;
+    const [lx, ly] = P(mxm + nx * 0.5, mym + ny * 0.42);
+    out.push(`<text class="a-mark" x="${lx}" y="${ly + 5}" text-anchor="middle"${w.horiz ? '' : ` transform="rotate(-90 ${lx} ${ly})"`}>${mark(w.len)}</text>`);
+  }
+
+  // Помещения: название, площадь, внутренние размеры
+  const sched = [];
+  let ri = 0;
+  for (const { room, cells: rc } of rooms.values()) {
+    const aux = auxPart(room);
+    const cols = rc.map((c) => c.col);
+    const rows = rc.map((c) => c.row);
+    const c0 = Math.min(...cols); const c1 = Math.max(...cols); const r0 = Math.min(...rows); const r1 = Math.max(...rows);
+    const rect = rc.length === (c1 - c0 + 1) * (r1 - r0 + 1);
+    let xA = cx(c0); let xB = cx(c1 + 1); let yA = cy(r1 + 1); let yB = cy(r0);
+    if (aux) {
+      const side = outerSide(rc[0].row, rc[0].col);
+      const k = 0.4;
+      if (side === 'top') yA = yB - (yB - yA) * k;
+      if (side === 'bottom') yB = yA + (yB - yA) * k;
+      if (side === 'left') xB = xA + (xB - xA) * k;
+      if (side === 'right') xA = xB - (xB - xA) * k;
+    }
+    const half = (edge) => (edge ? T_EXT / 2 : T_INT / 2);
+    const iw = xB - xA - half(xA < 1e-6) - half(xB > W - 1e-6);
+    const id = yB - yA - half(yA < 1e-6) - half(yB > D - 1e-6);
+    let area = rect || aux ? iw * id : rc.reduce((s2, c) => s2 + Math.min(1, f.g.cov[c.row][c.col]) * (W / 3) * (D / 3), 0) * 0.9;
+    // Комнате, которая делит сектор с небольшим подсобным, достаётся остальная часть этого сектора
+    const shared = [...rooms.values()].filter((o) => auxPart(o.room)?.key === room.key).length;
+    if (shared) area += shared * (W / 3) * (D / 3) * 0.6 * 0.9;
+    ri++;
+    sched.push({ n: ri, label: room.label, area });
+    const [tx, ty] = P((xA + xB) / 2, (yA + yB) / 2);
+    const words = room.label.length > 14 ? room.label.split(/,\s*|\s+/) : [room.label];
+    words.forEach((wd, i) => out.push(`<text class="a-room" x="${tx}" y="${ty - 6 + (i - (words.length - 1) / 2) * 15}" text-anchor="middle">${escapeHtml(wd)}</text>`));
+    out.push(`<text class="a-area" x="${tx}" y="${ty + 12 + ((words.length - 1) / 2) * 15}" text-anchor="middle">${fmt(area, 2)}</text>`);
+    // Внутренние размеры прямоугольных помещений
+    if ((rect || aux) && iw > 1.4 && id > 1.4) {
+      const [ix1, iy1] = P(xA + half(xA < 1e-6), yB - half(yB > D - 1e-6) - 0.35);
+      const [ix2] = P(xB - half(xB > W - 1e-6), 0);
+      out.push(dimLine([ix1, iy1], [ix2, iy1], mm(iw), 'h'));
+      const [jx, jy1] = P(xA + half(xA < 1e-6) + 0.35, yB - half(yB > D - 1e-6));
+      const [, jy2] = P(0, yA + half(yA < 1e-6));
+      out.push(dimLine([jx, jy1], [jx, jy2], mm(id), 'v'));
+    }
+  }
+
+  // Оси и размерные цепочки
+  const axX = [0, W / 3, (2 * W) / 3, W];
+  const axY = [0, D / 3, (2 * D) / 3, D];
+  const openings = (side) => {
+    const list = [...windows.map((w) => [w.a, w.b])];
+    if (entry) list.push(entry);
+    const onSide = list.filter(([a, b]) => (side === 'bottom' ? a[1] < 1e-6 && b[1] < 1e-6 : side === 'top' ? a[1] > D - 1e-6 && b[1] > D - 1e-6 : side === 'right' ? a[0] > W - 1e-6 && b[0] > W - 1e-6 : a[0] < 1e-6 && b[0] < 1e-6));
+    const pts = [0, ...onSide.flatMap(([a, b]) => (side === 'top' || side === 'bottom' ? [a[0], b[0]] : [a[1], b[1]])), side === 'top' || side === 'bottom' ? W : D];
+    return [...new Set(pts.map((v) => Math.round(v * 1000) / 1000))].sort((p, q) => p - q);
+  };
+  const [, yBot] = P(0, 0);
+  const [, yTop] = P(0, D);
+  const [xLeft] = P(0, 0);
+  const [xRight] = P(W, 0);
+  const chainH = (xs, y, from) => {
+    const pts = xs.map((x) => P(x, 0)[0]);
+    const parts = [`<line class="a-dim" x1="${pts[0] - 8}" y1="${y}" x2="${pts[pts.length - 1] + 8}" y2="${y}"/>`];
+    pts.forEach((px) => parts.push(`<line class="a-ext" x1="${px}" y1="${from}" x2="${px}" y2="${y + (y > from ? 6 : -6)}"/>`, tick(px, y)));
+    for (let i = 1; i < xs.length; i++) if (xs[i] - xs[i - 1] > 0.05) parts.push(`<text class="a-dimt" x="${(pts[i] + pts[i - 1]) / 2}" y="${y - 5}" text-anchor="middle">${mm(xs[i] - xs[i - 1])}</text>`);
+    return parts.join('');
+  };
+  const chainV = (ys, x, from) => {
+    const pts = ys.map((y) => P(0, y)[1]);
+    const parts = [`<line class="a-dim" x1="${x}" y1="${pts[0] + 8}" x2="${x}" y2="${pts[pts.length - 1] - 8}"/>`];
+    pts.forEach((py) => parts.push(`<line class="a-ext" x1="${from}" y1="${py}" x2="${x + (x > from ? 6 : -6)}" y2="${py}"/>`, tick(x, py)));
+    for (let i = 1; i < ys.length; i++) if (ys[i] - ys[i - 1] > 0.05) {
+      const my = (pts[i] + pts[i - 1]) / 2;
+      parts.push(`<text class="a-dimt" x="${x - 5}" y="${my}" text-anchor="middle" transform="rotate(-90 ${x - 5} ${my})">${mm(ys[i] - ys[i - 1])}</text>`);
+    }
+    return parts.join('');
+  };
+  out.push(chainH(openings('top'), yTop - 72, yTop - 12), chainH(axX, yTop - 115, yTop - 12));
+  out.push(chainH(openings('bottom'), yBot + 75, yBot + 12), chainH(axX, yBot + 115, yBot + 12), chainH([0, W], yBot + 152, yBot + 12));
+  out.push(chainV(axY, xLeft - 60, xLeft - 12), chainV([0, D], xLeft - 105, xLeft - 12));
+  out.push(chainV(openings('right'), xRight + 78, xRight + 12));
+  axX.forEach((x, i) => {
+    const [px] = P(x, 0);
+    out.push(`<line class="a-axis" x1="${px}" y1="${yBot + 8}" x2="${px}" y2="${yBot + 180}"/><circle class="a-bubble" cx="${px}" cy="${yBot + 196}" r="15"/><text class="a-axt" x="${px}" y="${yBot + 202}" text-anchor="middle">${i + 1}</text>`);
+  });
+  axY.forEach((y, i) => {
+    const [, py] = P(0, y);
+    out.push(`<line class="a-axis" x1="${xLeft - 8}" y1="${py}" x2="${xLeft - 130}" y2="${py}"/><circle class="a-bubble" cx="${xLeft - 146}" cy="${py}" r="15"/><text class="a-axt" x="${xLeft - 146}" y="${py + 6}" text-anchor="middle">${AXIS_LETTERS[i]}</text>`);
+  });
+  const title = `План расстановки мебели${f.title ? ` — ${f.title.toLowerCase()}` : ''}`;
+  out.unshift(`<rect class="a-sheet" x="0" y="0" width="${vw}" height="${vh}"/><text class="a-title" x="24" y="40">${title}</text>`);
+  // Фасад и север
+  out.push(`<text class="a-note" x="${(xLeft + xRight) / 2}" y="${vh - 6}" text-anchor="middle">Фасад → ${chart.facingPalace.dirName}</text>`);
+  out.push(`<g transform="translate(${vw - 40} 50) rotate(${180 - fsAz})"><path class="a-north" d="M0 -18 L7 6 L0 2 L-7 6 Z"/><text class="a-axt" x="0" y="-22" text-anchor="middle" font-size="12">С</text></g>`);
+
+  const winList = sizes.map((len, i) => ({ mark: `ОК-${i + 1}`, w: len, h: len >= 1.5 ? 1.5 : len >= 1 ? 1.2 : 0.9, n: windows.filter((w) => Math.round(w.len * 100) / 100 === len).length }));
+  return { svg: `<svg class="arch" viewBox="0 0 ${vw} ${vh}" role="img" aria-label="${title}">${out.join('')}</svg>`, rooms: sched, windows: winList };
 }
+
+function tick(x, y) {
+  return `<line class="a-tick" x1="${x - 5}" y1="${y + 5}" x2="${x + 5}" y2="${y - 5}"/>`;
+}
+
+function dimLine(a, b, text, dir) {
+  const parts = [`<line class="a-dim" x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}"/>`, tick(a[0], a[1]), tick(b[0], b[1])];
+  if (dir === 'h') parts.push(`<text class="a-dimt" x="${(a[0] + b[0]) / 2}" y="${a[1] - 4}" text-anchor="middle">${text}</text>`);
+  else {
+    const my = (a[1] + b[1]) / 2;
+    parts.push(`<text class="a-dimt" x="${a[0] - 4}" y="${my}" text-anchor="middle" transform="rotate(-90 ${a[0] - 4} ${my})">${text}</text>`);
+  }
+  return parts.join('');
+}
+
+// ---- Утверждение планировки ----
+
 
 function approveLayout() {
   if (!currentChart || currentChart.period !== 9) return;
   const { floors, adults, children } = buildLayout(currentChart, doorNow);
-  const scale = 480 / Math.max(...floors.flatMap((f) => [f.g.W, f.g.D]));
   const prevSel = furnSel;
   furnSel = null;
   state.approved = {
     at: new Date().toLocaleString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
-    floors: floors.map((f) => ({ title: f.title || 'Дом', W: f.g.W, D: f.g.D, svg: layoutSvg(currentChart, lastFsAz, f, scale, adults, children), rooms: roomSchedule(f) })),
+    floors: floors.map((f) => {
+      const ar = archSvg(currentChart, lastFsAz, f, adults, children);
+      return { title: f.title || 'Дом', W: f.g.W, D: f.g.D, svg: ar.svg, rooms: ar.rooms, windows: ar.windows };
+    }),
     furniture: state.furniture.map((u) => ({ t: u.t, f: u.f })),
     facade: lastFsAz,
   };
@@ -1519,10 +1741,13 @@ function renderDesign() {
     $('design').innerHTML = '<section class="card"><h2>Планировка ещё не утверждена</h2><p class="note">Перейдите во вкладку «Планировочное решение», выберите вариант, расставьте мебель и нажмите «Утвердить планировку» внизу страницы.</p><p><a class="btn" href="#plan">К планировке</a></p></section>';
     return;
   }
-  const area = (n) => fmt(n, 1);
+  const area = (n) => fmt(n, 2);
   const sched = a.floors.map((f) => {
     const total = f.rooms.reduce((s2, r) => s2 + r.area, 0);
-    return `<section class="card"><h2>Экспликация помещений${a.floors.length > 1 ? ` — ${f.title}` : ''}</h2><table class="sched"><thead><tr><th>№</th><th>Помещение</th><th>Площадь, м²</th></tr></thead><tbody>${f.rooms.map((r, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(r.label)}</td><td>≈ ${area(r.area)}</td></tr>`).join('')}</tbody><tfoot><tr><td></td><td>Итого (${fmt(f.W, 1)} × ${fmt(f.D, 1)} м)</td><td>≈ ${area(total)}</td></tr></tfoot></table></section>`;
+    const win = (f.windows || []).length
+      ? `<h3 class="sub">Ведомость окон</h3><table class="sched"><thead><tr><th>Марка</th><th>Размер (Ш × В), мм</th><th>Шт.</th></tr></thead><tbody>${f.windows.map((w) => `<tr><td>${w.mark}</td><td>${Math.round(w.w * 1000)} × ${Math.round(w.h * 1000)}</td><td>${w.n}</td></tr>`).join('')}</tbody></table>`
+      : '';
+    return `<section class="card"><h2>Экспликация помещений${a.floors.length > 1 ? ` — ${f.title}` : ''}</h2><table class="sched"><thead><tr><th>№</th><th>Помещение</th><th>Площадь, м²</th></tr></thead><tbody>${f.rooms.map((r, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(r.label)}</td><td>${area(r.area)}</td></tr>`).join('')}</tbody><tfoot><tr><td></td><td>Итого, по осям ${fmt(f.W, 1)} × ${fmt(f.D, 1)} м</td><td>${area(total)}</td></tr></tfoot></table>${win}</section>`;
   }).join('');
   const counts = new Map();
   for (const u of a.furniture) {
@@ -1536,7 +1761,7 @@ function renderDesign() {
       return `<tr><td>${d.label}${a.floors.length > 1 ? ` <span class="note">(${f} этаж)</span>` : ''}</td><td>${dim(d.w)} × ${dim(d.d)}</td><td>${n}</td></tr>`;
     }).join('')}</tbody></table>`
     : '<p class="note">Мебель не добавлена — на плане показана расстановка, предложенная сайтом.</p>';
-  $('design').innerHTML = `<section class="card"><h2>Утверждённая планировка</h2><p class="note">Утверждена ${a.at}. <a href="#plan">Изменить</a></p><div class="design-plans">${a.floors.map((f) => f.svg).join('')}</div></section>`
+  $('design').innerHTML = `<section class="card"><h2>Утверждённая планировка</h2><p class="note">Утверждена ${a.at}. <a href="#plan">Изменить</a></p><div class="design-plans">${a.floors.map((f) => f.svg).join('')}</div><div class="row wrap no-print"><button type="button" class="secondary" data-print-design>Распечатать / сохранить в PDF</button></div></section>`
     + `<div class="design-grid">${sched}<section class="card"><h2>Спецификация мебели</h2>${spec}</section></div>`
     + `<section class="card"><h2>Разделы проекта</h2><p class="note">Проект строится по утверждённой планировке. Следующие разделы появятся по образцу проекта:</p><ul class="design-steps">
       <li><b>Планы этажей с размерами</b><span>оси, стены, проёмы, привязки</span></li>
@@ -1549,6 +1774,9 @@ function renderDesign() {
 }
 
 $('btn-approve').addEventListener('click', approveLayout);
+$('design').addEventListener('click', (e) => {
+  if (e.target.closest('[data-print-design]')) window.print();
+});
 
 // ---- Ручная правка планировки ----
 

@@ -448,6 +448,40 @@ td.bad { color: var(--bad); }
 .design-steps li b { display: block; }
 .design-steps li span { color: var(--muted); font-size: 13px; }
 
+/* ---- Чертёж «План расстановки мебели» ---- */
+.arch { width: 100%; max-width: 1100px; height: auto; display: block; margin: 0 auto; font-family: "Inter Tight", "Arial Narrow", sans-serif; font-style: italic; }
+.a-sheet { fill: #fff; }
+.a-title { font-size: 26px; fill: #111; }
+.a-floor { fill: #fff; }
+.a-furn .furn { fill: none; stroke: #8a8a8a; stroke-width: 1; }
+.a-furn .furn-fill { fill: #bdbdbd; opacity: 0.35; }
+.a-furn .furn-label { fill: #8a8a8a; font-size: 9px; }
+.a-furn .uf, .a-furn .uf-soft { fill: #fff; stroke: #8a8a8a; stroke-width: 1; }
+.a-furn .uf-dark { fill: #8a8a8a; }
+.a-furn .uf-line { stroke: #8a8a8a; }
+.a-furn .uf-rug { fill: none; stroke: #b0b0b0; stroke-dasharray: 3 2; }
+.a-furn .uf-label { fill: #8a8a8a; }
+.a-wall-ext { stroke: #111; stroke-linecap: square; }
+.a-wall-core { stroke: #fff; stroke-linecap: square; }
+.a-wall-ins { stroke: #d33; stroke-width: 1; stroke-dasharray: 10 3 2 3; }
+.a-wall-int { stroke: #3a3a3a; stroke-linecap: square; }
+.a-gap { stroke: #fff; stroke-linecap: butt; }
+.a-gap-fill { fill: #fff; }
+.a-window { fill: #9cc6e8; stroke: #4a7fa8; stroke-width: 1; }
+.a-leaf .door-leaf, .a-entry { fill: none; stroke: #111; stroke-width: 1.2; }
+.a-room { font-size: 15px; fill: #111; }
+.a-area { font-size: 11px; fill: #111; text-decoration: underline; }
+.a-mark { font-size: 15px; fill: #111; }
+.a-dim, .a-ext { stroke: #111; stroke-width: 0.8; }
+.a-tick { stroke: #111; stroke-width: 1.6; }
+.a-dimt { font-size: 14px; fill: #111; }
+.a-axis { stroke: #d33; stroke-width: 0.8; stroke-dasharray: 14 4 3 4; }
+.a-bubble { fill: #fff; stroke: #111; stroke-width: 1.2; }
+.a-axt { font-size: 16px; fill: #111; }
+.a-note { font-size: 13px; fill: #555; }
+.a-north { fill: #d33; }
+.design-plans .arch { border: 1px solid var(--line); border-radius: 12px; }
+
 /* ---- Конструктор участка ---- */
 .chip .dot { display: inline-block; width: 11px; height: 11px; border-radius: 50%; flex: none; margin-right: 6px; vertical-align: -1px; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12); }
 .chip small { margin-left: 6px; color: var(--muted); font-size: 11px; }
@@ -604,6 +638,7 @@ td.bad { color: var(--bad); }
 
 @media print {
   .no-print, .map-tools, .hint, button, .masthead, .intro p, .home, .foot { display: none !important; }
+  .arch { max-width: none; border: 0 !important; }
   body::after { display: none; }
   .card { box-shadow: none; }
   .layout { grid-template-columns: 1fr; }

@@ -69,6 +69,9 @@ const defaults = {
   furnSeq: 1,
   // Мебель сайта, взятая в правку (скрыта в авторасстановке): ['этаж:комната:номер']
   autoHidden: [],
+  // Сдвинутые стены сетки по этажам {этаж: {x: [м, м], t: [м, м]}} и двери вдоль стен {'этаж:пара': доля}
+  grid: {},
+  doorPos: {},
   // Проёмы в стенах, добавленные вручную: {id, f, a: {row, col}, b: {row, col}, pos (0–1 вдоль стены), w (м)}
   openings: [],
   autoFurn: true,
@@ -1510,18 +1513,18 @@ $('op-list').addEventListener('click', (e) => {
 });
 
 // Ближайшая внутренняя стена сетки к точке (м): между какими секторами и где вдоль неё
-function wallAt(x, y, W, D) {
-  const cw = W / 3;
-  const ch = D / 3;
+function wallAt(x, y, W, D, n = 1) {
+  const G = gridOf(n, W, D);
   const fromTop = D - y;
+  const idx = (arr, v) => Math.max(0, Math.min(2, arr.findIndex((q, k) => k < 3 && v >= arr[k] && v < arr[k + 1])));
   let best = null;
   for (const k of [1, 2]) {
-    const dv = Math.abs(x - k * cw);
-    const row = Math.floor(fromTop / ch);
-    if (row >= 0 && row <= 2 && (!best || dv < best.d)) best = { d: dv, a: { row, col: k - 1 }, b: { row, col: k }, pos: (fromTop - row * ch) / ch };
-    const dh = Math.abs(fromTop - k * ch);
-    const col = Math.floor(x / cw);
-    if (col >= 0 && col <= 2 && (!best || dh < best.d)) best = { d: dh, a: { row: k - 1, col }, b: { row: k, col }, pos: (x - col * cw) / cw };
+    const dv = Math.abs(x - G.X[k]);
+    const row = idx(G.T, fromTop);
+    if (!best || dv < best.d) best = { d: dv, a: { row, col: k - 1 }, b: { row, col: k }, pos: (fromTop - G.T[row]) / (G.T[row + 1] - G.T[row]) };
+    const dh = Math.abs(fromTop - G.T[k]);
+    const col = idx(G.X, x);
+    if (dh < best.d) best = { d: dh, a: { row: k - 1, col }, b: { row: k, col }, pos: (x - G.X[col]) / (G.X[col + 1] - G.X[col]) };
   }
   return best && best.d < 0.8 ? best : null;
 }
@@ -1534,9 +1537,23 @@ function adoptAuto(n, it) {
   return u;
 }
 
+let wallDrag = null;
+$('walls-reset').addEventListener('click', () => {
+  state.grid = {};
+  state.doorPos = {};
+  renderLayout(currentChart, lastFsAz);
+  save();
+});
 $('layout-plans').addEventListener('pointerdown', (e) => {
   const svg = e.target.closest('svg.plan');
   if (!svg || furnTool || opTool) return;
+  const hd = e.target.closest('.door-hit, .wall-hit');
+  if (hd) {
+    wallDrag = { el: { ...hd.dataset }, floor: Number(hd.dataset.floor), wall: hd.classList.contains('wall-hit'), sx: e.clientX, sy: e.clientY, moved: false };
+    $('layout-plans').setPointerCapture(e.pointerId);
+    e.preventDefault();
+    return;
+  }
   const n = Number(svg.dataset.floor);
   const [x, y] = planPointFrom(e, svg);
   let g = e.target.closest('.ufurn');
@@ -1557,6 +1574,35 @@ $('layout-plans').addEventListener('pointerdown', (e) => {
   $('layout-plans').setPointerCapture(e.pointerId);
 });
 $('layout-plans').addEventListener('pointermove', (e) => {
+  if (wallDrag) {
+    if (!wallDrag.moved && Math.hypot(e.clientX - wallDrag.sx, e.clientY - wallDrag.sy) < 3) return;
+    wallDrag.moved = true;
+    const svgNow = $('layout-plans').querySelector(`svg.plan[data-floor="${wallDrag.floor}"]`);
+    if (!svgNow) return;
+    const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(svgNow.getScreenCTM().inverse());
+    const { x0, y0, scale, w: Wm, d: Dm } = svgNow.dataset;
+    const d = wallDrag.el;
+    if (wallDrag.wall) {
+      const G = gridOf(wallDrag.floor, Number(Wm), Number(Dm));
+      const g = { x: [G.X[1], G.X[2]], t: [G.T[1], G.T[2]] };
+      const axis = d.wall[0];
+      const idx = Number(d.wall[1]);
+      const v = axis === 'x' ? (p.x - Number(x0)) / Number(scale) : (p.y - Number(y0)) / Number(scale);
+      g[axis][idx] = Math.round(v * 20) / 20;
+      state.grid = { ...state.grid, [wallDrag.floor]: g };
+    } else {
+      const pos = (d.vert === '1' ? p.y : p.x) - Number(d.s0);
+      const span = Number(d.span);
+      const half = Number(d.w) / 2 + Number(d.min || 2);
+      const frac = Math.max(half / span, Math.min(1 - half / span, pos / span));
+      if (d.op) {
+        const op = state.openings.find((o) => o.id === d.op);
+        if (op) op.pos = frac;
+      } else state.doorPos = { ...state.doorPos, [`${wallDrag.floor}:${d.door}`]: frac };
+    }
+    renderLayout(currentChart, lastFsAz);
+    return;
+  }
   if (!furnDrag) return;
   if (!furnDrag.moved && Math.hypot(e.clientX - furnDrag.sx, e.clientY - furnDrag.sy) < 4) return;
   furnDrag.moved = true;
@@ -1570,6 +1616,15 @@ $('layout-plans').addEventListener('pointermove', (e) => {
   renderLayout(currentChart, lastFsAz);
 });
 $('layout-plans').addEventListener('pointerup', (e) => {
+  if (wallDrag) {
+    if (wallDrag.moved) {
+      furnJustDragged = true;
+      setTimeout(() => { furnJustDragged = false; }, 0);
+      save();
+    }
+    wallDrag = null;
+    return;
+  }
   if (furnDrag) {
     if (!furnDrag.moved) furnSel = furnSel === furnDrag.id && !furnDrag.adopted ? null : furnDrag.id;
     furnJustDragged = true;
@@ -1584,7 +1639,7 @@ $('layout-plans').addEventListener('pointerup', (e) => {
     const [x, y] = planPointFrom(e, svg);
     const W = Number(svg.dataset.w);
     const D = Number(svg.dataset.d);
-    const wl = wallAt(x, y, W, D);
+    const wl = wallAt(x, y, W, D, Number(svg.dataset.floor));
     const f = Number(svg.dataset.floor);
     if (!wl || !lastWallPairs.get(f)?.has(`${wl.a.row}-${wl.a.col}|${wl.b.row}-${wl.b.col}`)) {
       opMsg = 'Здесь нет перегородки — нажмите ближе к стене между двумя разными помещениями.';
@@ -1592,7 +1647,8 @@ $('layout-plans').addEventListener('pointerup', (e) => {
       return;
     }
     opMsg = '';
-    const span = wl.a.row === wl.b.row ? D / 3 : W / 3;
+    const GG = gridOf(Number(svg.dataset.floor), W, D);
+    const span = wl.a.row === wl.b.row ? GG.T[wl.a.row + 1] - GG.T[wl.a.row] : GG.X[wl.a.col + 1] - GG.X[wl.a.col];
     const w = 1.2;
     state.openings.push({ id: `op${Date.now().toString(36)}`, f, a: wl.a, b: wl.b, w, pos: clampPos(wl.pos, w, span) });
     furnChanged();
@@ -1669,8 +1725,9 @@ function archSvg(chart, fsAz, f, adults, children, opt = {}) {
   out.push(`<g class="a-furn" transform="translate(${dx} ${dy})">${furn.join('')}${ufurn.join('')}</g>`);
 
   // Перегородки между разными помещениями
-  const cx = (col) => (col * W) / 3;
-  const cy = (row) => ((3 - row) * D) / 3;
+  const GR = gridOf(f.n, W, D);
+  const cx = (col) => GR.X[col];
+  const cy = (row) => D - GR.T[row];
   const walls = [];
   for (const c of cells) {
     const r = all[`${c.row}-${c.col}`];
@@ -1893,7 +1950,7 @@ function dimLine(a, b, text, dir) {
 
 
 // Снимок данных, из которых строится планировка: проект не меняется, пока планировку не утвердят заново
-const SNAP_KEYS = ['autoHidden', 'openings', 'center', 'width', 'depth', 'az', 'mode', 'period', 'floor2', 'width2', 'depth2', 'shape1', 'shape2', 'door', 'doorNine', 'program', 'overrides', 'people', 'furniture', 'autoFurn'];
+const SNAP_KEYS = ['grid', 'doorPos', 'autoHidden', 'openings', 'center', 'width', 'depth', 'az', 'mode', 'period', 'floor2', 'width2', 'depth2', 'shape1', 'shape2', 'door', 'doorNine', 'program', 'overrides', 'people', 'furniture', 'autoFurn'];
 
 function withSnapshot(snap, fn) {
   const keep = {};
@@ -2599,6 +2656,18 @@ function pairSplit(c, cells, all) {
 // Половины сектора [x, y, w, h] → [первая, вторая]
 const halvesOf = ([x, y, w, h], vertical) => (vertical ? [[x, y, w / 2, h], [x + w / 2, y, w / 2, h]] : [[x, y, w, h / 2], [x, y + h / 2, w, h / 2]]);
 
+// Положение внутренних стен сетки (м): X — слева направо, T — от тыльной стены вниз.
+// По умолчанию — трети дома; пользователь может сдвинуть линии стен.
+function gridOf(n, W, D) {
+  const g = state.grid?.[n];
+  const cl = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+  const x1 = cl(g?.x?.[0] ?? W / 3, 1.5, W - 3);
+  const x2 = cl(g?.x?.[1] ?? (2 * W) / 3, x1 + 1.5, W - 1.5);
+  const t1 = cl(g?.t?.[0] ?? D / 3, 1.5, D - 3);
+  const t2 = cl(g?.t?.[1] ?? (2 * D) / 3, t1 + 1.5, D - 1.5);
+  return { X: [0, x1, x2, W], T: [0, t1, t2, D] };
+}
+
 function openingPlan(f, cells, all, rooms, auxPart) {
   const { W, D } = f.g;
   const key = (c) => `${c.row}-${c.col}`;
@@ -2688,10 +2757,11 @@ function openingPlan(f, cells, all, rooms, auxPart) {
   const segs = outline(f.g.dec);
   const eps = 1e-6;
   const segsOf = (c) => {
-    const xA = (c.col * W) / 3;
-    const xB = ((c.col + 1) * W) / 3;
-    const yA = ((2 - c.row) * D) / 3;
-    const yB = ((3 - c.row) * D) / 3;
+    const G = gridOf(f.n, W, D);
+    const xA = G.X[c.col];
+    const xB = G.X[c.col + 1];
+    const yA = D - G.T[c.row + 1];
+    const yB = D - G.T[c.row];
     return segs
       .map((sg) => {
         const x1 = Math.max(Math.min(sg.x1, sg.x2), xA);
@@ -2744,15 +2814,17 @@ function openingPlan(f, cells, all, rooms, auxPart) {
 
 function openingsSvg(f, plan, geo) {
   const { x0, y0, cw, ch, scale, pt, stripOf, furniture = [] } = geo;
+  const gx = geo.gx || ((col) => x0 + col * cw);
+  const gy = geo.gy || ((row) => y0 + row * ch);
   const out = [];
   const opening = (a, b, kind, prefer = 0) => {
     const vertical = a.row === b.row;
-    const span = vertical ? ch : cw;
+    const span = vertical ? gy(a.row + 1) - gy(a.row) : gx(a.col + 1) - gx(a.col);
     const w = Math.min((kind === 'open' ? 1.4 : 0.8) * scale, span * 0.6);
     const clear = 0.6 * scale;
     const n = vertical ? [b.col > a.col ? 1 : -1, 0] : [0, b.row > a.row ? 1 : -1];
-    const edge = vertical ? x0 + Math.max(a.col, b.col) * cw : y0 + Math.max(a.row, b.row) * ch;
-    const start0 = vertical ? y0 + a.row * ch : x0 + a.col * cw;
+    const edge = vertical ? gx(Math.max(a.col, b.col)) : gy(Math.max(a.row, b.row));
+    const start0 = vertical ? gy(a.row) : gx(a.col);
     let best = null;
     let offsets = [0];
     for (let d = 2; d < span / 2; d += 2) offsets.push(d, -d);
@@ -2767,7 +2839,13 @@ function openingsSvg(f, plan, geo) {
       if (!best || hit < best.hit - 0.5) best = { c, hit };
       if (hit === 0) break;
     }
-    const cpos = best ? best.c : start0 + span / 2;
+    const dkey = `${a.row}-${a.col}|${b.row}-${b.col}|${prefer}`;
+    const user = state.doorPos?.[`${f.n}:${dkey}`];
+    const lo = start0 + w / 2 + 2;
+    const hi = start0 + span - w / 2 - 2;
+    const cpos = user != null ? Math.max(lo, Math.min(hi, start0 + user * span)) : best ? best.c : start0 + span / 2;
+    // Ручка, чтобы двигать дверь вдоль стены
+    if (geo.handles) geo.handles.push(`<rect class="door-hit" data-floor="${f.n}" data-door="${dkey}" data-vert="${vertical ? 1 : 0}" data-s0="${start0}" data-span="${span}" data-w="${w}" x="${vertical ? edge - 7 : cpos - w / 2}" y="${vertical ? cpos - w / 2 : edge - 7}" width="${vertical ? 14 : w}" height="${vertical ? w : 14}"><title>Перетащите дверь вдоль стены</title></rect>`);
     const p1 = vertical ? [edge, cpos - w / 2] : [cpos - w / 2, edge];
     const p2 = vertical ? [edge, cpos + w / 2] : [cpos + w / 2, edge];
     out.push(`<line class="door-gap" x1="${p1[0]}" y1="${p1[1]}" x2="${p2[0]}" y2="${p2[1]}"/>`);
@@ -2784,14 +2862,15 @@ function openingsSvg(f, plan, geo) {
   for (const op of geo.userOpenings || []) {
     const { a, b } = op;
     const vertical = a.row === b.row;
-    const span = vertical ? ch : cw;
-    const edge = vertical ? x0 + Math.max(a.col, b.col) * cw : y0 + Math.max(a.row, b.row) * ch;
-    const start0 = vertical ? y0 + a.row * ch : x0 + a.col * cw;
+    const span = vertical ? gy(a.row + 1) - gy(a.row) : gx(a.col + 1) - gx(a.col);
+    const edge = vertical ? gx(Math.max(a.col, b.col)) : gy(Math.max(a.row, b.row));
+    const start0 = vertical ? gy(a.row) : gx(a.col);
     const w = Math.min(op.w * scale, span - 0.6 * scale);
     const c = start0 + Math.min(1 - (w / 2 + 0.3 * scale) / span, Math.max((w / 2 + 0.3 * scale) / span, op.pos)) * span;
     const p1 = vertical ? [edge, c - w / 2] : [c - w / 2, edge];
     const p2 = vertical ? [edge, c + w / 2] : [c + w / 2, edge];
     out.push(`<line class="door-gap" x1="${p1[0]}" y1="${p1[1]}" x2="${p2[0]}" y2="${p2[1]}"/>`);
+    if (geo.handles) geo.handles.push(`<rect class="door-hit" data-floor="${f.n}" data-op="${op.id}" data-vert="${vertical ? 1 : 0}" data-s0="${start0}" data-span="${span}" data-w="${w}" data-min="${0.3 * scale}" x="${vertical ? edge - 7 : c - w / 2}" y="${vertical ? c - w / 2 : edge - 7}" width="${vertical ? 14 : w}" height="${vertical ? w : 14}"><title>Перетащите проём вдоль стены</title></rect>`);
     // Торцы простенков
     for (const p of [p1, p2]) out.push(vertical ? `<line class="op-jamb" x1="${p[0] - 3}" y1="${p[1]}" x2="${p[0] + 3}" y2="${p[1]}"/>` : `<line class="op-jamb" x1="${p[0]}" y1="${p[1] - 3}" x2="${p[0]}" y2="${p[1] + 3}"/>`);
   }
@@ -2848,6 +2927,12 @@ function layoutSvg(chart, fsAz, f, scale, adults, children, mini = false) {
   const ch = ph / 3;
   const x0 = padX;
   const y0 = padTop;
+  const GRID = gridOf(n, W, D);
+  const handles = [];
+  const gx = (col) => x0 + GRID.X[col] * scale;
+  const gy = (row) => y0 + GRID.T[row] * scale;
+  const cwOf = (c) => gx(c.col + 1) - gx(c.col);
+  const chOf = (c) => gy(c.row + 1) - gy(c.row);
   const m = (meters) => meters * scale;
   const pt = (x, y) => [x0 + x * scale, y0 + (D - y) * scale];
   const cells = floorCells(chart, g);
@@ -2862,7 +2947,7 @@ function layoutSvg(chart, fsAz, f, scale, adults, children, mini = false) {
   const auxPart = (r) => (r?.small && r.sharedWith ? byKey[r.sharedWith] : null);
   const wallKey = (r) => auxPart(r)?.key ?? r?.key;
   const stripOf = (c) => {
-    const [x, y, w, h] = [x0 + c.col * cw, y0 + c.row * ch, cw, ch];
+    const [x, y, w, h] = [gx(c.col), gy(c.row), cwOf(c), chOf(c)];
     const ar = all[`${c.row}-${c.col}`];
     const side = ar?.stripSide || outerSide(c.row, c.col);
     const d = (side === 'top' || side === 'bottom' ? h : w) * (ar?.frac ?? 0.4);
@@ -2875,7 +2960,7 @@ function layoutSvg(chart, fsAz, f, scale, adults, children, mini = false) {
   for (const c of cells) {
     const r = all[`${c.row}-${c.col}`];
     const partner = auxPart(r);
-    parts.push(`<rect class="room-${(partner || r)?.type || 'extra'}" x="${x0 + c.col * cw}" y="${y0 + c.row * ch}" width="${cw}" height="${ch}"/>`);
+    parts.push(`<rect class="room-${(partner || r)?.type || 'extra'}" x="${gx(c.col)}" y="${gy(c.row)}" width="${cwOf(c)}" height="${chOf(c)}"/>`);
     if (partner) {
       const [sx, sy, sw, sh] = stripOf(c);
       parts.push(`<rect class="room-utility" x="${sx}" y="${sy}" width="${sw}" height="${sh}"/>`);
@@ -2898,8 +2983,8 @@ function layoutSvg(chart, fsAz, f, scale, adults, children, mini = false) {
     if (bb && wallKey(all[`${bb.row}-${bb.col}`]) !== wallKey(r)) wallPairs.add(`${c.row}-${c.col}|${bb.row}-${bb.col}`);
     const right = cells.find((o) => o.row === c.row && o.col === c.col + 1);
     const below = cells.find((o) => o.row === c.row + 1 && o.col === c.col);
-    if (right && wallKey(all[`${right.row}-${right.col}`]) !== wallKey(r)) parts.push(`<line class="plan-wall" stroke-width="1.5" x1="${x0 + (c.col + 1) * cw}" y1="${y0 + c.row * ch}" x2="${x0 + (c.col + 1) * cw}" y2="${y0 + (c.row + 1) * ch}"/>`);
-    if (below && wallKey(all[`${below.row}-${below.col}`]) !== wallKey(r)) parts.push(`<line class="plan-wall" stroke-width="1.5" x1="${x0 + c.col * cw}" y1="${y0 + (c.row + 1) * ch}" x2="${x0 + (c.col + 1) * cw}" y2="${y0 + (c.row + 1) * ch}"/>`);
+    if (right && wallKey(all[`${right.row}-${right.col}`]) !== wallKey(r)) parts.push(`<line class="plan-wall" stroke-width="1.5" x1="${gx(c.col + 1)}" y1="${gy(c.row)}" x2="${gx(c.col + 1)}" y2="${gy(c.row + 1)}"/>`);
+    if (below && wallKey(all[`${below.row}-${below.col}`]) !== wallKey(r)) parts.push(`<line class="plan-wall" stroke-width="1.5" x1="${gx(c.col)}" y1="${gy(c.row + 1)}" x2="${gx(c.col + 1)}" y2="${gy(c.row + 1)}"/>`);
   }
   for (const sg of outline(g.dec)) {
     const [ax, ay] = pt(sg.x1, sg.y1);
@@ -2938,7 +3023,7 @@ function layoutSvg(chart, fsAz, f, scale, adults, children, mini = false) {
   // Автоматическая мебель: предметы из каталога, у стены или свободно, без наложений
   const af = [];
   const boxes = [];
-  const cellRect = (c) => [x0 + c.col * cw, y0 + c.row * ch, cw, ch];
+  const cellRect = (c) => [gx(c.col), gy(c.row), cwOf(c), chOf(c)];
   const overlaps = (b) => boxes.some(([x, y, w, h]) => Math.min(b[0] + b[2], x + w) - Math.max(b[0], x) > 1 && Math.min(b[1] + b[3], y + h) - Math.max(b[1], y) > 1);
   const putAt = (k, cx, cy, rot, force = false) => {
     const def = FURN_BY_KEY[k];
@@ -3027,7 +3112,7 @@ function layoutSvg(chart, fsAz, f, scale, adults, children, mini = false) {
       const penalty = (o) => (hasWin(c, o.head) ? 100 : 0) + (hasDoor(c, o.feet) ? 100 : 0) + (hasDoor(c, o.head) ? 30 : 0) + (hasWin(c, o.feet) ? 5 : 0);
       const choice = [...opts].sort((a, b) => penalty(a) - penalty(b) || b.score - a.score)[0];
       lastBedChoice.set(`${n}:${room.key}`, choice);
-      const minSide = Math.min(cw, ch) / scale;
+      const minSide = Math.min(cwOf(c), chOf(c)) / scale;
       const bedKey = kid ? 'bed90' : minSide >= 3.6 ? 'bed180' : 'bed160';
       const bed = put(bedKey, rect, [choice.head], kid ? [0.25, 0.75, 0.5] : [0.5, 0.4, 0.6]);
       if (bed && !kid) {
@@ -3165,7 +3250,7 @@ function layoutSvg(chart, fsAz, f, scale, adults, children, mini = false) {
 
   // Где стоит мебель — чтобы двери не попадали на неё
   const furniture = boxes;
-  if (!mini) parts.push(openingsSvg(f, plan, { x0, y0, cw, ch, scale, pt, stripOf, furniture, userOpenings: state.openings.filter((o) => o.f === n && wallPairs.has(`${o.a.row}-${o.a.col}|${o.b.row}-${o.b.col}`)) }));
+  if (!mini) parts.push(openingsSvg(f, plan, { handles, x0, y0, cw, ch, gx, gy, scale, pt, stripOf, furniture, userOpenings: state.openings.filter((o) => o.f === n && wallPairs.has(`${o.a.row}-${o.a.col}|${o.b.row}-${o.b.col}`)) }));
   if (!mini) lastWallPairs.set(n, wallPairs);
 
   // Подписи комнат и звёзды
@@ -3173,8 +3258,8 @@ function layoutSvg(chart, fsAz, f, scale, adults, children, mini = false) {
     // Подпись — по основным клеткам комнаты (без присоединённых)
     const extra = new Set((room.extra || []).map((e) => e.cell));
     const rc = all2.filter((c) => !extra.has(`${c.row}-${c.col}`));
-    let cx = rc.reduce((s, c) => s + x0 + (c.col + 0.5) * cw, 0) / rc.length;
-    let cy = rc.reduce((s, c) => s + y0 + (c.row + 0.5) * ch, 0) / rc.length;
+    let cx = rc.reduce((s, c) => s + (gx(c.col) + gx(c.col + 1)) / 2, 0) / rc.length;
+    let cy = rc.reduce((s, c) => s + (gy(c.row) + gy(c.row + 1)) / 2, 0) / rc.length;
     if (auxPart(room)) {
       const [sx, sy, sw, sh] = stripOf(rc[0]);
       cx = sx + sw / 2;
@@ -3183,7 +3268,7 @@ function layoutSvg(chart, fsAz, f, scale, adults, children, mini = false) {
     const fs = mini ? 8 : Math.max(10, Math.min(13, cw / 9));
     if (room.pair) {
       const { vertical } = pairSplit(rc[0], cells, all);
-      halvesOf([x0 + rc[0].col * cw, y0 + rc[0].row * ch, cw, ch], vertical).forEach(([hx, hy, hw, hh], i) => {
+      halvesOf(cellRect(rc[0]), vertical).forEach(([hx, hy, hw, hh], i) => {
         const ws = room.pair[i].label.split(/\s+/);
         ws.forEach((w, k) => parts.push(`<text class="room-name" x="${hx + hw / 2}" y="${hy + hh / 2 + 8 - ((ws.length - 1) * fs) / 2 + k * fs}" font-size="${fs * 0.9}" text-anchor="middle">${w}</text>`));
       });
@@ -3200,8 +3285,8 @@ function layoutSvg(chart, fsAz, f, scale, adults, children, mini = false) {
   };
   for (const c of cells) {
     if (mini) break;
-    const bx = x0 + c.col * cw + 4;
-    const by = y0 + c.row * ch + 4;
+    const bx = gx(c.col) + 4;
+    const by = gy(c.row) + 4;
     const pw2 = 24;
     const ph2 = 14;
     parts.push(`<text class="room-stars" x="${bx}" y="${by + 11}" font-size="10">${dirOf(c.lo)}</text>`);
@@ -3224,8 +3309,16 @@ function layoutSvg(chart, fsAz, f, scale, adults, children, mini = false) {
       if (!r || r.type === 'entry' || f.fixed[k]?.type === 'entry') continue;
       const sel = editCell && editCell.floor === n && editCell.cell === k ? ' selected' : '';
       const tip = `${dirOf(c.lo)}: горная ${c.mountain} — ${starMeaning(c.mountain, chart.period)}; водная ${c.water} — ${starMeaning(c.water, chart.period)}. Нажмите, чтобы изменить помещение.`;
-      parts.push(`<rect class="cell-hit${sel}" data-floor="${n}" data-cell="${k}" x="${x0 + c.col * cw}" y="${y0 + c.row * ch}" width="${cw}" height="${ch}"><title>${tip}</title></rect>`);
+      parts.push(`<rect class="cell-hit${sel}" data-floor="${n}" data-cell="${k}" x="${gx(c.col)}" y="${gy(c.row)}" width="${cwOf(c)}" height="${chOf(c)}"><title>${tip}</title></rect>`);
     }
+  }
+  // Ручки стен сетки и дверей — поверх секторов
+  if (!mini) {
+    for (const k of [1, 2]) {
+      parts.push(`<rect class="wall-hit v" data-floor="${n}" data-wall="x${k - 1}" x="${gx(k) - 6}" y="${gy(0)}" width="12" height="${gy(3) - gy(0)}"><title>Перетащите стену</title></rect>`);
+      parts.push(`<rect class="wall-hit h" data-floor="${n}" data-wall="t${k - 1}" x="${gx(0)}" y="${gy(k) - 6}" width="${gx(3) - gx(0)}" height="12"><title>Перетащите стену</title></rect>`);
+    }
+    parts.push(...handles);
   }
   // Мебель клиента — поверх всего, чтобы её можно было перетаскивать
   if (!mini) {

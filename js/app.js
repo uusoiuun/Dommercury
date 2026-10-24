@@ -67,6 +67,8 @@ const defaults = {
   // Мебель, расставленная клиентом: {id, f: этаж, t: ключ, x, y (м от левого края и от фасада), rot}
   furniture: [],
   furnSeq: 1,
+  // Проёмы в стенах, добавленные вручную: {id, f, a: {row, col}, b: {row, col}, pos (0–1 вдоль стены), w (м)}
+  openings: [],
   autoFurn: true,
   // Утверждённая планировка для вкладки «Проектирование дома»
   approved: null,
@@ -405,6 +407,7 @@ function render() {
   renderProgramInputs();
   renderLayout(chart, fsAz);
   renderFurnPalette();
+  renderOpenings();
   renderApprove();
   renderDesign();
 }
@@ -1397,11 +1400,11 @@ const dim = (v) => String(Math.round(v * 100) / 100).replace('.', ',');
 function renderFurnPalette() {
   $('furn-palette').innerHTML = FURN_CATS.map(([cat, title]) => `<div class="furn-cat"><p class="chip-group">${title}</p><div class="chips">${FURNITURE.filter((f) => f.cat === cat).map((f) => `<button type="button" class="chip" data-furn="${f.key}" aria-pressed="${furnTool === f.key}">${f.label} <small>${dim(f.w)}×${dim(f.d)}</small></button>`).join('')}</div></div>`).join('');
   $('furn-auto').checked = state.autoFurn;
-  $('layout-plans').classList.toggle('placing', !!furnTool);
+  $('layout-plans').classList.toggle('placing', !!furnTool || opTool);
   const u = furnSel && state.furniture.find((x) => x.id === furnSel);
   $('furn-edit').innerHTML = furnTool
     ? `<p class="msg mixed">Ставим: <strong>${FURN_BY_KEY[furnTool].label}</strong> Нажмите на план. <button type="button" class="link" data-fact="done">Готово</button></p>`
-    : u ? `<div class="editor"><strong>${FURN_BY_KEY[u.t].label}</strong><div class="row wrap"><button type="button" class="secondary" data-fact="rot">Повернуть на 90°</button><button type="button" class="secondary" data-fact="del">Убрать</button><button type="button" class="link" data-fact="done">Готово</button></div></div>` : '';
+    : u ? `<div class="editor"><strong>${FURN_BY_KEY[u.t].label}</strong><label class="rot-row">Поворот: <output id="furn-rot-out">${Math.round(u.rot || 0)}°</output><input type="range" id="furn-rot" min="0" max="359" step="5" value="${Math.round(u.rot || 0)}"></label><div class="row wrap"><button type="button" class="secondary" data-fact="rotm">↺ 15°</button><button type="button" class="secondary" data-fact="rotp">↻ 15°</button><button type="button" class="secondary" data-fact="rot">↻ 90°</button><button type="button" class="secondary" data-fact="del">Убрать</button><button type="button" class="link" data-fact="done">Готово</button></div></div>` : '';
 }
 
 function planPointFrom(e, svg) {
@@ -1441,9 +1444,83 @@ $('furn-edit').addEventListener('click', (e) => {
   const u = state.furniture.find((x) => x.id === furnSel);
   if (a === 'done') { furnTool = null; furnSel = null; }
   if (a === 'rot' && u) u.rot = ((u.rot || 0) + 90) % 360;
+  if (a === 'rotp' && u) u.rot = ((u.rot || 0) + 15) % 360;
+  if (a === 'rotm' && u) u.rot = ((u.rot || 0) + 345) % 360;
   if (a === 'del' && u) { state.furniture = state.furniture.filter((x) => x.id !== u.id); furnSel = null; }
   furnChanged();
 });
+
+$('furn-edit').addEventListener('input', (e) => {
+  if (e.target.id !== 'furn-rot') return;
+  const u = state.furniture.find((x) => x.id === furnSel);
+  if (!u) return;
+  u.rot = Number(e.target.value);
+  $('furn-rot-out').textContent = `${u.rot}°`;
+  renderLayout(currentChart, lastFsAz);
+});
+$('furn-edit').addEventListener('change', (e) => {
+  if (e.target.id === 'furn-rot') save();
+});
+
+// ---- Проёмы в стенах ----
+
+let opTool = false;
+const lastWallPairs = new Map();
+let opMsg = '';
+const OP_WIDTHS = [0.8, 0.9, 1.0, 1.2, 1.5, 2.0, 2.4];
+const opSpan = (op, f) => (op.a.row === op.b.row ? f.g.D / 3 : f.g.W / 3);
+// Простенки по краям не меньше 0,3 м
+const clampPos = (pos, w, span) => Math.min(1 - (w / 2 + 0.3) / span, Math.max((w / 2 + 0.3) / span, pos));
+
+function renderOpenings() {
+  $('op-tool').textContent = opTool ? 'Готово' : 'Добавить проём';
+  $('op-tool').classList.toggle('active', opTool);
+  $('layout-plans').classList.toggle('placing', !!furnTool || opTool);
+  const list = state.openings;
+  $('op-list').innerHTML = (opTool ? `<p class="msg mixed">${opMsg || 'Нажмите на план рядом со стеной между двумя комнатами — там появится проём.'}</p>` : '')
+    + (list.length ? `<ul class="op-list">${list.map((o, i) => `<li><span>Проём ${i + 1}${state.floor2 ? ` (${o.f} этаж)` : ''}</span>
+      <select data-op="${o.id}">${OP_WIDTHS.map((w) => `<option value="${w}"${Math.abs(w - o.w) < 1e-6 ? ' selected' : ''}>${Math.round(w * 1000)} мм</option>`).join('')}</select>
+      <button type="button" class="link" data-op-del="${o.id}">Убрать</button>${lastWallPairs.get(o.f) && !lastWallPairs.get(o.f).has(`${o.a.row}-${o.a.col}|${o.b.row}-${o.b.col}`) ? '<span class="note">стены здесь сейчас нет</span>' : ''}</li>`).join('')}</ul>` : '');
+}
+
+$('op-tool').addEventListener('click', () => {
+  opTool = !opTool;
+  furnTool = null;
+  renderFurnPalette();
+  renderOpenings();
+  if (opTool) $('layout-plans').scrollIntoView({ behavior: 'smooth', block: 'center' });
+});
+$('op-list').addEventListener('change', (e) => {
+  const o = state.openings.find((x) => x.id === e.target.dataset.op);
+  if (!o) return;
+  o.w = Number(e.target.value);
+  furnChanged();
+  renderOpenings();
+});
+$('op-list').addEventListener('click', (e) => {
+  const id = e.target.dataset.opDel;
+  if (!id) return;
+  state.openings = state.openings.filter((x) => x.id !== id);
+  furnChanged();
+  renderOpenings();
+});
+
+// Ближайшая внутренняя стена сетки к точке (м): между какими секторами и где вдоль неё
+function wallAt(x, y, W, D) {
+  const cw = W / 3;
+  const ch = D / 3;
+  const fromTop = D - y;
+  let best = null;
+  for (const k of [1, 2]) {
+    const dv = Math.abs(x - k * cw);
+    const row = Math.floor(fromTop / ch);
+    if (row >= 0 && row <= 2 && (!best || dv < best.d)) best = { d: dv, a: { row, col: k - 1 }, b: { row, col: k }, pos: (fromTop - row * ch) / ch };
+    const dh = Math.abs(fromTop - k * ch);
+    const col = Math.floor(x / cw);
+    if (col >= 0 && col <= 2 && (!best || dh < best.d)) best = { d: dh, a: { row: k - 1, col }, b: { row: k, col }, pos: (x - col * cw) / cw };
+  }
+  return best && best.d < 0.8 ? best : null;
+}
 
 $('layout-plans').addEventListener('pointerdown', (e) => {
   const g = e.target.closest('.ufurn');
@@ -1472,6 +1549,27 @@ $('layout-plans').addEventListener('pointerup', (e) => {
     setTimeout(() => { furnJustDragged = false; }, 0);
     furnDrag = null;
     furnChanged();
+    return;
+  }
+  if (opTool) {
+    const svg = e.target.closest('svg.plan');
+    if (!svg) return;
+    const [x, y] = planPointFrom(e, svg);
+    const W = Number(svg.dataset.w);
+    const D = Number(svg.dataset.d);
+    const wl = wallAt(x, y, W, D);
+    const f = Number(svg.dataset.floor);
+    if (!wl || !lastWallPairs.get(f)?.has(`${wl.a.row}-${wl.a.col}|${wl.b.row}-${wl.b.col}`)) {
+      opMsg = 'Здесь нет перегородки — нажмите ближе к стене между двумя разными помещениями.';
+      renderOpenings();
+      return;
+    }
+    opMsg = '';
+    const span = wl.a.row === wl.b.row ? D / 3 : W / 3;
+    const w = 1.2;
+    state.openings.push({ id: `op${Date.now().toString(36)}`, f, a: wl.a, b: wl.b, w, pos: clampPos(wl.pos, w, span) });
+    furnChanged();
+    renderOpenings();
     return;
   }
   if (!furnTool) return;
@@ -1768,7 +1866,7 @@ function dimLine(a, b, text, dir) {
 
 
 // Снимок данных, из которых строится планировка: проект не меняется, пока планировку не утвердят заново
-const SNAP_KEYS = ['center', 'width', 'depth', 'az', 'mode', 'period', 'floor2', 'width2', 'depth2', 'shape1', 'shape2', 'door', 'doorNine', 'program', 'overrides', 'people', 'furniture', 'autoFurn'];
+const SNAP_KEYS = ['openings', 'center', 'width', 'depth', 'az', 'mode', 'period', 'floor2', 'width2', 'depth2', 'shape1', 'shape2', 'door', 'doorNine', 'program', 'overrides', 'people', 'furniture', 'autoFurn'];
 
 function withSnapshot(snap, fn) {
   const keep = {};
@@ -2184,7 +2282,7 @@ function renderEditor(chart, floors) {
 
 $('layout-plans').addEventListener('click', (e) => {
   const hit = e.target.closest('[data-cell]');
-  if (!hit || furnTool || e.target.closest('.ufurn') || furnJustDragged) return;
+  if (!hit || furnTool || opTool || e.target.closest('.ufurn') || furnJustDragged) return;
   editCell = { floor: Number(hit.dataset.floor), cell: hit.dataset.cell };
   render();
   $('layout-editor').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -2655,6 +2753,21 @@ function openingsSvg(f, plan, geo) {
     }
   };
   for (const l of plan.links) opening(l.a, l.b, l.kind, l.prefer);
+  // Проёмы, добавленные вручную: проход в стене, простенки по краям сохраняются
+  for (const op of geo.userOpenings || []) {
+    const { a, b } = op;
+    const vertical = a.row === b.row;
+    const span = vertical ? ch : cw;
+    const edge = vertical ? x0 + Math.max(a.col, b.col) * cw : y0 + Math.max(a.row, b.row) * ch;
+    const start0 = vertical ? y0 + a.row * ch : x0 + a.col * cw;
+    const w = Math.min(op.w * scale, span - 0.6 * scale);
+    const c = start0 + Math.min(1 - (w / 2 + 0.3 * scale) / span, Math.max((w / 2 + 0.3 * scale) / span, op.pos)) * span;
+    const p1 = vertical ? [edge, c - w / 2] : [c - w / 2, edge];
+    const p2 = vertical ? [edge, c + w / 2] : [c + w / 2, edge];
+    out.push(`<line class="door-gap" x1="${p1[0]}" y1="${p1[1]}" x2="${p2[0]}" y2="${p2[1]}"/>`);
+    // Торцы простенков
+    for (const p of [p1, p2]) out.push(vertical ? `<line class="op-jamb" x1="${p[0] - 3}" y1="${p[1]}" x2="${p[0] + 3}" y2="${p[1]}"/>` : `<line class="op-jamb" x1="${p[0]}" y1="${p[1] - 3}" x2="${p[0]}" y2="${p[1] + 3}"/>`);
+  }
   // Небольшое подсобное — дверь из соседней комнаты в полосу у стены
   for (const { room, cell: c } of plan.aux) {
     const [sx, sy, sw, sh] = stripOf(c);
@@ -2749,8 +2862,13 @@ function layoutSvg(chart, fsAz, f, scale, adults, children, mini = false) {
     parts.push(`<rect class="plan-cut" fill="url(#${hatch})" x="${Math.min(ax, bx)}" y="${Math.min(ay, by)}" width="${Math.abs(bx - ax)}" height="${Math.abs(by - ay)}"/>`);
   }
   // Перегородки между разными комнатами
+  const wallPairs = new Set();
   for (const c of cells) {
     const r = all[`${c.row}-${c.col}`];
+    const rr = cells.find((o) => o.row === c.row && o.col === c.col + 1);
+    const bb = cells.find((o) => o.row === c.row + 1 && o.col === c.col);
+    if (rr && wallKey(all[`${rr.row}-${rr.col}`]) !== wallKey(r)) wallPairs.add(`${c.row}-${c.col}|${rr.row}-${rr.col}`);
+    if (bb && wallKey(all[`${bb.row}-${bb.col}`]) !== wallKey(r)) wallPairs.add(`${c.row}-${c.col}|${bb.row}-${bb.col}`);
     const right = cells.find((o) => o.row === c.row && o.col === c.col + 1);
     const below = cells.find((o) => o.row === c.row + 1 && o.col === c.col);
     if (right && wallKey(all[`${right.row}-${right.col}`]) !== wallKey(r)) parts.push(`<line class="plan-wall" stroke-width="1.5" x1="${x0 + (c.col + 1) * cw}" y1="${y0 + c.row * ch}" x2="${x0 + (c.col + 1) * cw}" y2="${y0 + (c.row + 1) * ch}"/>`);
@@ -3011,7 +3129,8 @@ function layoutSvg(chart, fsAz, f, scale, adults, children, mini = false) {
 
   // Где стоит мебель — чтобы двери не попадали на неё
   const furniture = boxes;
-  if (!mini) parts.push(openingsSvg(f, plan, { x0, y0, cw, ch, scale, pt, stripOf, furniture }));
+  if (!mini) parts.push(openingsSvg(f, plan, { x0, y0, cw, ch, scale, pt, stripOf, furniture, userOpenings: state.openings.filter((o) => o.f === n && wallPairs.has(`${o.a.row}-${o.a.col}|${o.b.row}-${o.b.col}`)) }));
+  if (!mini) lastWallPairs.set(n, wallPairs);
 
   // Подписи комнат и звёзды
   for (const { room, cells: all2 } of rooms.values()) {

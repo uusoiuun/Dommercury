@@ -15,6 +15,7 @@ import {
   ROOMS, MOUNTAIN, WATER, UNFAVORABLE_MOUNTAIN, WATER_FACE, attacksGua, elementOf, roomFit, bedroomsFor, entranceNotes, heTuPairs, doubleNine,
 } from './stars9.js';
 import { planRooms, roomsFor, kitchenSplit, dir8, isDoubleNine } from './planner.js';
+import { FURNITURE, FURN_BY_KEY, FURN_CATS, furnSvg } from './furniture.js';
 import {
   sunPosition, localToUtc, sunDay, tzGuess, HOUSE_SHAPES, rectPoly, houseOutline, houseFacade, inPoly, sunVector, shadowsAt, sunHours,
   BUILDINGS, BUILDING_BY_KEY, PLANTS, PLANT_BY_KEY, PLANT_GROUPS, LIGHT_TEXT, lightZone, checkPlant, checkBuildings, defaultYard, convexOverlap, housePieces, LIGHT_SHARE,
@@ -59,6 +60,12 @@ const defaults = {
   doorNine: true,
   // Помещения, поставленные вручную: {'этаж:ряд-столбец': {key, label, type, wet}}
   overrides: {},
+  // Мебель, расставленная клиентом: {id, f: этаж, t: ключ, x, y (м от левого края и от фасада), rot}
+  furniture: [],
+  furnSeq: 1,
+  autoFurn: true,
+  // Утверждённая планировка для вкладки «Проектирование дома»
+  approved: null,
   site: [],
   // Конструктор участка: дом, постройки, растения, день и время
   yard: defaultYard(),
@@ -389,6 +396,9 @@ function render() {
   renderPeople(houseAz(fsAz));
   renderProgramInputs();
   renderLayout(chart, fsAz);
+  renderFurnPalette();
+  renderApprove();
+  renderDesign();
 }
 
 function renderMap(chart, shift) {
@@ -1322,7 +1332,7 @@ function renderLayout(chart, fsAz) {
     return;
   }
   const { floors, notes, adults, children, layout } = buildLayout(chart, doorNow);
-  const scale = 300 / Math.max(...floors.flatMap((f) => [f.g.W, f.g.D]));
+  const scale = 480 / Math.max(...floors.flatMap((f) => [f.g.W, f.g.D]));
   $('layout-plans').innerHTML = floors.map((f) => layoutSvg(chart, fsAz, f, scale, adults, children)).join('')
     + `<p class="note star-legend">В каждой клетке: <span class="pill-inline pill-mid">Г</span> горная звезда — сон, здоровье, отношения;
       <span class="pill-inline pill-mid">В</span> водная — деньги, активность. Цвет:
@@ -1348,6 +1358,197 @@ function renderLayout(chart, fsAz) {
   renderEditor(chart, floors);
   renderVariants(chart, fsAz);
 }
+
+// ---- Мебель клиента ----
+
+let furnTool = null; // ключ предмета, который ставим нажатием на план
+let furnSel = null; // выбранный предмет
+let furnDrag = null;
+let furnJustDragged = false;
+
+const dim = (v) => String(Math.round(v * 100) / 100).replace('.', ',');
+
+function renderFurnPalette() {
+  $('furn-palette').innerHTML = FURN_CATS.map(([cat, title]) => `<div class="furn-cat"><p class="chip-group">${title}</p><div class="chips">${FURNITURE.filter((f) => f.cat === cat).map((f) => `<button type="button" class="chip" data-furn="${f.key}" aria-pressed="${furnTool === f.key}">${f.label} <small>${dim(f.w)}×${dim(f.d)}</small></button>`).join('')}</div></div>`).join('');
+  $('furn-auto').checked = state.autoFurn;
+  $('layout-plans').classList.toggle('placing', !!furnTool);
+  const u = furnSel && state.furniture.find((x) => x.id === furnSel);
+  $('furn-edit').innerHTML = furnTool
+    ? `<p class="msg mixed">Ставим: <strong>${FURN_BY_KEY[furnTool].label}</strong> Нажмите на план. <button type="button" class="link" data-fact="done">Готово</button></p>`
+    : u ? `<div class="editor"><strong>${FURN_BY_KEY[u.t].label}</strong><div class="row wrap"><button type="button" class="secondary" data-fact="rot">Повернуть на 90°</button><button type="button" class="secondary" data-fact="del">Убрать</button><button type="button" class="link" data-fact="done">Готово</button></div></div>` : '';
+}
+
+function planPointFrom(e, svg) {
+  const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(svg.getScreenCTM().inverse());
+  const { x0, y0, scale, d } = svg.dataset;
+  return [(p.x - Number(x0)) / Number(scale), Number(d) - (p.y - Number(y0)) / Number(scale)];
+}
+
+const snap10 = (v) => Math.round(v * 20) / 20;
+function furnChanged() {
+  renderLayout(currentChart, lastFsAz);
+  renderFurnPalette();
+  save();
+}
+
+$('furn-palette').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-furn]');
+  if (!b) return;
+  furnTool = furnTool === b.dataset.furn ? null : b.dataset.furn;
+  furnSel = null;
+  renderFurnPalette();
+  if (furnTool) $('layout-plans').scrollIntoView({ behavior: 'smooth', block: 'center' });
+});
+$('furn-auto').addEventListener('change', (e) => {
+  state.autoFurn = e.target.checked;
+  furnChanged();
+});
+$('furn-clear').addEventListener('click', () => {
+  if (state.furniture.length && !window.confirm('Убрать всю мебель, которую вы поставили?')) return;
+  state.furniture = [];
+  furnSel = null;
+  furnChanged();
+});
+$('furn-edit').addEventListener('click', (e) => {
+  const a = e.target.closest('[data-fact]')?.dataset.fact;
+  if (!a) return;
+  const u = state.furniture.find((x) => x.id === furnSel);
+  if (a === 'done') { furnTool = null; furnSel = null; }
+  if (a === 'rot' && u) u.rot = ((u.rot || 0) + 90) % 360;
+  if (a === 'del' && u) { state.furniture = state.furniture.filter((x) => x.id !== u.id); furnSel = null; }
+  furnChanged();
+});
+
+$('layout-plans').addEventListener('pointerdown', (e) => {
+  const g = e.target.closest('.ufurn');
+  const svg = e.target.closest('svg.plan');
+  if (!g || !svg || furnTool) return;
+  const u = state.furniture.find((x) => x.id === g.dataset.fid);
+  const [x, y] = planPointFrom(e, svg);
+  furnDrag = { id: u.id, svg, dx: u.x - x, dy: u.y - y, sx: e.clientX, sy: e.clientY, moved: false };
+  $('layout-plans').setPointerCapture(e.pointerId);
+});
+$('layout-plans').addEventListener('pointermove', (e) => {
+  if (!furnDrag) return;
+  if (!furnDrag.moved && Math.hypot(e.clientX - furnDrag.sx, e.clientY - furnDrag.sy) < 4) return;
+  furnDrag.moved = true;
+  const u = state.furniture.find((x) => x.id === furnDrag.id);
+  const [x, y] = planPointFrom(e, furnDrag.svg);
+  u.x = snap10(x + furnDrag.dx);
+  u.y = snap10(y + furnDrag.dy);
+  furnSel = u.id;
+  renderLayout(currentChart, lastFsAz);
+});
+$('layout-plans').addEventListener('pointerup', (e) => {
+  if (furnDrag) {
+    if (!furnDrag.moved) furnSel = furnSel === furnDrag.id ? null : furnDrag.id;
+    furnJustDragged = true;
+    setTimeout(() => { furnJustDragged = false; }, 0);
+    furnDrag = null;
+    furnChanged();
+    return;
+  }
+  if (!furnTool) return;
+  const svg = e.target.closest('svg.plan');
+  if (!svg) return;
+  const [x, y] = planPointFrom(e, svg);
+  if (x < 0 || y < 0 || x > Number(svg.dataset.w) || y > Number(svg.dataset.d)) return;
+  const u = { id: `f${state.furnSeq++}`, f: Number(svg.dataset.floor), t: furnTool, x: snap10(x), y: snap10(y), rot: 0 };
+  state.furniture.push(u);
+  furnSel = u.id;
+  furnChanged();
+});
+
+// ---- Утверждение планировки ----
+
+function roomSchedule(f) {
+  const cellA = (f.g.W / 3) * (f.g.D / 3);
+  const all = { ...f.res.assign, ...f.fixed };
+  const area = new Map();
+  const add = (r, a) => {
+    if (!r) return;
+    const k = r.key;
+    const cur = area.get(k) || { label: r.label, area: 0 };
+    cur.area += a;
+    area.set(k, cur);
+  };
+  const byKey = Object.fromEntries(Object.values(all).map((r) => [r.key, r]));
+  for (let row = 0; row < 3; row++) {
+    for (let col = 0; col < 3; col++) {
+      const cov = f.g.cov[row][col];
+      if (!cov) continue;
+      const r = all[`${row}-${col}`];
+      const a = cellA * Math.min(1, cov);
+      if (r?.small && r.sharedWith && byKey[r.sharedWith]) {
+        add(r, a * 0.4);
+        add(byKey[r.sharedWith], a * 0.6);
+      } else add(r, a);
+    }
+  }
+  return [...area.values()];
+}
+
+function approveLayout() {
+  if (!currentChart || currentChart.period !== 9) return;
+  const { floors, adults, children } = buildLayout(currentChart, doorNow);
+  const scale = 480 / Math.max(...floors.flatMap((f) => [f.g.W, f.g.D]));
+  const prevSel = furnSel;
+  furnSel = null;
+  state.approved = {
+    at: new Date().toLocaleString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+    floors: floors.map((f) => ({ title: f.title || 'Дом', W: f.g.W, D: f.g.D, svg: layoutSvg(currentChart, lastFsAz, f, scale, adults, children), rooms: roomSchedule(f) })),
+    furniture: state.furniture.map((u) => ({ t: u.t, f: u.f })),
+    facade: lastFsAz,
+  };
+  furnSel = prevSel;
+  save();
+  renderApprove();
+  renderDesign();
+  location.hash = '#design';
+}
+
+function renderApprove() {
+  $('approve-status').innerHTML = state.approved
+    ? `<p class="msg good"><strong>Планировка утверждена ${state.approved.at}</strong>Если что-то поменяли — утвердите ещё раз, и проект обновится.</p>`
+    : '';
+}
+
+function renderDesign() {
+  const a = state.approved;
+  if (!a) {
+    $('design').innerHTML = '<section class="card"><h2>Планировка ещё не утверждена</h2><p class="note">Перейдите во вкладку «Планировочное решение», выберите вариант, расставьте мебель и нажмите «Утвердить планировку» внизу страницы.</p><p><a class="btn" href="#plan">К планировке</a></p></section>';
+    return;
+  }
+  const area = (n) => fmt(n, 1);
+  const sched = a.floors.map((f) => {
+    const total = f.rooms.reduce((s2, r) => s2 + r.area, 0);
+    return `<section class="card"><h2>Экспликация помещений${a.floors.length > 1 ? ` — ${f.title}` : ''}</h2><table class="sched"><thead><tr><th>№</th><th>Помещение</th><th>Площадь, м²</th></tr></thead><tbody>${f.rooms.map((r, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(r.label)}</td><td>≈ ${area(r.area)}</td></tr>`).join('')}</tbody><tfoot><tr><td></td><td>Итого (${fmt(f.W, 1)} × ${fmt(f.D, 1)} м)</td><td>≈ ${area(total)}</td></tr></tfoot></table></section>`;
+  }).join('');
+  const counts = new Map();
+  for (const u of a.furniture) {
+    const k = `${u.t}|${u.f}`;
+    counts.set(k, (counts.get(k) || 0) + 1);
+  }
+  const spec = counts.size
+    ? `<table class="sched"><thead><tr><th>Предмет</th><th>Размер, м</th><th>Шт.</th></tr></thead><tbody>${[...counts.entries()].map(([k, n]) => {
+      const [t, f] = k.split('|');
+      const d = FURN_BY_KEY[t];
+      return `<tr><td>${d.label}${a.floors.length > 1 ? ` <span class="note">(${f} этаж)</span>` : ''}</td><td>${dim(d.w)} × ${dim(d.d)}</td><td>${n}</td></tr>`;
+    }).join('')}</tbody></table>`
+    : '<p class="note">Мебель не добавлена — на плане показана расстановка, предложенная сайтом.</p>';
+  $('design').innerHTML = `<section class="card"><h2>Утверждённая планировка</h2><p class="note">Утверждена ${a.at}. <a href="#plan">Изменить</a></p><div class="design-plans">${a.floors.map((f) => f.svg).join('')}</div></section>`
+    + `<div class="design-grid">${sched}<section class="card"><h2>Спецификация мебели</h2>${spec}</section></div>`
+    + `<section class="card"><h2>Разделы проекта</h2><p class="note">Проект строится по утверждённой планировке. Следующие разделы появятся по образцу проекта:</p><ul class="design-steps">
+      <li><b>Планы этажей с размерами</b><span>оси, стены, проёмы, привязки</span></li>
+      <li><b>Фасады и разрез</b><span>высоты, кровля, отметки</span></li>
+      <li><b>Фундамент</b><span>с учётом грунта и мерзлоты</span></li>
+      <li><b>Стены и перекрытия</b><span>конструкция и утепление</span></li>
+      <li><b>Кровля</b><span>тип, уклон, водосток</span></li>
+      <li><b>Инженерия</b><span>отопление, вода, канализация, электрика</span></li>
+    </ul></section>`;
+}
+
+$('btn-approve').addEventListener('click', approveLayout);
 
 // ---- Ручная правка планировки ----
 
@@ -1417,7 +1618,7 @@ function renderEditor(chart, floors) {
 
 $('layout-plans').addEventListener('click', (e) => {
   const hit = e.target.closest('[data-cell]');
-  if (!hit) return;
+  if (!hit || furnTool || e.target.closest('.ufurn') || furnJustDragged) return;
   editCell = { floor: Number(hit.dataset.floor), cell: hit.dataset.cell };
   render();
   $('layout-editor').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -2069,7 +2270,14 @@ function layoutSvg(chart, fsAz, f, scale, adults, children, mini = false) {
       parts.push(`<rect class="cell-hit${sel}" data-floor="${n}" data-cell="${k}" x="${x0 + c.col * cw}" y="${y0 + c.row * ch}" width="${cw}" height="${ch}"><title>${tip}</title></rect>`);
     }
   }
-  return `<svg class="plan" width="${vw}" height="${vh}" viewBox="0 0 ${vw} ${vh}" role="img" aria-label="Планировка ${title || 'дома'}">${parts.join('')}</svg>`;
+  // Мебель клиента — поверх всего, чтобы её можно было перетаскивать
+  if (!mini) {
+    for (const u of state.furniture.filter((x) => x.f === n)) {
+      const def = FURN_BY_KEY[u.t];
+      if (def) parts.push(furnSvg(def, pt(u.x, u.y), scale, u.rot, `data-fid="${u.id}"`).replace('class="ufurn"', `class="ufurn${furnSel === u.id ? ' sel' : ''}"`));
+    }
+  }
+  return `<svg class="plan${state.autoFurn ? '' : ' no-auto'}" width="${vw}" height="${vh}" viewBox="0 0 ${vw} ${vh}" role="img" aria-label="Планировка ${title || 'дома'}" data-floor="${n}" data-x0="${x0}" data-y0="${y0}" data-scale="${scale}" data-w="${W}" data-d="${D}">${parts.join('')}</svg>`;
 }
 
 function escapeHtml(s) {
@@ -3002,8 +3210,7 @@ $('y-plan').addEventListener('pointerup', (e) => {
 
 // ---- Вкладки ----
 
-// Вкладка «Планировочное решение» пока скрыта: #plan открывает главную
-const TABS = ['home', 'calc', 'garden'];
+const TABS = ['home', 'calc', 'plan', 'design', 'garden'];
 
 function showTab() {
   const id = location.hash.slice(1);

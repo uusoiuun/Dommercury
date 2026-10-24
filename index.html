@@ -28,6 +28,8 @@
       <nav class="tabs" role="tablist" aria-label="Разделы">
         <a role="tab" href="#home" data-tab="home"><span class="tab-ico">◐</span><span class="tab-long">Главная</span><span class="tab-short">Главная</span></a>
         <a role="tab" href="#calc" data-tab="calc"><span class="tab-ico">☯</span><span class="tab-long">Расчёт дома по фэн-шуй</span><span class="tab-short">Расчёт</span></a>
+        <a role="tab" href="#plan" data-tab="plan"><span class="tab-ico">▦</span><span class="tab-long">Планировочное решение</span><span class="tab-short">Планировка</span></a>
+        <a role="tab" href="#design" data-tab="design"><span class="tab-ico">⌂</span><span class="tab-long">Проектирование дома</span><span class="tab-short">Проект</span></a>
         <a role="tab" href="#garden" data-tab="garden"><span class="tab-ico">❦</span><span class="tab-long">Конструктор ландшафтного озеленения</span><span class="tab-short">Озеленение</span></a>
       </nav>
     </div>
@@ -55,9 +57,9 @@
       </figure>
     </div>
 
-    <div class="captions serif"><span>(о проекте)</span><span>(01)</span><span>(два шага)</span></div>
+    <div class="captions serif"><span>(о проекте)</span><span>(01)</span><span>(четыре шага)</span></div>
     <h2 class="section-title">Дом, который стоит<br>в согласии с местом</h2>
-    <p class="section-lead">Мы начинаем с участка и стороны света, рассчитываем дом по фэн-шуй, а потом продолжаем его садом — по солнцу, тени и почве.</p>
+    <p class="section-lead">Мы начинаем с участка и стороны света, рассчитываем дом по фэн-шуй, раскладываем комнаты и мебель, проектируем дом — и продолжаем его садом по солнцу, тени и почве.</p>
 
     <div class="steps">
       <a class="step-card" href="#calc" style="--pos: 52% 30%">
@@ -65,8 +67,18 @@
         <span class="step-name">Расчёт дома<br>по фэн-шуй</span>
         <span class="step-go" aria-hidden="true">→</span>
       </a>
-      <a class="step-card" href="#garden" style="--pos: 98% 34%">
+      <a class="step-card" href="#plan" style="--pos: 18% 12%">
         <span class="mono">02</span>
+        <span class="step-name">Планировочное<br>решение</span>
+        <span class="step-go" aria-hidden="true">→</span>
+      </a>
+      <a class="step-card" href="#design" style="--pos: 30% 52%">
+        <span class="mono">03</span>
+        <span class="step-name">Проектирование<br>дома</span>
+        <span class="step-go" aria-hidden="true">→</span>
+      </a>
+      <a class="step-card" href="#garden" style="--pos: 98% 34%">
+        <span class="mono">04</span>
         <span class="step-name">Ландшафт<br>и озеленение</span>
         <span class="step-go" aria-hidden="true">→</span>
       </a>
@@ -268,7 +280,7 @@
   <section class="tab-page" id="tab-plan" data-page="plan" role="tabpanel" hidden>
     <div class="intro">
       <h1>Планировочное решение</h1>
-      <p>Выберите помещения — сайт разложит их по секторам: где проводят время — по водной звезде, спальни — по горной и Гуа. Учтены зимний свет и одна мокрая точка.</p>
+      <p>Выберите помещения — сайт разложит их по секторам: где проводят время — по водной звезде, спальни — по горной и Гуа. Меняйте комнаты, расставляйте мебель и утверждайте вариант — по нему будет проектироваться дом.</p>
     </div>
     <main class="layout plan-layout">
     <aside class="panel">
@@ -305,6 +317,14 @@
         </div>
       </section>
 
+      <section class="card furn-card">
+        <h2>Мебель</h2>
+        <p class="note">Выберите предмет и нажмите на план — он встанет в это место. Предметы перетаскиваются, поворачиваются и удаляются.</p>
+        <div id="furn-palette"></div>
+        <label class="check"><input type="checkbox" id="furn-auto"> Показывать мебель, расставленную сайтом</label>
+        <button type="button" class="link" id="furn-clear">Убрать всю мою мебель</button>
+      </section>
+
       <section class="card no-print">
         <button type="button" id="btn-print">Распечатать / сохранить в PDF</button>
         <p class="note">Расчёт предварительный. Толкования — общие правила школы Сюань Кун. Сайт не заменяет инженерные изыскания и проект.</p>
@@ -314,14 +334,30 @@
       <section class="card">
         <h2>Планировка этажей</h2>
         <p class="note">Кухня-гостиная и кабинет — по водной звезде: там проводят время, но не спят. Спальни — по горной звезде и Гуа тех, кто в них спит. Плита — по горной звезде. Санузел, котельная, кладовка — в секторы с неблагоприятными звёздами. Прихожая — у входной двери, в центре — холл. Все санузлы — в одной мокрой точке: рядом друг с другом, на втором этаже — над санузлами первого; котельная — рядом с ними.</p>
+        <div id="furn-edit"></div>
         <div id="layout-plans" class="plans"></div>
         <div id="layout-editor"></div>
         <div id="layout-notes"></div>
         <div id="layout-variants"></div>
       </section>
 
+      <section class="card approve-card">
+        <h2>Утвердить планировку</h2>
+        <p class="note">Когда комнаты и мебель вас устраивают, утвердите вариант. Утверждённая планировка переходит во вкладку «Проектирование дома».</p>
+        <div id="approve-status"></div>
+        <button type="button" id="btn-approve" class="approve">Утвердить планировку</button>
+      </section>
+
     </div>
     </main>
+  </section>
+
+  <section class="tab-page" id="tab-design" data-page="design" role="tabpanel" hidden>
+    <div class="intro">
+      <h1>Проектирование дома</h1>
+      <p>Здесь утверждённая планировка превращается в проект дома: планы этажей, экспликация помещений, спецификация мебели, а дальше — конструктив и инженерия.</p>
+    </div>
+    <main class="design-wrap" id="design"></main>
   </section>
 
   <section class="tab-page" id="tab-garden" data-page="garden" role="tabpanel" hidden>

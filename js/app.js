@@ -14,7 +14,7 @@ import {
 import {
   ROOMS, MOUNTAIN, WATER, UNFAVORABLE_MOUNTAIN, WATER_FACE, attacksGua, elementOf, roomFit, bedroomsFor, entranceNotes, heTuPairs, doubleNine,
 } from './stars9.js';
-import { planRooms, roomsFor, kitchenSplit, dir8, isDoubleNine } from './planner.js';
+import { planRooms, roomsFor, kitchenSplit, dir8, isDoubleNine, COMMON } from './planner.js';
 import { FURNITURE, FURN_BY_KEY, FURN_CATS, furnSvg } from './furniture.js';
 import {
   CLIMATES, climateByLat, MATERIALS, MATERIAL_KEYS, FOUNDATIONS, FOUNDATION_COMPARE, FOUNDATION_WHEN, SITES, GEO_SOILS, GEO_PERMAFROST, geoRecommend, FOUNDATION_TYPES, QUIZ, quizResult, LENS_INFO, wallBuildUp, buildModel, normChecks, buildSheets,
@@ -1161,6 +1161,9 @@ $('room-chips').addEventListener('click', (e) => {
   // Спальня родителей и мастер-спальня — одна из двух
   if (room === 'suite' && state.program.suite) state.program.master = false;
   if (room === 'master' && state.program.master) state.program.suite = false;
+  // Кухня-гостиная или отдельные кухня и гостиная
+  if (room === 'kitchen' && state.program.kitchen) { state.program.kitchenSep = false; state.program.livingSep = false; }
+  if ((room === 'kitchenSep' || room === 'livingSep') && state.program[room]) state.program.kitchen = false;
   render();
   save();
 });
@@ -1217,6 +1220,7 @@ function guaDirScore(gua, bearing) {
  * изголовье — напротив; при равенстве — по благоприятному направлению Гуа для изголовья.
  */
 const lastBedChoice = new Map();
+const lastAccessIssues = new Map();
 
 function bedOptions(chart, fsAz, gua) {
   return ['top', 'bottom', 'left', 'right']
@@ -1368,6 +1372,7 @@ function renderLayout(chart, fsAz) {
         ? `<li><strong>Мокрая точка${where}:</strong> санузлы рядом друг с другом — ${[...f.res.wetKeys].map((k) => dirOf(layout[k[0]][k[2]])).join(', ')}.</li>`
         : `<li><strong>Мокрая точка${where}:</strong> собрать все санузлы рядом не получилось — уменьшите их число или проверьте вручную.</li>`);
     }
+    for (const t of lastAccessIssues.get(f.n) || []) notes.push(`<li class="bad-note"><strong>Проход${where}:</strong> ${escapeHtml(t)}</li>`);
     for (const r of f.res.dropped) notes.push(`<li><strong>${r.label}${where}</strong> не поместилась. Увеличьте дом или добавьте второй этаж.</li>`);
     for (const m of f.res.merged) notes.push(`<li>${m}${where}.</li>`);
     notes.push(...roomNotes(chart, fsAz, f, adults, children));
@@ -2417,36 +2422,70 @@ function openingPlan(f, cells, all, rooms, auxPart) {
   const adj = (a, b) => Math.abs(a.row - b.row) + Math.abs(a.col - b.col) === 1;
   const links = [];
   const list = [...rooms.values()];
+  const issues = [];
+  const common = (r) => r && COMMON.includes(r.type);
   const connected = new Set(list.filter((x) => x.room.type === 'hall').map((x) => x.room.key));
   if (!connected.size && list.length) connected.add((list.find((x) => x.room.type === 'entry') || list[0]).room.key);
-  // Проходы: сначала через холл и общие зоны; если не вышло — через соседнюю сухую комнату; в крайнем случае — через любую
+  /**
+   * Куда можно открыть дверь из комнаты room в соседнюю target.
+   * pass 0 — по правилам; pass 1 — запасной вариант; pass 2 — крайний случай.
+   * Прихожая — только в общее помещение; спальни — одна дверь из общего помещения, через них не ходят;
+   * мастер-спальня — из общего помещения или через свою гардеробную.
+   */
+  const allowed = (room, target, pass) => {
+    if (target.type === 'bedroom' && !(room.key === 'suitebath' && target.key === 'master')) return false;
+    // В гардеробную мастер-спальни заходят только из спальни родителей (и сама она — из общего помещения)
+    if (target.key === 'suitebath' && room.key !== 'master') return false;
+    if (room.type === 'entry') return ['hall', 'kitchen', 'lounge'].includes(target.type) || (pass === 2 && !isWetRoom(target));
+    if (room.key === 'suitebath') return target.key === 'master' || common(target);
+    if (room.key === 'master') return common(target) || (target.key === 'suitebath' && pass >= 0);
+    if (room.type === 'bedroom') return common(target) || (pass === 2 && !isWetRoom(target) && target.type !== 'utility');
+    if (pass === 0) return common(target) || target.type === 'office';
+    if (pass === 1) return !isWetRoom(target);
+    return true;
+  };
   for (const pass of [0, 1, 2]) {
     for (let guard = 0; guard < 12; guard++) {
       let progress = false;
       for (const { room, cells: rc } of list) {
         if (connected.has(room.key) || auxPart(room)) continue;
-        const targets = room.key === 'suitebath' ? ['master'] : null;
+        // Мастер-спальню сначала пробуем открыть прямо в общее помещение
         let best = null;
         for (const c of rc) {
           for (const o of cells) {
             const r = roomOf(o);
             if (!r || r.key === room.key || auxPart(r) || !adj(c, o) || !connected.has(r.key)) continue;
-            if (targets && pass === 0 && !targets.includes(r.key)) continue;
-            if (!targets && pass === 0 && !PUBLIC.includes(r.type) && r.type !== 'office') continue;
-            if (pass === 1 && isWetRoom(r)) continue;
-            const rank = (r.type === 'hall' ? 0 : r.type === 'entry' ? 1 : PUBLIC.includes(r.type) ? 2 : 3) + (c === rc[0] ? 0 : 0.1);
+            if (!allowed(room, r, pass)) continue;
+            const rank = (r.type === 'hall' ? 0 : r.type === 'entry' ? 1 : common(r) ? 2 : r.key === 'suitebath' ? 2.5 : 3) + (c === rc[0] ? 0 : 0.1);
             if (!best || rank < best.rank) best = { from: o, to: c, rank, target: r };
           }
         }
         if (!best) continue;
         const open = PUBLIC.includes(room.type) && PUBLIC.includes(best.target.type) && !(room.type === 'entry' || best.target.type === 'entry');
-        links.push({ a: best.from, b: best.to, kind: open ? 'open' : 'door' });
+        // Дверь из общего помещения в гардеробную мастер-спальни — в половину с гардеробной (к спальне)
+        let prefer = 0;
+        const sbCell = room.key === 'suitebath' ? best.to : null;
+        const mCell = sbCell && list.find((x) => x.room.key === 'master')?.cells.find((o) => adj(o, sbCell));
+        if (mCell) {
+          const vertical = best.from.row === best.to.row;
+          prefer = vertical ? Math.sign(mCell.row - sbCell.row) : Math.sign(mCell.col - sbCell.col);
+        }
+        links.push({ a: best.from, b: best.to, kind: open ? 'open' : 'door', prefer });
+        if (pass > 0 && (room.type === 'bedroom' || room.type === 'entry')) issues.push(`${room.label}: нет выхода прямо в общее помещение — дверь через «${best.target.label}». Поменяйте помещения местами вручную.`);
         connected.add(room.key);
         progress = true;
       }
       if (!progress) break;
     }
   }
+  // Ванная мастер-спальни: проходная гардеробная всегда открыта и в спальню
+  const sb = list.find((x) => x.room.key === 'suitebath');
+  const ms = list.find((x) => x.room.key === 'master');
+  if (sb && ms && !links.some((l) => [roomOf(l.a)?.key, roomOf(l.b)?.key].sort().join() === 'master,suitebath')) {
+    const pair = sb.cells.flatMap((c) => ms.cells.filter((o) => adj(c, o)).map((o) => [o, c]))[0];
+    if (pair) links.push({ a: pair[0], b: pair[1], kind: 'door' });
+  }
+  for (const { room } of list) if (!connected.has(room.key) && !auxPart(room)) issues.push(`${room.label}: нет прохода — поменяйте помещения местами вручную.`);
   const aux = list.filter(({ room }) => auxPart(room)).map(({ room, cells: rc }) => ({ room, cell: rc[0] }));
 
   // Окна
@@ -2503,13 +2542,13 @@ function openingPlan(f, cells, all, rooms, auxPart) {
       }
     }
   }
-  return { links, aux, windows };
+  return { links, aux, windows, issues };
 }
 
 function openingsSvg(f, plan, geo) {
   const { x0, y0, cw, ch, scale, pt, stripOf, furniture = [] } = geo;
   const out = [];
-  const opening = (a, b, kind) => {
+  const opening = (a, b, kind, prefer = 0) => {
     const vertical = a.row === b.row;
     const span = vertical ? ch : cw;
     const w = Math.min((kind === 'open' ? 1.4 : 0.8) * scale, span * 0.6);
@@ -2518,8 +2557,9 @@ function openingsSvg(f, plan, geo) {
     const edge = vertical ? x0 + Math.max(a.col, b.col) * cw : y0 + Math.max(a.row, b.row) * ch;
     const start0 = vertical ? y0 + a.row * ch : x0 + a.col * cw;
     let best = null;
-    const offsets = [0];
+    let offsets = [0];
     for (let d = 2; d < span / 2; d += 2) offsets.push(d, -d);
+    if (prefer) offsets = offsets.filter((o) => o * prefer >= w / 2 + 2).sort((p1, p2) => Math.abs(p1 - prefer * span / 4) - Math.abs(p2 - prefer * span / 4));
     for (const off of offsets) {
       const c = start0 + span / 2 + off;
       if (c - w / 2 < start0 + 2 || c + w / 2 > start0 + span - 2) continue;
@@ -2542,7 +2582,7 @@ function openingsSvg(f, plan, geo) {
       out.push(`<path class="door-leaf" d="M${p1[0]} ${p1[1]} L${leaf[0]} ${leaf[1]} A${ww} ${ww} 0 0 ${sweep} ${p2[0]} ${p2[1]}"/>`);
     }
   };
-  for (const l of plan.links) opening(l.a, l.b, l.kind);
+  for (const l of plan.links) opening(l.a, l.b, l.kind, l.prefer);
   // Небольшое подсобное — дверь из соседней комнаты в полосу у стены
   for (const { cell: c } of plan.aux) {
     const [sx, sy, sw, sh] = stripOf(c);
@@ -2645,6 +2685,7 @@ function layoutSvg(chart, fsAz, f, scale, adults, children, mini = false) {
 
   // Двери и окна известны заранее — мебель ставим с их учётом
   const plan = openingPlan(f, cells, all, rooms, auxPart);
+  if (!mini) lastAccessIssues.set(n, plan.issues);
   const keyOf = (c) => `${c.row}-${c.col}`;
   const doorSides = new Map();
   const winSides = new Map();
@@ -2725,9 +2766,16 @@ function layoutSvg(chart, fsAz, f, scale, adults, children, mini = false) {
       const bRect = vertical ? [x, toward === 'top' ? y + half : y, w, half] : [toward === 'left' ? x + half : x, y, half, h];
       const sideWalls = vertical ? ['left', 'right'] : ['top', 'bottom'];
       for (const sw of sideWalls) put('wardrobe', gRect, [sw], [0.5]) || put('shelf', gRect, [sw], [0.5]);
-      parts.push(vertical
-        ? `<line class="plan-wall" stroke-width="1" x1="${x}" y1="${toward === 'top' ? y + half : y + h - half}" x2="${x + w}" y2="${toward === 'top' ? y + half : y + h - half}"/>`
-        : `<line class="plan-wall" stroke-width="1" x1="${toward === 'left' ? x + half : x + w - half}" y1="${y}" x2="${toward === 'left' ? x + half : x + w - half}" y2="${y + h}"/>`);
+      // Перегородка между гардеробной и ванной — с дверным проёмом 0,8 м по середине
+      const gap = Math.min(0.8 * scale, (vertical ? w : h) * 0.4);
+      if (vertical) {
+        const yy = toward === 'top' ? y + half : y + h - half;
+        parts.push(`<line class="plan-wall" stroke-width="1" x1="${x}" y1="${yy}" x2="${x + w / 2 - gap / 2}" y2="${yy}"/>`, `<line class="plan-wall" stroke-width="1" x1="${x + w / 2 + gap / 2}" y1="${yy}" x2="${x + w}" y2="${yy}"/>`);
+      } else {
+        const xx = toward === 'left' ? x + half : x + w - half;
+        parts.push(`<line class="plan-wall" stroke-width="1" x1="${xx}" y1="${y}" x2="${xx}" y2="${y + h / 2 - gap / 2}"/>`, `<line class="plan-wall" stroke-width="1" x1="${xx}" y1="${y + h / 2 + gap / 2}" x2="${xx}" y2="${y + h}"/>`);
+      }
+      boxes.push(vertical ? [x + w / 2 - gap / 2, (toward === 'top' ? y + half : y + h - half) - 0.5 * scale, gap, scale] : [(toward === 'left' ? x + half : x + w - half) - 0.5 * scale, y + h / 2 - gap / 2, scale, gap]);
       const far = OPPOSITE[toward];
       put('bath', bRect, [far, ...sideWalls]);
       put('toilet', bRect, sideWalls, [0.8, 0.2]);

@@ -90,7 +90,12 @@ const SCORERS = {
   office: (cells, room, upper) => Math.max(activeScore(cells[0]), [8, 1, 9].includes(cells[0].mountain) ? 3 : -9)
     + (!upper && isDoubleNine(cells[0]) ? DOUBLE_NINE_BONUS.office : 0),
   utility: (cells) => fitScore(roomFit('utility', cells[0].mountain, cells[0].water)) + sunScore(UTILITY_SUN, cells[0]),
+  // Отдельная гостиная — по водной звезде и свету (юг, юго-запад)
+  lounge: (cells) => cells.reduce((s, c) => s + activeScore(c) + sunScore(LIVING_SUN, c), 0),
 };
+
+// Общие помещения: из них заходят в спальни, санузлы и другие комнаты
+export const COMMON = ['hall', 'entry', 'kitchen', 'lounge'];
 
 /** Соседние клетки (общая сторона). */
 const adjacent = (a, b) => Math.abs(a.row - b.row) + Math.abs(a.col - b.col) === 1;
@@ -102,6 +107,10 @@ const adjacent = (a, b) => Math.abs(a.row - b.row) + Math.abs(a.col - b.col) ===
 export function roomsFor(program, parents, { bedrooms = true, living = true, bathCount = program.baths } = {}) {
   const rooms = [];
   if (living && program.kitchen) rooms.push({ key: 'kitchen', label: 'Кухня-гостиная', type: 'kitchen', size: 2, priority: 10 });
+  else {
+    if (living && program.kitchenSep) rooms.push({ key: 'kitchen', label: 'Кухня', type: 'kitchen', size: 1, priority: 10 });
+    if (living && program.livingSep) rooms.push({ key: 'living', label: 'Гостиная', type: 'lounge', size: 1, priority: 9.5 });
+  }
   if (bedrooms && (program.master || program.suite)) {
     rooms.push({
       key: 'master',
@@ -186,7 +195,7 @@ export function planRooms(cells, rooms, fixed = {}, { upper = false, wetAbove = 
   const wetScore = (room, cell) => {
     let s = 0;
     if (room.wet) {
-      if (wet.length && !wet.some((w) => adjacent(w, cell))) s -= 8;
+      if (wet.length && !wet.some((w) => adjacent(w, cell))) s -= 20;
       if (wetAbove) s += wetAbove.has(key(cell)) ? 6 : wetAbove.size ? -6 : 0;
     }
     // Котельная — у мокрой точки: общая инженерия
@@ -194,9 +203,37 @@ export function planRooms(cells, rooms, fixed = {}, { upper = false, wetAbove = 
     return s;
   };
 
+  // Доступ: прихожая и каждая спальня — рядом с общим помещением (холл, кухня, гостиная),
+  // мастер-спальня — либо сама, либо через свою гардеробную
+  const fixedCells = Object.entries(fixed).map(([k, r]) => ({ c: cells.find((x) => key(x) === k), r })).filter((x) => x.c);
+  const access = () => {
+    const roomAt = (c) => assign[key(c)] || fixed[key(c)];
+    const isCommon = (c, except) => { const r = roomAt(c); return r && r.key !== except && COMMON.includes(r.type) && !(except === 'entry-check' && r.type === 'entry'); };
+    let pen = 0;
+    const nearCommon = (c, except) => cells.some((n) => adjacent(c, n) && isCommon(n, except));
+    for (const { c, r } of fixedCells) if (r.type === 'entry' && !cells.some((n) => adjacent(c, n) && (roomAt(n)?.type === 'hall' || roomAt(n)?.type === 'kitchen' || roomAt(n)?.type === 'lounge'))) pen += 30;
+    for (const [k, r] of Object.entries(assign)) {
+      if (k !== key(placed[r.key]?.[0] || { row: -1, col: -1 })) continue;
+      const c = placed[r.key][0];
+      if (r.type === 'bedroom') {
+        if (nearCommon(c, r.key)) continue;
+        const suite = r.key === 'master' && placed.suitebath && adjacent(placed.suitebath[0], c) && nearCommon(placed.suitebath[0], 'suitebath');
+        if (!suite) pen += 30;
+      } else if (r.type === 'kitchen' || r.type === 'lounge' || r.type === 'office') {
+        // Кухня, гостиная, кабинет — тоже с выходом в общее помещение
+        if (!placed[r.key].some((x) => nearCommon(x, r.key))) pen += 30;
+      } else if (r.type === 'utility' && !r.suiteOf && !nearCommon(c, r.key)) {
+        // Санузел — тоже из общего помещения; котельная и кладовая допустимы через соседнее подсобное
+        pen += r.wet ? 20 : 6;
+      }
+    }
+    return pen;
+  };
+
   const rec = (i, total) => {
     if (i === list.length) {
-      if (total > best.score) best = { score: total, assign: { ...assign } };
+      const t = total - access();
+      if (t > best.score) best = { score: t, assign: { ...assign } };
       return;
     }
     const room = list[i];

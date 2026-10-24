@@ -442,6 +442,13 @@ td.bad { color: var(--bad); }
 .wall-hit:hover { fill: var(--accent); fill-opacity: 0.18; }
 .door-hit { fill: transparent; cursor: grab; }
 .door-hit:hover { fill: var(--door); fill-opacity: 0.25; }
+.door-hit.sel { fill: var(--door); fill-opacity: 0.4; stroke: var(--door); stroke-width: 1.5; }
+.wall-knob { cursor: grab; touch-action: none; }
+.wall-knob.v { cursor: ew-resize; }
+.wall-knob.h { cursor: ns-resize; }
+.wall-knob line { stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 2 2; }
+.wall-knob circle { fill: var(--card); stroke: var(--accent); stroke-width: 2; }
+.wall-knob:hover circle { fill: var(--accent); }
 .op-jamb { stroke: var(--text); stroke-width: 1.5; }
 .op-list { list-style: none; padding: 0; margin: 10px 0 0; display: flex; flex-direction: column; gap: 6px; }
 .op-list li { display: flex; align-items: center; gap: 8px; }

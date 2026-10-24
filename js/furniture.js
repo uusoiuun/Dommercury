@@ -34,6 +34,8 @@ export const FURNITURE = [
   { key: 'miniSink', cat: 'wc', label: 'Мини-раковина', short: '', w: 0.4, d: 0.3, draw: 'sink' },
   // Для автоматической расстановки (в каталоге не показываются)
   { key: 'washer', cat: 'aux', label: 'Стиральная машина', short: 'СМ', w: 0.6, d: 0.6, draw: 'box' },
+  { key: 'entryWardrobe', cat: 'aux', label: 'Шкаф в прихожей', short: 'Шкаф', w: 2.0, d: 0.6, draw: 'wardrobe' },
+  { key: 'bench', cat: 'aux', label: 'Банкетка', short: '', w: 0.9, d: 0.35, draw: 'box' },
   { key: 'vanity', cat: 'aux', label: 'Туалетный столик', short: 'Столик', w: 1.0, d: 0.45, draw: 'table' },
   { key: 'coffee', cat: 'aux', label: 'Журнальный столик', short: '', w: 1.0, d: 0.55, draw: 'table' },
   { key: 'shelf', cat: 'aux', label: 'Стеллаж', short: 'Стеллаж', w: 1.2, d: 0.45, draw: 'wardrobe' },

@@ -1306,7 +1306,8 @@ function buildLayout(chart, door) {
   const withOverrides = (n, fixed) => {
     for (const [k, r] of Object.entries(state.overrides)) {
       const [floor, cell] = k.split(':');
-      if (Number(floor) !== n || fixed[cell]) continue;
+      // Центральный холл тоже можно заменить другим помещением
+      if (Number(floor) !== n || (fixed[cell] && !(fixed[cell].type === 'hall' && !fixed[cell].manual))) continue;
       fixed[cell] = { ...r, primary: cell, manual: true };
     }
     return fixed;
@@ -2107,6 +2108,7 @@ window.addEventListener('afterprint', () => document.body.classList.remove('prin
 let editCell = null; // {floor, cell}
 
 const GENERIC_ROOMS = [
+  { label: 'Холл', type: 'hall' },
   { label: 'Гостиная', type: 'office' },
   { label: 'Кабинет', type: 'office' },
   { label: 'Спальня', type: 'bedroom' },
@@ -2161,7 +2163,19 @@ function renderEditor(chart, floors) {
   }
   const resetAll = Object.keys(state.overrides).length
     ? '<button type="button" class="link" id="edit-reset">Сбросить все ручные правки</button>' : '';
-  $('layout-editor').innerHTML = `<h3 class="sub">Изменить планировку</h3>${panel}${resetAll}
+  // Расположение кухни — выбором из списка (удобно на телефоне)
+  const f1 = floors[0];
+  const kitchenCur = Object.entries(state.overrides).find(([, r]) => r.key === 'kitchen')?.[0]?.split(':')[1] || '';
+  const kRoom = Object.values({ ...f1.res.assign, ...f1.fixed }).find((r) => r.key === 'kitchen');
+  const kSelect = kRoom ? `<label>Где ${kRoom.label.toLowerCase()}
+      <select id="kitchen-place"><option value="">Авто (как предлагает сайт)</option>${floorCells(chart, f1.g)
+        .filter((c) => f1.fixed[`${c.row}-${c.col}`]?.type !== 'entry')
+        .map((c) => {
+          const k = `${c.row}-${c.col}`;
+          const fit = roomFit('active', c.mountain, c.water);
+          return `<option value="${k}"${kitchenCur === k ? ' selected' : ''}>${dirOf(c.lo)} — водная ${c.water}, горная ${c.mountain}${dir8(c.sun) ? `, свет ${dir8(c.sun)}` : ''}${fit && FIT_WORD[fit] ? ` — ${FIT_WORD[fit]}` : ''}</option>`;
+        }).join('')}</select></label>` : '';
+  $('layout-editor').innerHTML = `<h3 class="sub">Изменить планировку</h3>${kSelect}${panel}${resetAll}
     <h3 class="sub">Добавить помещение</h3>
     <p class="note">Сайт сам найдёт ему сектор по звёздам: жилое — по водной звезде, спальню — по горной, мокрое — в мокрую точку.</p>
     <div class="custom-rooms">${customList}</div>
@@ -2209,6 +2223,17 @@ $('layout-editor').addEventListener('click', (e) => {
 });
 
 $('layout-editor').addEventListener('change', (e) => {
+  if (e.target.id === 'kitchen-place') {
+    for (const [k, r] of Object.entries(state.overrides)) if (r.key === 'kitchen') delete state.overrides[k];
+    const v = e.target.value;
+    if (v) {
+      const lbl = state.program.kitchen ? 'Кухня-гостиная' : 'Кухня';
+      state.overrides[`1:${v}`] = { key: 'kitchen', label: lbl, type: 'kitchen' };
+    }
+    render();
+    save();
+    return;
+  }
   const i = e.target.dataset.custom;
   if (i === undefined) return;
   state.program.custom[Number(i)][e.target.dataset.f] = e.target.value;
@@ -2871,6 +2896,30 @@ function layoutSvg(chart, fsAz, f, scale, adults, children, mini = false) {
         if (desk) { const [ix, iy] = inward(desk.side, (FURN_BY_KEY.desk.d / 2 + 0.3) * scale); putAt('kidChair', desk.at[0] + ix, desk.at[1] + iy, ROT[OPPOSITE[desk.side]]); }
       }
       if (room.suite) put('vanity', rect, quietSides(c, [choice.head]), [0.5, 0.2, 0.8]);
+    } else if (room.type === 'entry') {
+      // Прихожая: большой шкаф для верхней одежды у глухой стены, банкетка рядом
+      // Только к настоящей стене: не туда, где прихожая продолжается в соседний сектор
+      const DIRS = { top: [-1, 0], bottom: [1, 0], left: [0, -1], right: [0, 1] };
+      const solid = (sd) => {
+        const n = cells.find((o) => o.row === c.row + DIRS[sd][0] && o.col === c.col + DIRS[sd][1]);
+        const nr = n && all[`${n.row}-${n.col}`];
+        return !nr || (nr.key !== room.key && nr.sharedWith !== room.key);
+      };
+      const ok = (list) => list.filter(solid);
+      // Части соседних секторов, которые отошли прихожей (рядом с половинным санузлом или подсобным)
+      const remainders = [...rooms.values()].filter((o) => o.room.sharedWith === room.key && o.room.stripSide).map((o) => {
+        const oc = o.cells[0];
+        const [rx, ry, rw, rh] = cellRect(oc);
+        const [sx, sy, sw, sh] = stripOf(oc);
+        const side = o.room.stripSide;
+        const rr = side === 'left' ? [sx + sw, ry, rw - sw, rh] : side === 'right' ? [rx, ry, rw - sw, rh] : side === 'top' ? [rx, sy + sh, rw, rh - sh] : [rx, ry, rw, rh - sh];
+        const outer = SIDES.filter((sd) => sd !== side && sd !== OPPOSITE[side] && ((sd === 'top' && oc.row === 0) || (sd === 'bottom' && oc.row === 2) || (sd === 'left' && oc.col === 0) || (sd === 'right' && oc.col === 2)));
+        return { rr, sides: outer.filter((sd) => !hasDoor(oc, sd)) };
+      });
+      let wr = put('entryWardrobe', rect, [...ok(freeSides(c)), ...ok(quietSides(c))], [0.5, 0.25, 0.75]);
+      for (const rm of remainders) if (!wr) wr = put('entryWardrobe', rm.rr, rm.sides, [0.5]) || put('wardrobe', rm.rr, rm.sides, [0.5]);
+      if (!wr) wr = put('wardrobe', rect, [...ok(quietSides(c)), ...quietSides(c)], [0.5, 0.25, 0.75]);
+      put('bench', rect, ok(quietSides(c, wr ? [wr.side] : [])), [0.5, 0.3, 0.7]);
     } else if (room.type === 'kitchen') {
       const z = kitchenZones(room, rc);
       const st = z.kitchen;
@@ -3017,7 +3066,7 @@ function layoutSvg(chart, fsAz, f, scale, adults, children, mini = false) {
     for (const c of cells) {
       const k = `${c.row}-${c.col}`;
       const r = all[k];
-      if (!r || r.type === 'hall' || r.type === 'entry' || f.fixed[k]?.type === 'entry') continue;
+      if (!r || r.type === 'entry' || f.fixed[k]?.type === 'entry') continue;
       const sel = editCell && editCell.floor === n && editCell.cell === k ? ' selected' : '';
       const tip = `${dirOf(c.lo)}: горная ${c.mountain} — ${starMeaning(c.mountain, chart.period)}; водная ${c.water} — ${starMeaning(c.water, chart.period)}. Нажмите, чтобы изменить помещение.`;
       parts.push(`<rect class="cell-hit${sel}" data-floor="${n}" data-cell="${k}" x="${x0 + c.col * cw}" y="${y0 + c.row * ch}" width="${cw}" height="${ch}"><title>${tip}</title></rect>`);

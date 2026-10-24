@@ -67,6 +67,8 @@ const defaults = {
   // Мебель, расставленная клиентом: {id, f: этаж, t: ключ, x, y (м от левого края и от фасада), rot}
   furniture: [],
   furnSeq: 1,
+  // Мебель сайта, взятая в правку (скрыта в авторасстановке): ['этаж:комната:номер']
+  autoHidden: [],
   // Проёмы в стенах, добавленные вручную: {id, f, a: {row, col}, b: {row, col}, pos (0–1 вдоль стены), w (м)}
   openings: [],
   autoFurn: true,
@@ -1224,6 +1226,7 @@ function guaDirScore(gua, bearing) {
  */
 const lastBedChoice = new Map();
 const lastAccessIssues = new Map();
+const lastAutoItems = new Map();
 
 function bedOptions(chart, fsAz, gua) {
   return ['top', 'bottom', 'left', 'right']
@@ -1433,8 +1436,9 @@ $('furn-auto').addEventListener('change', (e) => {
   furnChanged();
 });
 $('furn-clear').addEventListener('click', () => {
-  if (state.furniture.length && !window.confirm('Убрать всю мебель, которую вы поставили?')) return;
+  if ((state.furniture.length || state.autoHidden.length) && !window.confirm('Вернуть расстановку сайта и убрать всю мебель, которую вы поставили или передвинули?')) return;
   state.furniture = [];
+  state.autoHidden = [];
   furnSel = null;
   furnChanged();
 });
@@ -1522,13 +1526,34 @@ function wallAt(x, y, W, D) {
   return best && best.d < 0.8 ? best : null;
 }
 
+// Взять мебель сайта в правку: она становится «моей» на том же месте
+function adoptAuto(n, it) {
+  const u = { id: `f${state.furnSeq++}`, f: n, t: it.k, x: Math.round(it.x * 100) / 100, y: Math.round(it.y * 100) / 100, rot: it.rot, from: it.aid };
+  state.furniture.push(u);
+  state.autoHidden = [...state.autoHidden, it.aid];
+  return u;
+}
+
 $('layout-plans').addEventListener('pointerdown', (e) => {
-  const g = e.target.closest('.ufurn');
   const svg = e.target.closest('svg.plan');
-  if (!g || !svg || furnTool) return;
-  const u = state.furniture.find((x) => x.id === g.dataset.fid);
+  if (!svg || furnTool || opTool) return;
+  const n = Number(svg.dataset.floor);
   const [x, y] = planPointFrom(e, svg);
-  furnDrag = { id: u.id, svg, dx: u.x - x, dy: u.y - y, sx: e.clientX, sy: e.clientY, moved: false };
+  let g = e.target.closest('.ufurn');
+  let u = g && state.furniture.find((q) => q.id === g.dataset.fid);
+  if (!u && state.autoFurn) {
+    // Нажали на мебель сайта (её перекрывает слой секторов — ищем по координатам)
+    const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(svg.getScreenCTM().inverse());
+    const it = (lastAutoItems.get(n) || []).find((a) => !state.autoHidden.includes(a.aid)
+      && p.x >= a.box[0] && p.x <= a.box[0] + a.box[2] && p.y >= a.box[1] && p.y <= a.box[1] + a.box[3]);
+    if (it) {
+      u = adoptAuto(n, it);
+      furnSel = u.id;
+      renderLayout(currentChart, lastFsAz);
+    }
+  }
+  if (!u) return;
+  furnDrag = { id: u.id, floor: n, dx: u.x - x, dy: u.y - y, sx: e.clientX, sy: e.clientY, moved: false, adopted: !g };
   $('layout-plans').setPointerCapture(e.pointerId);
 });
 $('layout-plans').addEventListener('pointermove', (e) => {
@@ -1536,7 +1561,9 @@ $('layout-plans').addEventListener('pointermove', (e) => {
   if (!furnDrag.moved && Math.hypot(e.clientX - furnDrag.sx, e.clientY - furnDrag.sy) < 4) return;
   furnDrag.moved = true;
   const u = state.furniture.find((x) => x.id === furnDrag.id);
-  const [x, y] = planPointFrom(e, furnDrag.svg);
+  const svgNow = $('layout-plans').querySelector(`svg.plan[data-floor="${furnDrag.floor}"]`);
+  if (!svgNow) return;
+  const [x, y] = planPointFrom(e, svgNow);
   u.x = snap10(x + furnDrag.dx);
   u.y = snap10(y + furnDrag.dy);
   furnSel = u.id;
@@ -1544,7 +1571,7 @@ $('layout-plans').addEventListener('pointermove', (e) => {
 });
 $('layout-plans').addEventListener('pointerup', (e) => {
   if (furnDrag) {
-    if (!furnDrag.moved) furnSel = furnSel === furnDrag.id ? null : furnDrag.id;
+    if (!furnDrag.moved) furnSel = furnSel === furnDrag.id && !furnDrag.adopted ? null : furnDrag.id;
     furnJustDragged = true;
     setTimeout(() => { furnJustDragged = false; }, 0);
     furnDrag = null;
@@ -1866,7 +1893,7 @@ function dimLine(a, b, text, dir) {
 
 
 // Снимок данных, из которых строится планировка: проект не меняется, пока планировку не утвердят заново
-const SNAP_KEYS = ['openings', 'center', 'width', 'depth', 'az', 'mode', 'period', 'floor2', 'width2', 'depth2', 'shape1', 'shape2', 'door', 'doorNine', 'program', 'overrides', 'people', 'furniture', 'autoFurn'];
+const SNAP_KEYS = ['autoHidden', 'openings', 'center', 'width', 'depth', 'az', 'mode', 'period', 'floor2', 'width2', 'depth2', 'shape1', 'shape2', 'door', 'doorNine', 'program', 'overrides', 'people', 'furniture', 'autoFurn'];
 
 function withSnapshot(snap, fn) {
   const keep = {};
@@ -2921,9 +2948,15 @@ function layoutSvg(chart, fsAz, f, scale, adults, children, mini = false) {
     const box = [cx - bw / 2, cy - bh / 2, bw, bh];
     if (!force && overlaps(box)) return null;
     boxes.push(box);
-    af.push(furnSvg(def, [cx, cy], scale, rot).replace('class="ufurn"', 'class="afurn"'));
+    // Мебель сайта с устойчивым номером: её можно взять в правку (сдвинуть, повернуть, убрать)
+    const aid = `${n}:${curRoomKey}:${autoIdx++}`;
+    if (!mini) autoItems.push({ aid, k, x: (cx - x0) / scale, y: D - (cy - y0) / scale, rot, box });
+    if (!state.autoHidden.includes(aid)) af.push(furnSvg(def, [cx, cy], scale, rot).replace('class="ufurn"', 'class="afurn"'));
     return box;
   };
+  let curRoomKey = '';
+  let autoIdx = 0;
+  const autoItems = [];
   // У стены side прямоугольника rect, в доле frac вдоль стены
   const wallPos = (k, rect, side, frac) => {
     const def = FURN_BY_KEY[k];
@@ -2957,6 +2990,8 @@ function layoutSvg(chart, fsAz, f, scale, adults, children, mini = false) {
 
   for (const { room, cells: rc } of rooms.values()) {
     if (mini) break;
+    curRoomKey = room.key;
+    autoIdx = 0;
     const c = primaryCell(room, rc);
     const rect = cellRect(c);
     if (room.key === 'suitebath') {
@@ -3125,6 +3160,7 @@ function layoutSvg(chart, fsAz, f, scale, adults, children, mini = false) {
       }
     }
   }
+  if (!mini) lastAutoItems.set(n, autoItems);
   if (af.length) parts.push(`<!--af--><g class="auto-furn">${af.join('')}</g><!--/af-->`);
 
   // Где стоит мебель — чтобы двери не попадали на неё

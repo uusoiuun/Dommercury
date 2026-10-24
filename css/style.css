@@ -434,6 +434,7 @@ td.bad { color: var(--bad); }
 .plans.placing .plan { cursor: crosshair; }
 .plan.no-auto .furn, .plan.no-auto .furn-fill, .plan.no-auto .furn-label, .plan.no-auto .auto-furn { display: none; }
 .afurn { pointer-events: none; }
+#furn-edit .editor { box-shadow: var(--shadow); background: var(--card); }
 #layout-plans .plan { touch-action: none; }
 .op-jamb { stroke: var(--text); stroke-width: 1.5; }
 .op-list { list-style: none; padding: 0; margin: 10px 0 0; display: flex; flex-direction: column; gap: 6px; }
@@ -723,6 +724,8 @@ table.est td.note { font-size: 12px; margin: 0; }
   .code { margin-top: 64px; border-radius: 26px; }
   .outro { padding: 64px 0 28px; }
   .tab-long { display: none; }
+  /* Правка мебели на телефоне — панель внизу экрана, чтобы видеть план */
+  #furn-edit .editor { position: fixed; left: 8px; right: 8px; bottom: 8px; z-index: 1200; margin: 0; }
   .tab-short { display: inline; }
   .brand small { display: none; }
 }

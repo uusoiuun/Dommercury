@@ -144,8 +144,11 @@ export function roomsFor(program, parents, { bedrooms = true, living = true, bat
   });
   if (living && program.boiler) rooms.push({ key: 'boiler', label: 'Котельная', type: 'utility', priority: 6 });
   if (living && program.storage) rooms.push({ key: 'storage', label: 'Кладовка', type: 'utility', priority: 3 });
-  return rooms.map((r) => ({ size: 1, ...r }));
+  // Санузлы и подсобные помещения могут занимать половину сектора
+  return rooms.map((r) => ({ size: 1, ...r, half: r.type === 'utility' && !r.suiteOf }));
 }
+
+const HALF_PARTNERS = ['kitchen', 'lounge', 'entry'];
 
 /**
  * Раскладка комнат по свободным клеткам.
@@ -164,6 +167,20 @@ export function planRooms(cells, rooms, fixed = {}, { upper = false, wetAbove = 
   // Мастер-спальне нужна соседняя клетка под гардеробную и ванную; без неё — обычная спальня
   // (проверяется в поиске)
   // Не хватает клеток: кухня-гостиная в одну клетку, затем убираем наименее важное
+  // Не хватает клеток: два небольших помещения делят один сектор пополам
+  while (need() > free.length) {
+    const halves = list.filter((r) => r.half && !r.pair).sort((a, b) => a.priority - b.priority);
+    if (halves.length < 2) break;
+    const a = halves[0];
+    // Пара: оба мокрых или оба сухих, иначе любые два
+    const b = halves.slice(1).find((x) => !!x.wet === !!a.wet) || halves[1];
+    list = list.filter((x) => x !== a && x !== b);
+    const pair = { key: `pair-${a.key}-${b.key}`, label: `${a.label} | ${b.label}`, type: 'utility', size: 1, wet: !!(a.wet || b.wet), priority: Math.max(a.priority, b.priority), pair: [a, b] };
+    list.push(pair);
+    list.sort((x, y) => y.priority - x.priority);
+    merged.push(`${a.label} и ${b.label} — в одном секторе, по половине`);
+  }
+  // Всё ещё не хватает: кухня-гостиная в одну клетку
   if (need() > free.length) {
     const k = list.find((r) => r.type === 'kitchen');
     if (k) k.size = 1;
@@ -270,6 +287,33 @@ export function planRooms(cells, rooms, fixed = {}, { upper = false, wetAbove = 
   // Главная клетка каждой комнаты — для кровати, стола, сантехники
   for (const [k, r] of Object.entries(result)) if (!r.primary) r.primary = k;
 
+  // Санузел или подсобное — половина сектора у наружной стены; вторая половина отходит
+  // соседнему общему помещению (кухне, гостиной, прихожей), откуда в него и вход
+  {
+    const allNow = { ...fixed, ...result };
+    for (const [k, r] of Object.entries(result)) {
+      if (!r.half || r.pair || r.small || r.primary !== k) continue;
+      const c = cells.find((x) => key(x) === k);
+      const partner = cells
+        .filter((n) => adjacent(c, n) && allNow[key(n)] && HALF_PARTNERS.includes(allNow[key(n)].type))
+        .map((n) => allNow[key(n)])
+        .sort((a, b) => HALF_PARTNERS.indexOf(a.type) - HALF_PARTNERS.indexOf(b.type))[0];
+      // Только у наружной стены: половина — полоса вдоль неё
+      const outer = c.row !== 1 || c.col !== 1;
+      if (!partner || !outer) continue;
+      // Полоса — у наружной стены напротив соседа, чтобы его половина была цельной
+      const pc = cells.find((n) => adjacent(c, n) && allNow[key(n)] === partner);
+      const toward = pc.row < c.row ? 'top' : pc.row > c.row ? 'bottom' : pc.col < c.col ? 'left' : 'right';
+      const opp = { top: 'bottom', bottom: 'top', left: 'right', right: 'left' }[toward];
+      const isOuter = (sd) => (sd === 'top' && c.row === 0) || (sd === 'bottom' && c.row === 2) || (sd === 'left' && c.col === 0) || (sd === 'right' && c.col === 2);
+      r.stripSide = isOuter(opp) ? opp : ['top', 'bottom', 'left', 'right'].find((sd) => isOuter(sd) && sd !== toward);
+      if (!r.stripSide) continue;
+      r.small = true;
+      r.frac = 0.5;
+      r.sharedWith = partner.key;
+    }
+  }
+
   // Оставшиеся клетки: одно подсобное помещение на этаж, остальное присоединяем к соседним комнатам
   const all = { ...fixed, ...result };
   const hasUtilityRoom = Object.values(result).some((r) => ['storage', 'laundry', 'wardrobe'].includes(r.key));
@@ -281,7 +325,7 @@ export function planRooms(cells, rooms, fixed = {}, { upper = false, wetAbove = 
       .sort((a, b) => auxScore(b) - auxScore(a))[0];
     if (aux) {
       // Подсобное — небольшое: полоса у наружной стены, остальная часть сектора — соседней комнате
-      result[key(aux)] = { key: 'aux', label: 'Подсобное', type: 'utility', size: 1, primary: key(aux), small: true };
+      result[key(aux)] = { key: 'aux', label: 'Подсобное', type: 'utility', size: 1, primary: key(aux), small: true, frac: 0.4 };
       all[key(aux)] = result[key(aux)];
       left = left.filter((c) => c !== aux);
     }
@@ -327,7 +371,7 @@ export function planRooms(cells, rooms, fixed = {}, { upper = false, wetAbove = 
     });
   }
   // Соседняя комната, которой отходит остальная часть сектора подсобного
-  const auxRoom = Object.values(result).find((r) => r.key === 'aux');
+  const auxRoom = Object.values(result).find((r) => r.key === 'aux' && !r.sharedWith);
   if (auxRoom) {
     const c = cells.find((x) => key(x) === auxRoom.primary);
     const partner = cells

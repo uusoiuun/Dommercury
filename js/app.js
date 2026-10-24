@@ -1552,11 +1552,16 @@ function archSvg(chart, fsAz, f, adults, children, opt = {}) {
     const below = cells.find((o) => o.row === c.row + 1 && o.col === c.col);
     if (right && wallKey(all[`${right.row}-${right.col}`]) !== wallKey(r)) walls.push([[cx(c.col + 1), cy(c.row)], [cx(c.col + 1), cy(c.row + 1)]]);
     if (below && wallKey(all[`${below.row}-${below.col}`]) !== wallKey(r)) walls.push([[cx(c.col), cy(c.row + 1)], [cx(c.col + 1), cy(c.row + 1)]]);
+    if (r?.pair && r.primary === `${c.row}-${c.col}`) {
+      const { vertical } = pairSplit(c, cells, all);
+      const xA = cx(c.col); const xB = cx(c.col + 1); const yA = cy(c.row + 1); const yB = cy(c.row);
+      walls.push(vertical ? [[(xA + xB) / 2, yA], [(xA + xB) / 2, yB]] : [[xA, (yA + yB) / 2], [xB, (yA + yB) / 2]]);
+    }
     // Стенка небольшого подсобного (полоса у наружной стены)
     if (auxPart(r)) {
-      const side = outerSide(c.row, c.col);
+      const side = r.stripSide || outerSide(c.row, c.col);
       const xA = cx(c.col); const xB = cx(c.col + 1); const yA = cy(c.row + 1); const yB = cy(c.row);
-      const k = 0.4;
+      const k = r.frac ?? 0.4;
       if (side === 'top') walls.push([[xA, yB - (yB - yA) * k], [xB, yB - (yB - yA) * k]]);
       if (side === 'bottom') walls.push([[xA, yA + (yB - yA) * k], [xB, yA + (yB - yA) * k]]);
       if (side === 'left') walls.push([[xA + (xB - xA) * k, yA], [xA + (xB - xA) * k, yB]]);
@@ -1635,8 +1640,8 @@ function archSvg(chart, fsAz, f, adults, children, opt = {}) {
     const rect = rc.length === (c1 - c0 + 1) * (r1 - r0 + 1);
     let xA = cx(c0); let xB = cx(c1 + 1); let yA = cy(r1 + 1); let yB = cy(r0);
     if (aux) {
-      const side = outerSide(rc[0].row, rc[0].col);
-      const k = 0.4;
+      const side = room.stripSide || outerSide(rc[0].row, rc[0].col);
+      const k = room.frac ?? 0.4;
       if (side === 'top') yA = yB - (yB - yA) * k;
       if (side === 'bottom') yB = yA + (yB - yA) * k;
       if (side === 'left') xB = xA + (xB - xA) * k;
@@ -1647,8 +1652,24 @@ function archSvg(chart, fsAz, f, adults, children, opt = {}) {
     const id = yB - yA - half(yA < 1e-6) - half(yB > D - 1e-6);
     let area = rect || aux ? iw * id : rc.reduce((s2, c) => s2 + Math.min(1, f.g.cov[c.row][c.col]) * (W / 3) * (D / 3), 0) * 0.9;
     // Комнате, которая делит сектор с небольшим подсобным, достаётся остальная часть этого сектора
-    const shared = [...rooms.values()].filter((o) => auxPart(o.room)?.key === room.key).length;
-    if (shared) area += shared * (W / 3) * (D / 3) * 0.6 * 0.9;
+    const shared = [...rooms.values()].filter((o) => auxPart(o.room)?.key === room.key);
+    for (const o of shared) area += (W / 3) * (D / 3) * (1 - (o.room.frac ?? 0.4)) * 0.9;
+    if (room.pair) {
+      const { vertical } = pairSplit(rc[0], cells, all);
+      room.pair.forEach((sub, i) => {
+        const hx1 = vertical ? (i ? (xA + xB) / 2 : xA) : xA;
+        const hx2 = vertical ? (i ? xB : (xA + xB) / 2) : xB;
+        // В плане y вверх; первая половина (верхняя на экране) — с большими y
+        const hy1 = vertical ? yA : (i ? yA : (yA + yB) / 2);
+        const hy2 = vertical ? yB : (i ? (yA + yB) / 2 : yB);
+        const a2 = (hx2 - hx1 - half(hx1 < 1e-6) - half(hx2 > W - 1e-6)) * (hy2 - hy1 - half(hy1 < 1e-6) - half(hy2 > D - 1e-6));
+        ri++;
+        sched.push({ n: ri, label: sub.label, area: a2, type: 'utility', key: sub.key, wet: !!sub.wet, x1: hx1, x2: hx2, y1: hy1, y2: hy2, rect: true });
+        const [tx, ty] = P((hx1 + hx2) / 2, (hy1 + hy2) / 2);
+        out.push(`<text class="a-room" x="${tx}" y="${ty - 4}" text-anchor="middle">${escapeHtml(sub.label)}</text>`, `<text class="a-area" x="${tx}" y="${ty + 12}" text-anchor="middle">${fmt(a2, 2)}</text>`);
+      });
+      continue;
+    }
     ri++;
     sched.push({ n: ri, label: room.label, area, type: room.type, key: room.key, wet: !!room.wet, x1: xA, x2: xB, y1: yA, y2: yB, rect: rect || !!aux });
     const [tx, ty] = P((xA + xB) / 2, (yA + yB) / 2);
@@ -2415,6 +2436,19 @@ const sideToward = (a, b) => (b.row < a.row ? 'top' : b.row > a.row ? 'bottom' :
  * Двери, проходы и окна этажа — до расстановки мебели, чтобы мебель знала, где они.
  * Каждая комната получает проход; каждая комната с наружной стеной — окно.
  */
+// Сектор, поделённый между двумя помещениями: перегородка — перпендикулярно стене к общему помещению,
+// чтобы у обеих половин была дверь в него
+const PAIR_PREF = ['hall', 'entry', 'kitchen', 'lounge'];
+function pairSplit(c, cells, all) {
+  const n = cells
+    .filter((o) => Math.abs(o.row - c.row) + Math.abs(o.col - c.col) === 1 && PAIR_PREF.includes(all[`${o.row}-${o.col}`]?.type))
+    .sort((a, b) => PAIR_PREF.indexOf(all[`${a.row}-${a.col}`].type) - PAIR_PREF.indexOf(all[`${b.row}-${b.col}`].type))[0];
+  // vertical — перегородка вертикальная (половины слева и справа)
+  return { n, vertical: n ? n.col === c.col : true };
+}
+// Половины сектора [x, y, w, h] → [первая, вторая]
+const halvesOf = ([x, y, w, h], vertical) => (vertical ? [[x, y, w / 2, h], [x + w / 2, y, w / 2, h]] : [[x, y, w, h / 2], [x, y + h / 2, w, h / 2]]);
+
 function openingPlan(f, cells, all, rooms, auxPart) {
   const { W, D } = f.g;
   const key = (c) => `${c.row}-${c.col}`;
@@ -2444,6 +2478,18 @@ function openingPlan(f, cells, all, rooms, auxPart) {
     if (pass === 1) return !isWetRoom(target);
     return true;
   };
+  // Поделённый сектор: две двери из общего помещения, по одной в каждую половину
+  for (const { room, cells: rc } of list) {
+    if (!room.pair) continue;
+    const c = rc[0];
+    const { n, vertical } = pairSplit(c, cells, all);
+    if (!n) continue;
+    const doorWallVertical = n.row === c.row;
+    // Вдоль стены двери: для горизонтальной стены — по x (половины слева/справа)
+    if (doorWallVertical === vertical) continue;
+    links.push({ a: n, b: c, kind: 'door', prefer: -1 }, { a: n, b: c, kind: 'door', prefer: 1 });
+    connected.add(room.key);
+  }
   for (const pass of [0, 1, 2]) {
     for (let guard = 0; guard < 12; guard++) {
       let progress = false;
@@ -2521,8 +2567,9 @@ function openingPlan(f, cells, all, rooms, auxPart) {
     const cand = rc.flatMap(segsOf);
     if (!cand.length) continue;
     // Санузлы, котельная, гардеробные и кладовые — одно небольшое окно
+    if (room.stripSide && !cand.some((sg) => FACING_SIDE[sg.facing] === room.stripSide)) continue;
     if (room.type === 'utility' && !room.key.startsWith('custom')) {
-      add(cand[0], room, true);
+      add((room.stripSide && cand.find((sg) => FACING_SIDE[sg.facing] === room.stripSide)) || cand[0], room, true);
     } else if (room.type === 'kitchen') {
       // Кухня с выходом на две стороны — два окна
       const byFacing = new Map();
@@ -2584,16 +2631,29 @@ function openingsSvg(f, plan, geo) {
   };
   for (const l of plan.links) opening(l.a, l.b, l.kind, l.prefer);
   // Небольшое подсобное — дверь из соседней комнаты в полосу у стены
-  for (const { cell: c } of plan.aux) {
+  for (const { room, cell: c } of plan.aux) {
     const [sx, sy, sw, sh] = stripOf(c);
-    const side = outerSide(c.row, c.col);
+    const side = room.stripSide || outerSide(c.row, c.col);
     const w = Math.min(0.8 * scale, (side === 'top' || side === 'bottom' ? sw : sh) * 0.5);
+    // Дверь у края полосы, чтобы не мешать мебели; полотно открывается в помещение
+    let p1;
+    let p2;
+    let nrm;
     if (side === 'top' || side === 'bottom') {
       const y = side === 'top' ? sy + sh : sy;
-      out.push(`<line class="door-gap" x1="${sx + sw / 2 - w / 2}" y1="${y}" x2="${sx + sw / 2 + w / 2}" y2="${y}"/>`);
+      const x1 = sx + sw - w - 4;
+      p1 = [x1, y]; p2 = [x1 + w, y]; nrm = [0, side === 'top' ? -1 : 1];
     } else {
       const x = side === 'left' ? sx + sw : sx;
-      out.push(`<line class="door-gap" x1="${x}" y1="${sy + sh / 2 - w / 2}" x2="${x}" y2="${sy + sh / 2 + w / 2}"/>`);
+      const y1 = sy + sh - w - 4;
+      p1 = [x, y1]; p2 = [x, y1 + w]; nrm = [side === 'left' ? -1 : 1, 0];
+    }
+    out.push(`<line class="door-gap" x1="${p1[0]}" y1="${p1[1]}" x2="${p2[0]}" y2="${p2[1]}"/>`);
+    if (room.frac >= 0.5 && Math.min(sw, sh) > w + 2) {
+      const leaf = [p1[0] + nrm[0] * w, p1[1] + nrm[1] * w];
+      const e = [(p2[0] - p1[0]) / w, (p2[1] - p1[1]) / w];
+      const sweep = nrm[0] * e[1] - nrm[1] * e[0] > 0 ? 1 : 0;
+      out.push(`<path class="door-leaf" d="M${p1[0]} ${p1[1]} L${leaf[0]} ${leaf[1]} A${w} ${w} 0 0 ${sweep} ${p2[0]} ${p2[1]}"/>`);
     }
   }
   for (const wdw of plan.windows) {
@@ -2638,8 +2698,9 @@ function layoutSvg(chart, fsAz, f, scale, adults, children, mini = false) {
   const wallKey = (r) => auxPart(r)?.key ?? r?.key;
   const stripOf = (c) => {
     const [x, y, w, h] = [x0 + c.col * cw, y0 + c.row * ch, cw, ch];
-    const side = outerSide(c.row, c.col);
-    const d = (side === 'top' || side === 'bottom' ? h : w) * 0.4;
+    const ar = all[`${c.row}-${c.col}`];
+    const side = ar?.stripSide || outerSide(c.row, c.col);
+    const d = (side === 'top' || side === 'bottom' ? h : w) * (ar?.frac ?? 0.4);
     return {
       top: [x, y, w, d], bottom: [x, y + h - d, w, d], left: [x, y, d, h], right: [x + w - d, y, d, h],
     }[side];
@@ -2857,6 +2918,23 @@ function layoutSvg(chart, fsAz, f, scale, adults, children, mini = false) {
       const desk = put('desk', rect, [face, ...quietSides(c, [face])], [0.5, 0.3, 0.7]);
       if (desk) { const [ix, iy] = inward(desk.side, (FURN_BY_KEY.desk.d / 2 + 0.3) * scale); putAt('kidChair', desk.at[0] + ix, desk.at[1] + iy, ROT[OPPOSITE[desk.side]]); }
       put('shelf', rect, [...freeSides(c, desk ? [desk.side] : []), ...quietSides(c)], [0.5, 0.2, 0.8]);
+    } else if (room.pair) {
+      const { vertical } = pairSplit(c, cells, all);
+      const [x, y, w, h] = rect;
+      parts.push(vertical
+        ? `<line class="plan-wall" stroke-width="1.5" x1="${x + w / 2}" y1="${y}" x2="${x + w / 2}" y2="${y + h}"/>`
+        : `<line class="plan-wall" stroke-width="1.5" x1="${x}" y1="${y + h / 2}" x2="${x + w}" y2="${y + h / 2}"/>`);
+      halvesOf(rect, vertical).forEach((hr, i) => {
+        const sub = room.pair[i];
+        const walls = SIDES.filter((sd) => !hasDoor(c, sd));
+        if (sub.wet && /laundry/.test(sub.key)) { put('washer', hr, walls, [0.3, 0.7]); put('washer', hr, walls, [0.7, 0.3]); }
+        else if (sub.wet) {
+          put('bath', hr, walls, [0.5, 0.3, 0.7]) || put('shelf', hr, [], []);
+          put('toilet', hr, walls, [0.8, 0.2, 0.5]);
+          put('sink', hr, walls, [0.3, 0.7, 0.5]);
+        } else if (sub.key === 'boiler') put('boiler', hr, walls, [0.5, 0.3]);
+        else put('shelf', hr, walls, [0.5, 0.3, 0.7]);
+      });
     } else if (room.type === 'utility') {
       const aux = auxPart(room);
       const uRect = aux ? stripOf(c) : rect;
@@ -2899,6 +2977,14 @@ function layoutSvg(chart, fsAz, f, scale, adults, children, mini = false) {
       cy = sy + sh / 2 + 4;
     }
     const fs = mini ? 8 : Math.max(10, Math.min(13, cw / 9));
+    if (room.pair) {
+      const { vertical } = pairSplit(rc[0], cells, all);
+      halvesOf([x0 + rc[0].col * cw, y0 + rc[0].row * ch, cw, ch], vertical).forEach(([hx, hy, hw, hh], i) => {
+        const ws = room.pair[i].label.split(/\s+/);
+        ws.forEach((w, k) => parts.push(`<text class="room-name" x="${hx + hw / 2}" y="${hy + hh / 2 + 8 - ((ws.length - 1) * fs) / 2 + k * fs}" font-size="${fs * 0.9}" text-anchor="middle">${w}</text>`));
+      });
+      continue;
+    }
     const words = room.label.split(/,\s*|\s+\+\s+/);
     words.forEach((w, i) => parts.push(`<text class="room-name" x="${cx}" y="${cy - ((words.length - 1) * fs) / 2 + i * fs}" font-size="${fs}" text-anchor="middle">${w}${i < words.length - 1 && room.label.includes(',') ? ',' : ''}</text>`));
   }

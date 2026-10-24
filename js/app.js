@@ -17,7 +17,7 @@ import {
 import { planRooms, roomsFor, kitchenSplit, dir8, isDoubleNine } from './planner.js';
 import { FURNITURE, FURN_BY_KEY, FURN_CATS, furnSvg } from './furniture.js';
 import {
-  CLIMATES, climateByLat, MATERIALS, MATERIAL_KEYS, FOUNDATIONS, FOUNDATION_COMPARE, FOUNDATION_WHEN, SITES, wallBuildUp, buildModel, normChecks, buildSheets,
+  CLIMATES, climateByLat, MATERIALS, MATERIAL_KEYS, FOUNDATIONS, FOUNDATION_COMPARE, FOUNDATION_WHEN, SITES, GEO_SOILS, GEO_PERMAFROST, geoRecommend, wallBuildUp, buildModel, normChecks, buildSheets,
 } from './project.js';
 import {
   sunPosition, localToUtc, sunDay, tzGuess, HOUSE_SHAPES, rectPoly, houseOutline, houseFacade, inPoly, sunVector, shadowsAt, sunHours,
@@ -70,7 +70,7 @@ const defaults = {
   // Утверждённая планировка для вкладки «Проектирование дома»
   approved: null,
   // Параметры проекта дома
-  project: { agree: [false, false, false], material: 'brus', site: null, foundation: null, ceiling: null, pitch: 30, overhang: 0.5, climate: null, custom: null },
+  project: { agree: [false, false, false], material: 'brus', site: null, geo: { soil: null, permafrost: null, ice: false, uniform: true, frost: '', water: '' }, noGeo: false, foundation: null, ceiling: null, pitch: 30, overhang: 0.5, climate: null, custom: null },
   site: [],
   // Конструктор участка: дом, постройки, растения, день и время
   yard: defaultYard(),
@@ -1774,7 +1774,15 @@ const projClimate = () => {
   return key === 'custom' && pj.custom ? { ...CLIMATES.yakutsk, ...pj.custom, name: pj.custom.name || 'Своё место' } : CLIMATES[key === 'custom' ? 'yakutsk' : key];
 };
 const projClimateKey = () => state.project.climate || climateByLat(state.approved?.snap?.center?.[0] ?? state.center[0]);
-const projFoundation = () => state.project.foundation || (state.project.site ? SITES[state.project.site].rec[0] : projClimate().permafrost ? 'piles' : 'strip');
+const geoDone = () => state.project.noGeo || !!geoRecommend(state.project.geo);
+const projRec = () => {
+  const pj = state.project;
+  const g = !pj.noGeo && geoRecommend(pj.geo);
+  if (g) return { ...g, from: 'geo' };
+  if (pj.site) return { ...SITES[pj.site], from: 'site' };
+  return null;
+};
+const projFoundation = () => state.project.foundation || projRec()?.rec[0] || (projClimate().permafrost ? 'piles' : 'strip');
 const projCeiling = () => state.project.ceiling || (['IА', 'IБ', 'IГ', 'IД', 'IVА'].includes(projClimate().zone) ? 2.7 : 2.5);
 
 let designCache = { key: '', html: '' };
@@ -1793,7 +1801,7 @@ function designModel() {
       return { title: f.title || '1 этаж', geo: plain.geo, planSvg: plain.svg, furnSvg: furn.svg, preview: furn.svg };
     });
     return buildModel({
-      floors: fl, material: pj.material, site: pj.site, foundation: projFoundation(), climate: cl, ceiling: projCeiling(),
+      floors: fl, material: pj.material, site: pj.site, geo: pj.geo, noGeo: pj.noGeo, foundation: projFoundation(), climate: cl, ceiling: projCeiling(),
       pitch: pj.pitch, overhang: pj.overhang, year: new Date().getFullYear(),
     });
   });
@@ -1801,19 +1809,37 @@ function designModel() {
 
 function foundationCard() {
   const pj = state.project;
+  const g = pj.geo;
   const cur = projFoundation();
-  const site = pj.site && SITES[pj.site];
+  const rec = projRec();
+  const done = geoDone();
   const cols = ['strip', 'slab', 'piles'];
   const head = { strip: 'Ленточный', slab: 'Сплошная плита', piles: 'Свайный' };
   const w = FOUNDATION_WHEN[cur];
-  return `<section class="card"><h2>Фундамент</h2>
+  const opt = (dict, val) => Object.entries(dict).map(([k, t]) => `<option value="${k}"${val === k ? ' selected' : ''}>${t}</option>`).join('');
+  return `<section class="card found-card"><h2><span class="num">1</span>Фундамент и грунты участка</h2>
     <p class="chip-group">Где планируется строительство?</p>
     <div class="sites">${Object.entries(SITES).map(([k, v]) => `<label class="check"><input type="radio" name="pj-site" value="${k}"${pj.site === k ? ' checked' : ''}> ${v.label}</label>`).join('')}</div>
-    ${site ? `<p class="msg mixed"><strong>Рекомендуем: ${site.rec.map((k) => FOUNDATIONS[k].short).join(' → ')}</strong>${site.note}</p>` : '<p class="note">Ответьте на вопрос — сайт подскажет подходящие варианты.</p>'}
-    <div class="found-pick">${Object.entries(FOUNDATIONS).map(([k, f]) => `<button type="button" class="chip" data-found="${k}" aria-pressed="${cur === k}">${f.title}${site?.rec[0] === k ? ' ★' : ''}</button>`).join('')}</div>
+    <p class="chip-group">Итоги инженерно-геологических изысканий</p>
+    <fieldset class="geo"${pj.noGeo ? ' disabled' : ''}><div class="grid3 params">
+      <label>Грунт основания <select data-geo="soil"><option value="">— выберите —</option>${opt(GEO_SOILS, g.soil)}</select></label>
+      <label>Вечная мерзлота <select data-geo="permafrost"><option value="">— выберите —</option>${opt(GEO_PERMAFROST, g.permafrost)}</select></label>
+      <label>Глубина промерзания / оттаивания, м <input data-geo="frost" inputmode="decimal" value="${escapeHtml(String(g.frost ?? ''))}" placeholder="например, 3,0"></label>
+      <label>Уровень грунтовых вод, м <input data-geo="water" inputmode="decimal" value="${escapeHtml(String(g.water ?? ''))}" placeholder="не встречены — пусто"></label>
+    </div>
+    <label class="check"><input type="checkbox" data-geo="uniform"${g.uniform ? ' checked' : ''}> Грунт однородный по площади дома</label>
+    <label class="check"><input type="checkbox" data-geo="ice"${g.ice ? ' checked' : ''}> Льдистый или просадочный при оттаивании</label></fieldset>
+    <label class="check nogeo"><input type="checkbox" id="pj-nogeo"${pj.noGeo ? ' checked' : ''}> Геологических изысканий нет. Выбор фундамента делаю сам, на свой риск.</label>
+    ${!done ? '<p class="msg bad"><strong>Укажите итоги изысканий</strong>Грунт и наличие мерзлоты — или отметьте, что изысканий нет. Без этого проект не собирается.</p>' : ''}
+    ${rec ? `<p class="msg ${pj.noGeo ? 'bad' : 'mixed'}"><strong>${rec.from === 'geo' ? 'По изысканиям' : 'По месту строительства'} рекомендуем: ${rec.rec.map((k) => FOUNDATIONS[k].short).join(' → ')}</strong>${rec.note}${pj.noGeo ? ' Без изысканий это только предположение — решение и риск на вас.' : ''}</p>` : ''}
+    <div class="variants-abc"><p><b>Варианты для дома</b></p><ul>
+      <li><b>А — свайный:</b> если грунтовые условия и геокриологические расчёты требуют сохранения мерзлоты.</li>
+      <li><b>Б — утеплённая железобетонная плита:</b> если изыскания подтверждают возможность надёжного мелкозаглублённого основания.</li>
+      <li><b>В — ленточный:</b> если он обоснован характеристиками грунта, нагрузками и расчётом морозного пучения.</li>
+    </ul><p class="note">Ни ленту, ни плиту не стоит назначать заранее без информации об участке.</p></div>
+    <div class="found-pick">${Object.entries(FOUNDATIONS).map(([k, f]) => `<button type="button" class="chip" data-found="${k}" aria-pressed="${cur === k}"${done ? '' : ' disabled'}>${f.title}${rec?.rec[0] === k ? ' ★' : ''}</button>`).join('')}</div>
     ${w ? `<div class="found-when"><p><b>Когда выбирать «${FOUNDATIONS[cur].short}»:</b></p><ul>${w.when.map((x) => `<li>${x}</li>`).join('')}</ul><p class="note">${w.risk}</p></div>` : ''}
-    <details><summary>Сравнение фундаментов</summary><div class="table-wrap"><table class="cmp"><thead><tr><th>Критерий</th>${cols.map((c) => `<th${cur === c ? ' class="on"' : ''}>${head[c]}</th>`).join('')}</tr></thead><tbody>${FOUNDATION_COMPARE.map(([c, ...v]) => `<tr><td>${c}</td>${v.map((x, i) => `<td${cur === cols[i] ? ' class="on"' : ''}>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
-    <p class="note">Ни ленту, ни плиту не стоит назначать заранее без информации об участке: сначала инженерно-геологические и геокриологические изыскания.</p></details>
+    <details><summary>Сравнение фундаментов</summary><div class="table-wrap"><table class="cmp"><thead><tr><th>Критерий</th>${cols.map((c) => `<th${cur === c ? ' class="on"' : ''}>${head[c]}</th>`).join('')}</tr></thead><tbody>${FOUNDATION_COMPARE.map(([c, ...v]) => `<tr><td>${c}</td>${v.map((x, i) => `<td${cur === cols[i] ? ' class="on"' : ''}>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div></details>
   </section>`;
 }
 
@@ -1837,6 +1863,10 @@ function renderDesign() {
     $('design').innerHTML = `${agreeCard}<section class="card"><h2>Утверждённая планировка</h2><p class="note">Утверждена ${a.at}. <a href="#plan">Изменить</a></p></section>`;
     return;
   }
+  if (!geoDone()) {
+    $('design').innerHTML = `${agreeCard.replace('<section class="card agree-card">', '<details class="card agree-card"><summary>Условия приняты</summary>').replace(/<\/section>$/, '</details>')}${foundationCard()}`;
+    return;
+  }
   const key = JSON.stringify([a.at, pj, state.center]);
   if (designCache.key !== key) {
     const m = designModel();
@@ -1856,8 +1886,8 @@ function renderDesign() {
     designCache = {
       key,
       html: `${agreeCard.replace('<section class="card agree-card">', '<details class="card agree-card"><summary>Условия приняты</summary>').replace(/<\/section>$/, '</details>')}
-      <section class="card"><h2>Материал стен</h2><div class="mats">${matCards}</div></section>
       ${foundationCard()}
+      <section class="card"><h2><span class="num">2</span>Материал стен</h2><div class="mats">${matCards}</div></section>
       <section class="card"><h2>Параметры</h2><div class="grid3 params">
         <label>Климат ${sel('pj-climate', [...Object.entries(CLIMATES).map(([k, c]) => [k, `${c.name} (район ${c.zone})`]), ['custom', 'Своё место…']], ck)}</label>
         <label>Высота потолков ${sel('pj-ceil', [[2.5, '2,5 м'], [2.7, '2,7 м'], [3.0, '3,0 м']], projCeiling())}</label>
@@ -1878,6 +1908,12 @@ $('design').addEventListener('change', (e) => {
   if (t.dataset.agree !== undefined) pj.agree[Number(t.dataset.agree)] = t.checked;
   else if (t.id === 'pj-climate') { pj.climate = t.value; if (t.value === 'custom' && !pj.custom) pj.custom = { ...CLIMATES.yakutsk, name: 'Своё место' }; }
   else if (t.name === 'pj-site') { pj.site = t.value; pj.foundation = null; }
+  else if (t.id === 'pj-nogeo') { pj.noGeo = t.checked; pj.foundation = null; }
+  else if (t.dataset.geo) {
+    const k = t.dataset.geo;
+    pj.geo = { ...pj.geo, [k]: t.type === 'checkbox' ? t.checked : k === 'frost' || k === 'water' ? t.value.replace(',', '.') : t.value || null };
+    pj.foundation = null;
+  }
   else if (t.id === 'pj-ceil') pj.ceiling = Number(t.value);
   else if (t.id === 'pj-pitch') pj.pitch = Number(t.value);
   else if (t.id === 'pj-ovh') pj.overhang = Number(t.value);

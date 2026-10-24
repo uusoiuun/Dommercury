@@ -105,6 +105,34 @@ export const FOUNDATION_WHEN = {
   },
 };
 
+// Итоги инженерно-геологических изысканий
+export const GEO_SOILS = {
+  sand: 'Песок, гравий (непучинистые)',
+  sandyLoam: 'Супесь',
+  loam: 'Суглинок',
+  clay: 'Глина',
+  peat: 'Торф, насыпной грунт',
+  rock: 'Скальный, крупнообломочный',
+};
+export const GEO_PERMAFROST = { no: 'Нет (талые грунты)', yes: 'Есть вечная мерзлота', unknown: 'Не определено' };
+
+/** Рекомендация фундамента по итогам изысканий. */
+export function geoRecommend(g) {
+  if (!g || !g.soil || !g.permafrost) return null;
+  const heaving = ['sandyLoam', 'loam', 'clay'].includes(g.soil);
+  const wet = g.water != null && g.water !== '' && Number(g.water) < 2;
+  if (g.soil === 'peat') return { rec: ['piles'], note: 'Торф и насыпной грунт — слабое основание: нагрузку передают сваями на прочный слой ниже.' };
+  if (g.permafrost === 'yes') {
+    if (g.ice || g.soil !== 'rock') return { rec: ['piles'], note: 'Мерзлота: базовый вариант — сваи с проветриваемым подпольем (вариант А), чтобы сохранить мерзлый грунт. Длина свай — по геокриологическому расчёту.' };
+    return { rec: ['piles', 'slab'], note: 'Мерзлота на скальном основании без льдистости: сваи; плита — только при обосновании расчётом.' };
+  }
+  if (g.permafrost === 'unknown') return { rec: ['piles'], note: 'Наличие мерзлоты не определено — до уточнения принимаем сваи.' };
+  if (!g.uniform) return { rec: ['piles', 'slab'], note: 'Грунт неоднородный: лента опасна неравномерными осадками и пучением. Сваи или утеплённая плита по расчёту.' };
+  if (heaving && wet) return { rec: ['piles', 'slab'], note: 'Пучинистый грунт и высокие грунтовые воды: сваи ниже промерзания или утеплённая плита на подушке по расчёту пучения.' };
+  if (heaving) return { rec: ['slab', 'piles', 'strip'], note: 'Пучинистый, но однородный грунт без высоких вод: утеплённая плита (вариант Б); лента — только с расчётом пучения, утеплением и водоотводом (вариант В).' };
+  return { rec: ['slab', 'strip', 'piles'], note: 'Однородный непучинистый талый грунт: утеплённая плита или лента по расчёту; сваи тоже возможны.' };
+}
+
 // Где строят: от ответа зависит рекомендация
 export const SITES = {
   normal: { label: 'В самом Якутске, на участке с обычным грунтом', rec: ['slab', 'strip', 'piles'], note: 'Утеплённая плита или лента возможны, если изыскания подтвердят однородный талый грунт и расчёт пучения. Свайный вариант — запасной.' },
@@ -273,7 +301,13 @@ export function normChecks(m) {
   add(m.floor.R >= m.floor.need, 'Теплозащита пола', `R = ${f2(m.floor.R)} при норме ${f2(m.floor.need)}: утеплитель ${Math.round(m.floor.d * 1000)} мм.`, 'СП 50.13330.2012');
   add(!!m.rafter && !m.strut, 'Стропила', m.rafter ? `${m.rafter.b}×${m.rafter.h} мм с шагом ${Math.round(m.rafterStep * 1000)} мм на снеговую нагрузку ${f1(m.cl.Sg)} кПа${m.strut ? '; нужны подкосы или стойки на внутреннюю стену' : ''}.` : 'Сечение не подобрано — нужен расчёт.', 'СП 20.13330, СП 64.13330');
   add(!!m.beam && m.beamSpan <= 6, 'Балки чердачного перекрытия', m.beam ? `${m.beam.b}×${m.beam.h} мм, пролёт ${f1(m.beamSpan)} м между несущими стенами по осям, шаг 600 мм.` : `Пролёт ${f1(m.beamSpan)} м слишком большой — нужны промежуточные опоры.`, 'СП 64.13330.2017');
-  const site = SITES[m.site] ? m.site : null;
+  if (m.noGeo) add(null, 'Геологические изыскания', 'Изысканий нет: фундамент выбран застройщиком самостоятельно, на свой риск. Перед стройкой закажите изыскания и пересчитайте фундамент.', 'СП 47.13330, СП 22.13330');
+  const geoRec = geoRecommend(m.geo);
+  if (geoRec && !m.noGeo) {
+    const okG = geoRec.rec.includes(m.foundation);
+    add(okG, 'Фундамент по итогам изысканий', okG ? `${FOUNDATIONS[m.foundation].title} соответствует грунтам участка. ${geoRec.note}` : `По изысканиям рекомендуются: ${geoRec.rec.map((k) => FOUNDATIONS[k].short).join(', ')}. ${geoRec.note}`, 'СП 22.13330, СП 25.13330');
+  }
+  const site = SITES[m.site] && !(geoRec && !m.noGeo) ? m.site : null;
   if (site) {
     const okF = SITES[site].rec.includes(m.foundation);
     add(okF, 'Фундамент и участок', okF ? `${FOUNDATIONS[m.foundation].title} подходит для варианта «${SITES[site].label}» — при подтверждении изысканиями.` : `Для варианта «${SITES[site].label}» рекомендуются: ${SITES[site].rec.map((k) => FOUNDATIONS[k].short).join(', ')}. ${SITES[site].note}`, 'СП 22.13330, СП 25.13330');
@@ -434,6 +468,8 @@ function sheetNote(m) {
   p(`3.2 Площадь застройки — ${f2((m.W + 0.2) * (m.D + 0.2))} м²; строительный объём — ${f1((m.W + 0.2) * (m.D + 0.2) * (m.wallTop + m.plinth + (m.ridge - m.wallTop) / 2))} м³.`);
   p('4. Конструктивные решения', true);
   p(`4.1 Фундамент — ${FOUNDATIONS[m.foundation].title.toLowerCase()}.`);
+  if (m.noGeo) p('     Инженерно-геологические изыскания не выполнялись: фундамент выбран Заказчиком на свой риск.');
+  else if (m.geo?.soil) p(`     Грунты по изысканиям: ${GEO_SOILS[m.geo.soil].toLowerCase()}; мерзлота — ${GEO_PERMAFROST[m.geo.permafrost].toLowerCase()}${m.geo.frost ? `; промерзание/оттаивание ${m.geo.frost} м` : ''}${m.geo.water ? `; УГВ ${m.geo.water} м` : ''}.`);
   p(m.foundation === 'slab' ? '     Плита 250 мм с рёбрами по периметру и под стенами, бетон B20 F150, сетки Ø 12 A500C 200×200 в два ряда; под плитой ЭППС, песок и щебень по расчёту.' : m.foundation === 'piles' ? `     Сваи Ø 300 мм, бетон B20, F200, W6; заглубление ${m.cl.permafrost ? 'ниже слоя сезонного оттаивания, ориентировочно 6–8 м' : '— ниже глубины промерзания, 2,5–3 м'} по изысканиям.` : m.foundation === 'strip' ? '     Лента 400 × 700(h) мм, бетон B15, арматура 4 Ø 12 A500C, хомуты Ø 8 шаг 350; подушка — песок и щебень 300 мм.' : '     Винтовые сваи Ø 108 мм, длина 2,5–3 м; обвязка — брус 200×200 (лиственница) или швеллер.');
   p(`4.2 Стены — ${m.mat.title.toLowerCase()}; ${m.wall.ins ? `утепление минватой ${Math.round(m.wall.ins * 1000)} мм, вентфасад.` : 'без дополнительного утепления.'}`);
   p(`     Приведённое сопротивление R = ${f2(m.wall.R)} м²·°С/Вт при норме ${f2(m.wall.need)} (СП 50.13330).`);

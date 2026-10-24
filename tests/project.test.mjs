@@ -34,3 +34,13 @@ test('стропила: больше снега — больше сечение'
   assert.ok(b.h * b.b >= a.h * a.b);
   assert.equal(roofLoad(CLIMATES.moscow, 60).mu, 0);
 });
+
+test('рекомендация фундамента по изысканиям', async () => {
+  const { geoRecommend } = await import('../js/project.js');
+  assert.equal(geoRecommend({ soil: null, permafrost: 'yes' }), null);
+  assert.deepEqual(geoRecommend({ soil: 'loam', permafrost: 'yes', uniform: true }).rec, ['piles']);
+  assert.deepEqual(geoRecommend({ soil: 'peat', permafrost: 'no', uniform: true }).rec, ['piles']);
+  assert.equal(geoRecommend({ soil: 'sand', permafrost: 'no', uniform: true }).rec[0], 'slab');
+  assert.ok(!geoRecommend({ soil: 'loam', permafrost: 'no', uniform: false }).rec.includes('strip'));
+  assert.ok(!geoRecommend({ soil: 'clay', permafrost: 'no', uniform: true, water: '1.2' }).rec.includes('strip'));
+});

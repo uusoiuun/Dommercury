@@ -17,6 +17,9 @@ import {
 import { planRooms, roomsFor, kitchenSplit, dir8, isDoubleNine } from './planner.js';
 import { FURNITURE, FURN_BY_KEY, FURN_CATS, furnSvg } from './furniture.js';
 import {
+  CLIMATES, climateByLat, MATERIALS, MATERIAL_KEYS, FOUNDATIONS, wallBuildUp, buildModel, normChecks, buildSheets,
+} from './project.js';
+import {
   sunPosition, localToUtc, sunDay, tzGuess, HOUSE_SHAPES, rectPoly, houseOutline, houseFacade, inPoly, sunVector, shadowsAt, sunHours,
   BUILDINGS, BUILDING_BY_KEY, PLANTS, PLANT_BY_KEY, PLANT_GROUPS, LIGHT_TEXT, lightZone, checkPlant, checkBuildings, defaultYard, convexOverlap, housePieces, LIGHT_SHARE,
   PHI, FIB, goldenGrid, nearestGolden, goldenError, fibAtLeast, isFib, phyllotaxis, plantGroups, goldenSpiral,
@@ -66,6 +69,8 @@ const defaults = {
   autoFurn: true,
   // Утверждённая планировка для вкладки «Проектирование дома»
   approved: null,
+  // Параметры проекта дома
+  project: { agree: [false, false, false], material: 'brus', foundation: null, ceiling: null, pitch: 30, overhang: 0.5, climate: null, custom: null },
   site: [],
   // Конструктор участка: дом, постройки, растения, день и время
   yard: defaultYard(),
@@ -76,7 +81,7 @@ const defaults = {
 const saved = load();
 // Сохранения до появления плана дома открываем сразу на плане
 if (!('floor2' in saved)) delete saved.orient;
-const state = { ...defaults, ...saved, program: { ...defaults.program, ...(saved.program || {}) } };
+const state = { ...defaults, ...saved, program: { ...defaults.program, ...(saved.program || {}) }, project: { ...defaults.project, ...(saved.project || {}) } };
 {
   const y = defaultYard();
   const sy = saved.yard || {};
@@ -1467,8 +1472,10 @@ const T_INT = 0.12; // перегородка, м
 const AXIS_LETTERS = ['А', 'Б', 'В', 'Г', 'Д', 'Е'];
 const mm = (m) => String(Math.round(m * 1000));
 
-function archSvg(chart, fsAz, f, adults, children) {
+function archSvg(chart, fsAz, f, adults, children, opt = {}) {
   const S = ARCH_S;
+  const T_EXT = opt.tExt ?? 0.3;
+  const showFurn = opt.furniture !== false;
   const { W, D } = f.g;
   const L = 190; const R = 150; const T = 200; const B = 250;
   const vw = W * S + L + R;
@@ -1493,8 +1500,8 @@ function archSvg(chart, fsAz, f, adults, children) {
   const toM = (px, py) => [(px - bx0) / S, D - (py - by0) / S];
   const pick = (cls) => [...base.matchAll(new RegExp(`<(?:rect|circle|ellipse|line|path|text)[^>]*class="${cls}"[^>]*?(?:/>|>[^<]*</text>)`, 'g'))].map((m) => m[0]);
   const num = (s, n) => Number((s.match(new RegExp(`\\b${n}="([-\\d.]+)"`)) || [])[1]);
-  const furn = state.autoFurn ? [...pick('furn'), ...pick('furn-fill'), ...pick('furn-label')] : [];
-  const ufurn = [...base.matchAll(/<g class="ufurn[^"]*"[\s\S]*?<\/g>/g)].map((m) => m[0].replace(/ sel"/, '"'));
+  const furn = showFurn && state.autoFurn ? [...pick('furn'), ...pick('furn-fill'), ...pick('furn-label')] : [];
+  const ufurn = !showFurn ? [] : [...base.matchAll(/<g class="ufurn[^"]*"[\s\S]*?<\/g>/g)].map((m) => m[0].replace(/ sel"/, '"'));
   const doorGaps = pick('door-gap').map((s) => [toM(num(s, 'x1'), num(s, 'y1')), toM(num(s, 'x2'), num(s, 'y2'))]);
   const leaves = pick('door-leaf');
   const windows = pick('window-gap').map((s) => {
@@ -1622,7 +1629,7 @@ function archSvg(chart, fsAz, f, adults, children) {
     const shared = [...rooms.values()].filter((o) => auxPart(o.room)?.key === room.key).length;
     if (shared) area += shared * (W / 3) * (D / 3) * 0.6 * 0.9;
     ri++;
-    sched.push({ n: ri, label: room.label, area });
+    sched.push({ n: ri, label: room.label, area, type: room.type, key: room.key, wet: !!room.wet, x1: xA, x2: xB, y1: yA, y2: yB, rect: rect || !!aux });
     const [tx, ty] = P((xA + xB) / 2, (yA + yB) / 2);
     const words = room.label.length > 14 ? room.label.split(/,\s*|\s+/) : [room.label];
     words.forEach((wd, i) => out.push(`<text class="a-room" x="${tx}" y="${ty - 6 + (i - (words.length - 1) / 2) * 15}" text-anchor="middle">${escapeHtml(wd)}</text>`));
@@ -1681,14 +1688,23 @@ function archSvg(chart, fsAz, f, adults, children) {
     const [, py] = P(0, y);
     out.push(`<line class="a-axis" x1="${xLeft - 8}" y1="${py}" x2="${xLeft - 130}" y2="${py}"/><circle class="a-bubble" cx="${xLeft - 146}" cy="${py}" r="15"/><text class="a-axt" x="${xLeft - 146}" y="${py + 6}" text-anchor="middle">${AXIS_LETTERS[i]}</text>`);
   });
-  const title = `План расстановки мебели${f.title ? ` — ${f.title.toLowerCase()}` : ''}`;
-  out.unshift(`<rect class="a-sheet" x="0" y="0" width="${vw}" height="${vh}"/><text class="a-title" x="24" y="40">${title}</text>`);
+  const title = `${opt.title || 'План расстановки мебели'}${f.title ? ` — ${f.title.toLowerCase()}` : ''}`;
+  out.unshift(`<rect class="a-sheet" x="0" y="0" width="${vw}" height="${vh}"/>${opt.bare ? '' : `<text class="a-title" x="24" y="40">${title}</text>`}`);
   // Фасад и север
   out.push(`<text class="a-note" x="${(xLeft + xRight) / 2}" y="${vh - 6}" text-anchor="middle">Фасад → ${chart.facingPalace.dirName}</text>`);
   out.push(`<g transform="translate(${vw - 40} 50) rotate(${180 - fsAz})"><path class="a-north" d="M0 -18 L7 6 L0 2 L-7 6 Z"/><text class="a-axt" x="0" y="-22" text-anchor="middle" font-size="12">С</text></g>`);
 
-  const winList = sizes.map((len, i) => ({ mark: `ОК-${i + 1}`, w: len, h: len >= 1.5 ? 1.5 : len >= 1 ? 1.2 : 0.9, n: windows.filter((w) => Math.round(w.len * 100) / 100 === len).length }));
-  return { svg: `<svg class="arch" viewBox="0 0 ${vw} ${vh}" role="img" aria-label="${title}">${out.join('')}</svg>`, rooms: sched, windows: winList };
+  const winH = (len) => (len >= 1.5 ? 1.5 : len >= 1 ? 1.2 : 0.9);
+  const winList = sizes.map((len, i) => ({ mark: `ОК-${i + 1}`, w: len, h: winH(len), n: windows.filter((w) => Math.round(w.len * 100) / 100 === len).length }));
+  const geo = {
+    W, D,
+    windows: windows.map((w) => ({ a: w.a, b: w.b, horiz: w.horiz, len: w.len, h: winH(w.len), mark: mark(w.len) })),
+    entry: entry || null,
+    walls,
+    outline: segs.map((sg) => ({ x1: sg.x1, y1: sg.y1, x2: sg.x2, y2: sg.y2, facing: sg.facing })),
+    rooms: sched,
+  };
+  return { geo, svg: `<svg class="arch" viewBox="0 0 ${vw} ${vh}" role="img" aria-label="${title}">${out.join('')}</svg>`, rooms: sched, windows: winList };
 }
 
 function tick(x, y) {
@@ -1708,24 +1724,41 @@ function dimLine(a, b, text, dir) {
 // ---- Утверждение планировки ----
 
 
+// Снимок данных, из которых строится планировка: проект не меняется, пока планировку не утвердят заново
+const SNAP_KEYS = ['center', 'width', 'depth', 'az', 'mode', 'period', 'floor2', 'width2', 'depth2', 'shape1', 'shape2', 'door', 'doorNine', 'program', 'overrides', 'people', 'furniture', 'autoFurn'];
+
+function withSnapshot(snap, fn) {
+  const keep = {};
+  for (const k of SNAP_KEYS) keep[k] = state[k];
+  const keepDoor = doorNow;
+  const keepSel = furnSel;
+  Object.assign(state, JSON.parse(JSON.stringify(snap)));
+  furnSel = null;
+  try {
+    const decl = declination(state.center[0], state.center[1], decimalYear());
+    const fsAz = state.mode === 'magnetic' ? norm360(state.az - decl) : state.az;
+    const chart = flyingStars(fsAz, state.period);
+    const door = effectiveDoor(chart, fsAz);
+    doorNow = door;
+    return fn(chart, fsAz, door);
+  } finally {
+    Object.assign(state, keep);
+    doorNow = keepDoor;
+    furnSel = keepSel;
+  }
+}
+
 function approveLayout() {
   if (!currentChart || currentChart.period !== 9) return;
-  const { floors, adults, children } = buildLayout(currentChart, doorNow);
-  const prevSel = furnSel;
-  furnSel = null;
+  const snap = {};
+  for (const k of SNAP_KEYS) snap[k] = JSON.parse(JSON.stringify(state[k]));
   state.approved = {
     at: new Date().toLocaleString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
-    floors: floors.map((f) => {
-      const ar = archSvg(currentChart, lastFsAz, f, adults, children);
-      return { title: f.title || 'Дом', W: f.g.W, D: f.g.D, svg: ar.svg, rooms: ar.rooms, windows: ar.windows };
-    }),
-    furniture: state.furniture.map((u) => ({ t: u.t, f: u.f })),
-    facade: lastFsAz,
+    snap,
   };
-  furnSel = prevSel;
+  designCache = { key: '', html: '' };
   save();
   renderApprove();
-  renderDesign();
   location.hash = '#design';
 }
 
@@ -1735,48 +1768,121 @@ function renderApprove() {
     : '';
 }
 
+const projClimate = () => {
+  const pj = state.project;
+  const key = pj.climate || climateByLat(state.approved?.snap?.center?.[0] ?? state.center[0]);
+  return key === 'custom' && pj.custom ? { ...CLIMATES.yakutsk, ...pj.custom, name: pj.custom.name || 'Своё место' } : CLIMATES[key === 'custom' ? 'yakutsk' : key];
+};
+const projClimateKey = () => state.project.climate || climateByLat(state.approved?.snap?.center?.[0] ?? state.center[0]);
+const projFoundation = () => state.project.foundation || (projClimate().permafrost ? 'piles' : 'strip');
+const projCeiling = () => state.project.ceiling || (['IА', 'IБ', 'IГ', 'IД', 'IVА'].includes(projClimate().zone) ? 2.7 : 2.5);
+
+let designCache = { key: '', html: '' };
+
+function designModel() {
+  const pj = state.project;
+  const cl = projClimate();
+  const wall = wallBuildUp(pj.material, cl);
+  return withSnapshot(state.approved.snap, (chart, fsAz) => {
+    const { floors, adults, children } = buildLayout(chart, doorNow);
+    const fl = floors.map((f) => {
+      const plain = archSvg(chart, fsAz, f, adults, children, { tExt: wall.thick, furniture: false, bare: true, title: 'План этажа' });
+      const furn = archSvg(chart, fsAz, f, adults, children, { tExt: wall.thick, bare: true });
+      // Число дверных полотен — по дугам открывания
+      plain.geo.leafs = (plain.svg.match(/class="door-leaf"/g) || []).length;
+      return { title: f.title || '1 этаж', geo: plain.geo, planSvg: plain.svg, furnSvg: furn.svg, preview: furn.svg };
+    });
+    return buildModel({
+      floors: fl, material: pj.material, foundation: projFoundation(), climate: cl, ceiling: projCeiling(),
+      pitch: pj.pitch, overhang: pj.overhang, year: new Date().getFullYear(),
+    });
+  });
+}
+
+const AGREE = [
+  'Понимаю, что проект — примерный вариант и носит подсказочный характер. Это не проектная документация.',
+  'Перед строительством закажу инженерно-геологические изыскания и покажу проект проектировщику или строителю.',
+  'Проект сделан в помощь тем, кто строится сам; решения по нему принимаю я и отвечаю за них.',
+];
+
 function renderDesign() {
+  if ($('tab-design').hidden) return;
   const a = state.approved;
-  if (!a) {
-    $('design').innerHTML = '<section class="card"><h2>Планировка ещё не утверждена</h2><p class="note">Перейдите во вкладку «Планировочное решение», выберите вариант, расставьте мебель и нажмите «Утвердить планировку» внизу страницы.</p><p><a class="btn" href="#plan">К планировке</a></p></section>';
+  if (!a || !a.snap) {
+    $('design').innerHTML = `<section class="card"><h2>Планировка ${a ? 'нужно утвердить заново' : 'ещё не утверждена'}</h2><p class="note">Перейдите во вкладку «Планировочное решение», выберите вариант, расставьте мебель и нажмите «Утвердить планировку» внизу страницы.</p><p><a class="btn" href="#plan">К планировке</a></p></section>`;
     return;
   }
-  const area = (n) => fmt(n, 2);
-  const sched = a.floors.map((f) => {
-    const total = f.rooms.reduce((s2, r) => s2 + r.area, 0);
-    const win = (f.windows || []).length
-      ? `<h3 class="sub">Ведомость окон</h3><table class="sched"><thead><tr><th>Марка</th><th>Размер (Ш × В), мм</th><th>Шт.</th></tr></thead><tbody>${f.windows.map((w) => `<tr><td>${w.mark}</td><td>${Math.round(w.w * 1000)} × ${Math.round(w.h * 1000)}</td><td>${w.n}</td></tr>`).join('')}</tbody></table>`
-      : '';
-    return `<section class="card"><h2>Экспликация помещений${a.floors.length > 1 ? ` — ${f.title}` : ''}</h2><table class="sched"><thead><tr><th>№</th><th>Помещение</th><th>Площадь, м²</th></tr></thead><tbody>${f.rooms.map((r, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(r.label)}</td><td>${area(r.area)}</td></tr>`).join('')}</tbody><tfoot><tr><td></td><td>Итого, по осям ${fmt(f.W, 1)} × ${fmt(f.D, 1)} м</td><td>${area(total)}</td></tr></tfoot></table>${win}</section>`;
-  }).join('');
-  const counts = new Map();
-  for (const u of a.furniture) {
-    const k = `${u.t}|${u.f}`;
-    counts.set(k, (counts.get(k) || 0) + 1);
+  const pj = state.project;
+  const agreed = pj.agree.every(Boolean);
+  const agreeCard = `<section class="card agree-card"><h2>Прежде чем начать</h2><p class="note">Сайт доработает утверждённую планировку по строительным нормам (СП и СНиП) и соберёт эскизный проект в PDF. Отметьте все пункты:</p>${AGREE.map((t, i) => `<label class="check agree"><input type="checkbox" data-agree="${i}"${pj.agree[i] ? ' checked' : ''}> ${t}</label>`).join('')}</section>`;
+  if (!agreed) {
+    $('design').innerHTML = `${agreeCard}<section class="card"><h2>Утверждённая планировка</h2><p class="note">Утверждена ${a.at}. <a href="#plan">Изменить</a></p></section>`;
+    return;
   }
-  const spec = counts.size
-    ? `<table class="sched"><thead><tr><th>Предмет</th><th>Размер, м</th><th>Шт.</th></tr></thead><tbody>${[...counts.entries()].map(([k, n]) => {
-      const [t, f] = k.split('|');
-      const d = FURN_BY_KEY[t];
-      return `<tr><td>${d.label}${a.floors.length > 1 ? ` <span class="note">(${f} этаж)</span>` : ''}</td><td>${dim(d.w)} × ${dim(d.d)}</td><td>${n}</td></tr>`;
-    }).join('')}</tbody></table>`
-    : '<p class="note">Мебель не добавлена — на плане показана расстановка, предложенная сайтом.</p>';
-  $('design').innerHTML = `<section class="card"><h2>Утверждённая планировка</h2><p class="note">Утверждена ${a.at}. <a href="#plan">Изменить</a></p><div class="design-plans">${a.floors.map((f) => f.svg).join('')}</div><div class="row wrap no-print"><button type="button" class="secondary" data-print-design>Распечатать / сохранить в PDF</button></div></section>`
-    + `<div class="design-grid">${sched}<section class="card"><h2>Спецификация мебели</h2>${spec}</section></div>`
-    + `<section class="card"><h2>Разделы проекта</h2><p class="note">Проект строится по утверждённой планировке. Следующие разделы появятся по образцу проекта:</p><ul class="design-steps">
-      <li><b>Планы этажей с размерами</b><span>оси, стены, проёмы, привязки</span></li>
-      <li><b>Фасады и разрез</b><span>высоты, кровля, отметки</span></li>
-      <li><b>Фундамент</b><span>с учётом грунта и мерзлоты</span></li>
-      <li><b>Стены и перекрытия</b><span>конструкция и утепление</span></li>
-      <li><b>Кровля</b><span>тип, уклон, водосток</span></li>
-      <li><b>Инженерия</b><span>отопление, вода, канализация, электрика</span></li>
-    </ul></section>`;
+  const key = JSON.stringify([a.at, pj, state.center]);
+  if (designCache.key !== key) {
+    const m = designModel();
+    const checks = normChecks(m);
+    const sheets = buildSheets(m, checks);
+    const cl = m.cl;
+    const matCards = MATERIAL_KEYS.map((k) => {
+      const mt = MATERIALS[k];
+      const wb = wallBuildUp(k, cl);
+      return `<button type="button" class="mat${pj.material === k ? ' on' : ''}" data-mat="${k}"><b>${mt.title}</b><span>${wb.ins ? `+ утеплитель ${Math.round(wb.ins * 1000)} мм` : 'без утепления'} · стена ${Math.round(wb.thick * 1000)} мм</span><span class="note">${mt.about}</span></button>`;
+    }).join('');
+    const sel = (id, opts, val) => `<select id="${id}">${opts.map(([v, t]) => `<option value="${v}"${String(v) === String(val) ? ' selected' : ''}>${t}</option>`).join('')}</select>`;
+    const ck = projClimateKey();
+    const custom = ck === 'custom' ? `<div class="grid2 climate-custom">${[['name', 'Место', cl.name], ['tOt', 't отопит. периода, °С', cl.tOt], ['zOt', 'Отопит. период, сут', cl.zOt], ['t5', 't пятидневки, °С', cl.t5], ['Sg', 'Снег Sg, кПа', cl.Sg], ['zone', 'Климатич. район', cl.zone]].map(([k, l, v]) => `<label>${l}<input data-cl="${k}" value="${v}"></label>`).join('')}</div>` : '';
+    const okN = checks.filter((c) => c.ok === true).length;
+    const badN = checks.filter((c) => c.ok === false).length;
+    designCache = {
+      key,
+      html: `${agreeCard.replace('<section class="card agree-card">', '<details class="card agree-card"><summary>Условия приняты</summary>').replace(/<\/section>$/, '</details>')}
+      <section class="card"><h2>Материал стен</h2><div class="mats">${matCards}</div></section>
+      <section class="card"><h2>Параметры</h2><div class="grid3 params">
+        <label>Климат ${sel('pj-climate', [...Object.entries(CLIMATES).map(([k, c]) => [k, `${c.name} (район ${c.zone})`]), ['custom', 'Своё место…']], ck)}</label>
+        <label>Фундамент ${sel('pj-found', Object.entries(FOUNDATIONS).map(([k, f]) => [k, f.title]), projFoundation())}</label>
+        <label>Высота потолков ${sel('pj-ceil', [[2.5, '2,5 м'], [2.7, '2,7 м'], [3.0, '3,0 м']], projCeiling())}</label>
+        <label>Уклон кровли ${sel('pj-pitch', [[25, '25°'], [30, '30°'], [35, '35°'], [40, '40°'], [45, '45°']], pj.pitch)}</label>
+        <label>Свес кровли ${sel('pj-ovh', [[0.4, '400 мм'], [0.5, '500 мм'], [0.6, '600 мм']], pj.overhang)}</label>
+      </div>${custom}<p class="note">Климат по СП 131.13330 и СП 20.13330 — ориентировочно, проверьте значения для своего населённого пункта.</p></section>
+      <section class="card"><h2>Проверка по нормам</h2><p class="note">Выполнено ${okN} из ${checks.filter((c) => c.ok !== null).length}${badN ? `, требуют внимания — ${badN}` : ''}.</p><ul class="checks">${checks.map((c) => `<li class="${c.ok === null ? 'mixed' : c.ok ? 'good' : 'bad'}"><b>${c.title}</b> ${c.text} <span class="note">${c.norm}</span></li>`).join('')}</ul></section>
+      <section class="card sheets-card"><div class="sheets-head"><h2>Эскизный проект — ${sheets.length} листов А4</h2><button type="button" id="pj-pdf">Скачать проект в PDF</button></div><p class="note">В окне печати выберите «Сохранить как PDF». Формат А4, книжная ориентация, поля — нет.</p><div class="sheets">${sheets.map((sh) => `<div class="sheet-wrap">${sh.svg}</div>`).join('')}</div></section>`,
+    };
+  }
+  $('design').innerHTML = designCache.html;
 }
 
 $('btn-approve').addEventListener('click', approveLayout);
-$('design').addEventListener('click', (e) => {
-  if (e.target.closest('[data-print-design]')) window.print();
+$('design').addEventListener('change', (e) => {
+  const t = e.target;
+  const pj = state.project;
+  if (t.dataset.agree !== undefined) pj.agree[Number(t.dataset.agree)] = t.checked;
+  else if (t.id === 'pj-climate') { pj.climate = t.value; if (t.value === 'custom' && !pj.custom) pj.custom = { ...CLIMATES.yakutsk, name: 'Своё место' }; }
+  else if (t.id === 'pj-found') pj.foundation = t.value;
+  else if (t.id === 'pj-ceil') pj.ceiling = Number(t.value);
+  else if (t.id === 'pj-pitch') pj.pitch = Number(t.value);
+  else if (t.id === 'pj-ovh') pj.overhang = Number(t.value);
+  else if (t.dataset.cl) {
+    const k = t.dataset.cl;
+    pj.custom = { ...(pj.custom || {}), [k]: ['name', 'zone'].includes(k) ? t.value : Number(t.value.replace(',', '.')) };
+  } else return;
+  save();
+  renderDesign();
 });
+$('design').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-mat]');
+  if (b) {
+    state.project.material = b.dataset.mat;
+    save();
+    renderDesign();
+  }
+  if (e.target.closest('#pj-pdf')) {
+    document.body.classList.add('print-project');
+    window.print();
+  }
+});
+window.addEventListener('afterprint', () => document.body.classList.remove('print-project'));
 
 // ---- Ручная правка планировки ----
 
@@ -3448,6 +3554,7 @@ function showTab() {
   // Карта, созданная в скрытой вкладке, не знает своего размера
   if (tab === 'calc') map.invalidateSize();
   if (tab === 'garden') renderYard();
+  if (tab === 'design') renderDesign();
   else if (playTimer) $('y-play').click();
   window.scrollTo({ top: 0 });
 }

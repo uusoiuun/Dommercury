@@ -482,6 +482,60 @@ td.bad { color: var(--bad); }
 .a-north { fill: #d33; }
 .design-plans .arch { border: 1px solid var(--line); border-radius: 12px; }
 
+/* ---- Эскизный проект: листы А4 ---- */
+.agree { align-items: flex-start; line-height: 1.4; }
+.agree input { margin-top: 3px; }
+.agree-card summary { font: 400 16px var(--display); }
+.mats { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+.mat { display: flex; flex-direction: column; gap: 4px; text-align: left; background: var(--snow); color: var(--text); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; font-weight: 400; }
+.mat:hover { filter: none; border-color: var(--moss-2); }
+.mat.on { border: 2px solid var(--moss-2); background: color-mix(in srgb, var(--moss-2) 8%, var(--card)); }
+.mat b { font-weight: 600; }
+.mat span { font-size: 13px; color: var(--moss-2); }
+.mat .note { color: var(--muted); margin: 0; }
+.grid3.params { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 0 12px; }
+.checks { list-style: none; padding: 0; margin: 8px 0 0; display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+.checks li { border-left: 3px solid var(--muted); background: var(--snow); border-radius: 4px; padding: 6px 10px; }
+.checks li.good { border-color: var(--good); }
+.checks li.bad { border-color: var(--bad); }
+.checks li.mixed { border-color: var(--mixed); }
+.checks .note { display: block; margin: 2px 0 0; font-size: 12px; }
+.sheets-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; }
+.sheets-head h2 { margin: 0; }
+.sheets { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; margin-top: 12px; }
+.sheet-wrap { background: #fff; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12); border-radius: 4px; overflow: hidden; }
+svg.sheet { display: block; width: 100%; height: auto; font-family: "Inter Tight", "Arial Narrow", sans-serif; font-style: italic; }
+.sh-t { fill: #000; }
+.sh-l { stroke: #000; stroke-width: 0.25; fill: none; }
+.sh-thick { stroke: #000; stroke-width: 0.6; fill: none; }
+.sh-dim { stroke: #000; stroke-width: 0.15; }
+.sh-tick { stroke: #000; stroke-width: 0.35; }
+.sh-axis { stroke: #d33; stroke-width: 0.18; stroke-dasharray: 3 1 0.6 1; }
+.sh-bub { fill: #fff; stroke: #000; stroke-width: 0.25; }
+.sh-dash { stroke: #555; stroke-width: 0.2; stroke-dasharray: 1.5 1; fill: none; }
+.sh-found { fill: #e9e9e9; stroke: #000; stroke-width: 0.35; }
+.sh-grill { fill: #f4f4f4; stroke: #000; stroke-width: 0.3; stroke-dasharray: 1.2 0.6; }
+.sh-pile { fill: #fff; stroke: #000; stroke-width: 0.35; }
+.sh-ground { fill: #d8d0bf; stroke: #000; stroke-width: 0.2; }
+.sh-wall { fill: #e8c99a; stroke: #000; stroke-width: 0.3; }
+.sh-ins { fill: #f6e27a; stroke: #000; stroke-width: 0.2; }
+.sh-air { fill: #fff; stroke: #000; stroke-width: 0.15; stroke-dasharray: 0.8 0.5; }
+.sh-layer { fill: #cfcfcf; stroke: #000; stroke-width: 0.2; }
+.sh-floor { fill: #bdbdbd; stroke: #000; stroke-width: 0.2; }
+.sh-roof { stroke: #000; stroke-width: 0.6; fill: none; }
+.sh-roofface { fill: #8a6a5a; stroke: #000; stroke-width: 0.3; opacity: 0.85; }
+.sh-roofface.tiles { fill: #9c7a68; }
+.sh-roofplan { fill: #f1ebe4; stroke: #000; stroke-width: 0.5; }
+.sh-facade { fill: #f3e7d3; stroke: #000; stroke-width: 0.4; }
+.sh-siding { stroke: #000; stroke-width: 0.08; opacity: 0.5; }
+.sh-plinth { fill: #c9c4ba; stroke: #000; stroke-width: 0.3; }
+.sh-win { fill: #bcd9ee; stroke: #000; stroke-width: 0.3; }
+.sh-door { fill: #8c6a4a; stroke: #000; stroke-width: 0.3; }
+.sh-beam { stroke: #000; stroke-width: 0.45; }
+.sh-mauer { stroke: #7a4a2a; stroke-width: 0.9; }
+.sh-gutter { stroke: #2f5f8a; stroke-width: 0.5; stroke-dasharray: 2 1; }
+.sh-arrow { stroke: #000; stroke-width: 0.25; fill: none; }
+
 /* ---- Конструктор участка ---- */
 .chip .dot { display: inline-block; width: 11px; height: 11px; border-radius: 50%; flex: none; margin-right: 6px; vertical-align: -1px; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12); }
 .chip small { margin-left: 6px; color: var(--muted); font-size: 11px; }
@@ -637,6 +691,13 @@ td.bad { color: var(--bad); }
 }
 
 @media print {
+  @page { size: A4 portrait; margin: 0; }
+  body.print-project > *:not(#tab-design), body.print-project .design-wrap > section:not(.sheets-card), body.print-project .design-wrap > details, body.print-project .intro, body.print-project .sheets-head, body.print-project .sheets-card > .note { display: none !important; }
+  body.print-project .design-wrap, body.print-project .sheets-card { padding: 0 !important; margin: 0 !important; border: 0 !important; box-shadow: none !important; background: none !important; max-width: none; }
+  body.print-project .sheets { display: block; margin: 0; }
+  body.print-project .sheet-wrap { width: 210mm; height: 297mm; box-shadow: none; border-radius: 0; page-break-after: always; break-after: page; overflow: hidden; }
+  body.print-project svg.sheet { width: 210mm; height: 297mm; }
+  body.print-project::after { display: none; }
   .no-print, .map-tools, .hint, button, .masthead, .intro p, .home, .foot { display: none !important; }
   .arch { max-width: none; border: 0 !important; }
   body::after { display: none; }

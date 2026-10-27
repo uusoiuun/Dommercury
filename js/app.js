@@ -1080,8 +1080,21 @@ function renderBazhai(fsAz) {
     ${directionsTable(h.directions)}`;
 }
 
+// Дата рождения по частям: год обязателен, месяц и день можно уточнить позже.
+// Пока их нет, считаем по середине года — Гуа тогда по самому году.
+const MONTHS_GEN = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+function syncBirth(p) {
+  if (p.by == null && p.birth) {
+    const [y, m, d] = p.birth.split('-').map(Number);
+    Object.assign(p, { by: y, bm: m, bd: d });
+  }
+  const pad = (v) => String(v).padStart(2, '0');
+  p.birth = p.by ? `${p.by}-${pad(p.bm || 7)}-${pad(p.bm ? Math.min(p.bd || 1, new Date(p.by, p.bm, 0).getDate()) : 1)}` : '';
+}
+
 function renderPeople(fsAz) {
   const house = bazhaiHouse(fsAz);
+  state.people.forEach(syncBirth);
   const box = $('people');
   if (!state.people.length) {
     box.innerHTML = '<p class="note">Добавьте жильцов: число Гуа покажет их благоприятные направления и совместимость с домом.</p>';
@@ -1100,6 +1113,7 @@ function renderPeople(fsAz) {
             <strong>${age} ${yearsWord(age)} · Гуа ${g.gua} — ${g.group} группа</strong>
             ${match ? 'Совпадает с группой дома.' : 'Не совпадает с группой дома: важны направление кровати, рабочего места и двери спальни.'}
             ${g.uncertain ? '<br>Дата около Ли Чунь (3–5 февраля): проверьте точный день начала года.' : ''}
+            ${!p.bm || !p.bd ? '<br>Уточните месяц и день: тем, кто родился до 4 февраля, Гуа считают по предыдущему году.' : ''}
           </div>
           <p class="note">Благоприятные направления: ${best.map((d) => `${d.dir} — ${d.name} (${d.ru})`).join('; ')}.</p>
           ${bedroomNote(g.gua)}`;
@@ -1107,7 +1121,9 @@ function renderPeople(fsAz) {
       return `<div class="person" data-i="${i}">
         <div class="grid3">
           <label>Имя <input data-f="name" value="${escapeHtml(p.name || '')}"></label>
-          <label>Дата рождения <input type="date" data-f="birth" value="${p.birth || ''}"></label>
+          <label>Год рождения <input type="number" inputmode="numeric" min="1900" max="${new Date().getFullYear()}" data-b="by" value="${p.by ?? ''}"></label>
+          <label>Месяц <select data-b="bm"><option value="">—</option>${MONTHS_GEN.map((mn, k) => `<option value="${k + 1}"${p.bm === k + 1 ? ' selected' : ''}>${mn}</option>`).join('')}</select></label>
+          <label>День <select data-b="bd"><option value="">—</option>${Array.from({ length: 31 }, (_, k) => `<option value="${k + 1}"${p.bd === k + 1 ? ' selected' : ''}>${k + 1}</option>`).join('')}</select></label>
           <label>Пол <select data-f="sex"><option value="m"${p.sex === 'm' ? ' selected' : ''}>муж.</option><option value="f"${p.sex === 'f' ? ' selected' : ''}>жен.</option></select></label>
           <label>Кто <select data-f="role"><option value="adult"${personRole(p) === 'adult' ? ' selected' : ''}>взрослый</option><option value="child"${personRole(p) === 'child' ? ' selected' : ''}>ребёнок</option></select></label>
           <button type="button" class="link" data-remove="${i}" title="Удалить">✕</button>
@@ -3560,15 +3576,23 @@ for (const r of document.querySelectorAll('input[name="az-mode"]')) {
 }
 
 $('btn-person').addEventListener('click', () => {
-  state.people.push({ name: '', birth: '', sex: 'm' });
+  state.people.push({ name: '', by: 1990, birth: '1990-07-01', sex: 'm' });
   render();
   save();
 });
 
 $('people').addEventListener('change', (e) => {
   const row = e.target.closest('.person');
-  if (!row || !e.target.dataset.f) return;
-  state.people[Number(row.dataset.i)][e.target.dataset.f] = e.target.value;
+  if (!row) return;
+  const p = state.people[Number(row.dataset.i)];
+  const b = e.target.dataset.b;
+  if (b) {
+    const v = parseInt(e.target.value, 10);
+    const max = b === 'by' ? new Date().getFullYear() : b === 'bm' ? 12 : 31;
+    p[b] = Number.isFinite(v) ? Math.max(b === 'by' ? 1900 : 1, Math.min(max, v)) : null;
+    syncBirth(p);
+  } else if (e.target.dataset.f) p[e.target.dataset.f] = e.target.value;
+  else return;
   render();
   save();
 });

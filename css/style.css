@@ -775,3 +775,10 @@ table.est td.note { font-size: 12px; margin: 0; }
   .card { break-inside: avoid; }
   body { background: #fff; color: #000; }
 }
+
+/* Рисунок композиции от руки */
+.elev.sketch .sk-ink { fill: none; stroke: #3b3328; stroke-linecap: round; stroke-linejoin: round; }
+.elev.sketch .sk-hatch { fill: none; stroke: #3b3328; stroke-width: 0.5; stroke-opacity: 0.55; stroke-linecap: round; }
+.elev.sketch .sk-lead { fill: none; stroke: #7a6a55; stroke-width: 0.7; stroke-dasharray: 1 3; stroke-linecap: round; }
+.elev.sketch .sk-label { font-family: 'Caveat', 'Segoe Print', cursive; font-size: 17px; font-weight: 600; fill: #3b3328; }
+.preset-pic .elev.sketch .sk-lead, .preset-pic .elev.sketch .sk-label { display: none; }

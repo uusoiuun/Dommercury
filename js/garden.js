@@ -1,5 +1,6 @@
 // Сад по свету и почве: проверка почвы, подбор композиций под место,
 // сценарии отдыха и картинка композиции «в профиль».
+import { sketchPlant, sketchDefs } from './sketch.js';
 import {
   PLANT_BY_KEY, BUILDING_BY_KEY, rectPoly, housePieces, houseOutline, convexOverlap, inPoly, sunHours, circlePoly,
 } from './yard.js';
@@ -551,105 +552,58 @@ export function scenarioSpot(key, yard, opts) {
   return best;
 }
 
-// ---- Картинка композиции «в профиль» ----
+// ---- Картинка композиции «в профиль»: рисунок тушью и акварелью ----
 
-const CONIFER = new Set(['larix', 'pinus', 'picea', 'taxus']);
-const SPIKE = new Set(['delphinium', 'irisSib', 'irisBarb', 'leek', 'alliumSch', 'aruncus', 'filipendula', 'artemisiaDrac', 'salvia']);
-const LEAF = ['#4f7a3a', '#5e8a44', '#3f6a3a', '#6a9a4a', '#4a7050'];
-
-function hashN(str, n) {
-  let h = 0;
-  for (const ch of str) h = (h * 31 + ch.charCodeAt(0)) % 9973;
-  return h % n;
-}
-
-function drawPlant(pl, x, base, s) {
-  const h = Math.max(14, pl.h * s);
-  const leaf = LEAF[hashN(pl.key, LEAF.length)];
-  const col = pl.color;
-  const out = [];
-  if (pl.group === 'tree' || CONIFER.has(pl.key)) {
-    const wd = Math.max(26, pl.r * 2 * s * 0.55);
-    if (CONIFER.has(pl.key)) {
-      out.push(`<rect x="${x - 3}" y="${base - h * 0.15}" width="6" height="${h * 0.15}" fill="#6a4a30"/>`);
-      for (let k = 0; k < 3; k++) {
-        const y0 = base - h * (0.12 + k * 0.28);
-        const ww = wd * (1 - k * 0.25);
-        out.push(`<path d="M${x - ww / 2} ${y0} L${x} ${y0 - h * 0.45} L${x + ww / 2} ${y0} Z" fill="${col}"/>`);
-      }
-    } else {
-      out.push(`<rect x="${x - 3}" y="${base - h * 0.4}" width="6" height="${h * 0.4}" fill="#6a4a30"/>`,
-        `<ellipse cx="${x}" cy="${base - h * 0.65}" rx="${wd / 2}" ry="${h * 0.35}" fill="${leaf}"/>`,
-        `<ellipse cx="${x - wd * 0.15}" cy="${base - h * 0.72}" rx="${wd / 3}" ry="${h * 0.22}" fill="${col}" opacity="0.55"/>`);
-    }
-    return out.join('');
-  }
-  if (pl.group === 'shrub' || pl.group === 'fruit') {
-    const wd = Math.max(30, Math.min(110, pl.r * 2 * s * 0.8));
-    out.push(`<ellipse cx="${x}" cy="${base - h / 2}" rx="${wd / 2}" ry="${h / 2}" fill="${leaf}"/>`);
-    for (let k = 0; k < 9; k++) {
-      const a = (k * 137.5 * Math.PI) / 180;
-      const r = Math.sqrt(k / 9) * 0.8;
-      out.push(`<circle cx="${x + Math.cos(a) * r * wd / 2}" cy="${base - h / 2 + Math.sin(a) * r * h / 2}" r="${Math.max(2.5, wd / 14)}" fill="${col}"/>`);
-    }
-    return out.join('');
-  }
-  if (pl.group === 'grass') {
-    for (let k = -4; k <= 4; k++) out.push(`<path d="M${x} ${base} Q${x + k * 3} ${base - h * 0.6} ${x + k * 6} ${base - h}" stroke="${col}" stroke-width="1.6" fill="none"/>`);
-    return out.join('');
-  }
-  if (pl.group === 'ground') {
-    const wd = Math.max(34, pl.r * 2 * s);
-    out.push(`<ellipse cx="${x}" cy="${base - 4}" rx="${wd / 2}" ry="7" fill="${leaf}"/>`);
-    for (let k = 0; k < 7; k++) out.push(`<circle cx="${x - wd / 2 + 6 + ((wd - 12) * k) / 6}" cy="${base - 6 - (k % 2) * 3}" r="3" fill="${col}"/>`);
-    return out.join('');
-  }
-  // Многолетники и травы
-  const wd = Math.max(22, pl.r * 2 * s * 0.9);
-  out.push(`<ellipse cx="${x}" cy="${base - h * 0.25}" rx="${wd / 2}" ry="${h * 0.25}" fill="${leaf}"/>`);
-  if (SPIKE.has(pl.key)) {
-    for (let k = -1; k <= 1; k++) out.push(`<rect x="${x + k * wd * 0.25 - 2.5}" y="${base - h}" width="5" height="${h * 0.55}" rx="2.5" fill="${col}"/>`);
-  } else {
-    for (let k = 0; k < 6; k++) {
-      const a = (k * 137.5 * Math.PI) / 180;
-      out.push(`<circle cx="${x + Math.cos(a) * wd * 0.32}" cy="${base - h * 0.75 + Math.sin(a) * h * 0.15}" r="${Math.max(3, wd / 8)}" fill="${col}"/>`);
-    }
-  }
-  return out.join('');
-}
-
-/** Картинка композиции: растения в профиль с подписями. */
-export function elevationSvg(rows, title = '') {
+/** Картинка композиции: растения в профиль с подписями, как рисунок от руки. */
+export function elevationSvg(rows, title = '', opt = {}) {
   const W = 720;
-  const H = 360;
+  const H = 380;
   const list = rows.flatMap((r, ti) => r.plants.map((p) => ({ ...p, ti, pl: PLANT_BY_KEY[p.key] })));
   if (!list.length) return '';
-  const maxH = Math.max(...list.map((p) => p.pl.h));
-  const s = 190 / Math.max(1, maxH);
+  const maxH = Math.max(1, ...list.map((p) => p.pl.h));
+  // Невысокие растения крупнее, чем в масштабе, — иначе цветы теряются рядом с кустом или деревом
+  const hPx = (pl) => 200 * (pl.h / maxH) ** 0.6;
+  const sOf = (pl) => hPx(pl) / pl.h;
+  const { id, defs } = sketchDefs();
   const nRows = rows.length;
-  const parts = [`<rect x="0" y="0" width="${W}" height="${H}" fill="var(--snow)"/>`,
-    `<ellipse cx="${W / 2}" cy="${H - 34}" rx="${W * 0.46}" ry="26" fill="#b8a888" opacity="0.35"/>`];
+  const ground = H - 58;
+  const parts = [defs, `<rect x="0" y="0" width="${W}" height="${H}" fill="#f7f1e3"/>`, `<rect x="0" y="0" width="${W}" height="${H}" filter="url(#${id}-paper)"/>`];
+  // Земля: мазок охры и линия, проведённая от руки
+  parts.push(`<g filter="url(#${id}-wc)"><path d="M30 ${ground + 14} Q${W * 0.3} ${ground + 4} ${W / 2} ${ground + 10} T${W - 30} ${ground + 8} L${W - 40} ${ground + 30} Q${W / 2} ${ground + 40} 40 ${ground + 30} Z" fill="#c8b48a" fill-opacity="0.45"/></g>`,
+    `<g filter="url(#${id}-ink)"><path class="sk-ink" d="M24 ${ground + 12} Q${W * 0.28} ${ground + 3} ${W / 2} ${ground + 9} T${W - 24} ${ground + 7}" stroke-width="1.2"/>`
+    + `<path class="sk-hatch" d="${Array.from({ length: 34 }, (_, k) => `M${50 + k * 19} ${ground + 18 + (k % 3) * 4} l9 -3`).join(' ')}"/></g>`);
   const labels = [];
   // Задний ряд рисуем первым и выше, передний — последним и ниже
   rows.forEach((r, ti) => {
-    const base = H - 70 + (ti / Math.max(1, nRows - 1)) * 34;
+    const base = ground - 4 + (ti / Math.max(1, nRows - 1)) * 30;
     const n = r.plants.length;
     r.plants.forEach((p, k) => {
       const pl = PLANT_BY_KEY[p.key];
       // Соседние ряды сдвинуты на полшага, чтобы растения не заслоняли друг друга
       const x = 70 + ((k + 0.5 + ti * 0.27) / (n + 0.8)) * (W - 140);
       const copies = Math.min(3, p.qty);
-      for (let c = copies - 1; c >= 0; c--) parts.push(drawPlant(pl, x + (c - (copies - 1) / 2) * 18, base - c * 2, s * (1 - c * 0.08)));
-      labels.push({ x, top: base - Math.max(14, pl.h * s), name: pl.name, qty: p.qty });
+      for (let c = copies - 1; c >= 0; c--) {
+        const sp = sketchPlant(pl, x + (c - (copies - 1) / 2) * 20, base - c * 2, sOf(pl) * (1 - c * 0.08), c);
+        parts.push(`<g filter="url(#${id}-wc)">${sp.wash}</g><g filter="url(#${id}-ink)">${sp.ink}</g>`);
+      }
+      labels.push({ x, top: base - Math.max(16, hPx(pl)), name: pl.name, qty: p.qty });
     });
   });
-  // Подписи над растениями в две строки, чтобы не наезжали
-  labels.sort((a, b) => a.x - b.x).forEach((l, i) => {
-    const ly = 22 + (i % 3) * 16;
-    parts.push(`<line x1="${l.x}" y1="${ly + 4}" x2="${l.x}" y2="${l.top - 4}" stroke="var(--muted)" stroke-width="0.8" stroke-dasharray="2 2"/>`,
-      `<text x="${l.x}" y="${ly}" font-size="12" text-anchor="middle" fill="var(--text)" font-family="var(--font)">${l.name}${l.qty > 1 ? ` ×${l.qty}` : ''}</text>`);
+  // Подписи от руки: каждая — в первую строку, где не наезжает на соседнюю
+  const ends = [];
+  labels.sort((a, b) => a.x - b.x).forEach((l) => {
+    const text = `${l.name}${l.qty > 1 ? ` ×${l.qty}` : ''}`;
+    const half = text.length * 3.6 + 6;
+    let line = ends.findIndex((e) => e < l.x - half);
+    if (line < 0) line = ends.length;
+    ends[line] = l.x + half;
+    const ly = 24 + line * 18;
+    parts.push(`<path class="sk-lead" d="M${l.x} ${ly + 5} Q${l.x + 6} ${(ly + l.top) / 2} ${l.x} ${l.top - 4}"/>`,
+      `<text class="sk-label" x="${l.x}" y="${ly}" text-anchor="middle">${text}</text>`);
   });
-  return `<svg class="elev" viewBox="0 0 ${W} ${H}" role="img" aria-label="${title}">${parts.join('')}</svg>`;
+  // Миниатюра в карточке — без подписей, обрезана по растениям
+  if (opt.thumb) return `<svg class="elev sketch" viewBox="40 100 ${W - 80} ${H - 110}" role="img" aria-label="${title}">${parts.filter((x) => !x.includes('sk-label') && !x.includes('sk-lead')).join('')}</svg>`;
+  return `<svg class="elev sketch" viewBox="0 0 ${W} ${H}" role="img" aria-label="${title}">${parts.join('')}</svg>`;
 }
 
 /** Точки посадки внутри клумбы по рядам: задний — у дальнего края. */

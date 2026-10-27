@@ -3688,7 +3688,7 @@ function renderYardControls() {
   if (!$('y-presets').childElementCount) {
     $('y-presets').innerHTML = PRESET_KEYS.map((k) => {
       const pr = PRESETS[k];
-      return `<button type="button" class="preset" data-preset="${k}"><span class="preset-pic">${elevationSvg(presetRows(k), pr.title)}</span>`
+      return `<button type="button" class="preset" data-preset="${k}"><span class="preset-pic">${elevationSvg(presetRows(k), pr.title, { thumb: true })}</span>`
         + `<span class="preset-side">${pr.side} · ${LIGHT_TEXT[pr.want]}</span><b>${pr.title}</b><span class="preset-add">＋ Вставить</span></button>`;
     }).join('');
   }

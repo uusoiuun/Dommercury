@@ -3950,9 +3950,12 @@ function renderMemo(checks) {
   $('y-memo').innerHTML = `<ul>${items.join('')}</ul>`;
 }
 
+let dlgComp = null; // композиция, открытая в окне «Состав»
+let dlgHot = null; // растение, на которое нажали на рисунке: 'ряд:номер'
 function openComp(id) {
   const it = yard.items.find((i) => i.id === id);
   if (!it) return;
+  dlgComp = id;
   const rows = bedRows(it);
   const tpl = compInfo(it);
   const title = tpl.title;
@@ -3960,18 +3963,52 @@ function openComp(id) {
   $('y-dlg-title').textContent = title;
   $('y-dlg-about').textContent = `${tpl.about} Место: ${LIGHT_TEXT[zone]}, ${yFmt(it.w)} × ${yFmt(it.d)} м.`.trim();
   $('y-dlg-pic').innerHTML = elevationSvg(rows, title);
-  const list = rows.flatMap((r) => r.plants.map((p) => {
+  const total = rows.reduce((n, r) => n + r.plants.length, 0);
+  const list = rows.flatMap((r, ri) => r.plants.map((p, pi) => {
     const pl = PLANT_BY_KEY[p.key];
     const sf = soilFit(pl, soilNow(), yardClimate());
     const lightOk = pl.light.includes(zone);
     const level = !lightOk ? 'bad' : sf.level;
     const notes = [...(!lightOk ? [`Нужно: ${pl.light.map((l) => LIGHT_TEXT[l]).join(' или ')}.`] : []), ...sf.notes];
-    return `<li class="${level}"><b>${pl.name}</b>${p.qty > 1 ? ` — ${p.qty} шт.` : ''}<br><span class="note">${r.tier} · ${yFmt(pl.h)} м · ${pl.light.map((l) => LIGHT_TEXT[l]).join(', ')} · ${HARDY_TEXT[pl.hardy]}</span>${pl.note ? `<br>${pl.note}` : ''}${notes.length ? `<br>${notes.join(' ')}` : ''}${sf.fixes.length ? `<br><span class="fix">${sf.fixes.join(' ')}</span>` : ''}</li>`;
+    const ref = `${ri}:${pi}`;
+    const tools = `<span class="dlg-tools"><button type="button" class="secondary" data-dup="${ref}" title="Ещё одно такое же растение в этом же месте композиции">＋ Дублировать</button>`
+      + `<button type="button" class="secondary" data-less="${ref}"${p.qty <= 1 && total <= 1 ? ' disabled' : ''} title="${p.qty > 1 ? 'Убрать одно' : 'Убрать из композиции'}">−</button></span>`;
+    return `<li class="${level}${dlgHot === ref ? ' hot' : ''}" data-ref="${ref}"><b>${pl.name}</b> — ${p.qty} шт.${tools}<span class="note">${r.tier} · ${yFmt(pl.h)} м · ${pl.light.map((l) => LIGHT_TEXT[l]).join(', ')} · ${HARDY_TEXT[pl.hardy]}</span>${pl.note ? `<br>${pl.note}` : ''}${notes.length ? `<br>${notes.join(' ')}` : ''}${sf.fixes.length ? `<br><span class="fix">${sf.fixes.join(' ')}</span>` : ''}</li>`;
   }));
-  $('y-dlg-list').innerHTML = `<ul class="dlg-list">${list.join('')}</ul>`;
+  $('y-dlg-list').innerHTML = `<p class="note">Нажмите на растение на рисунке, чтобы найти его в списке. «＋ Дублировать» добавляет ещё одно такое же растение туда же, в его ряд.</p><ul class="dlg-list">${list.join('')}</ul>`;
   const dlg = $('y-dialog');
+  if (dlg.open) return;
   if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', '');
 }
+
+// Дублировать растение в композиции или убрать одно
+$('y-dialog').addEventListener('click', (e) => {
+  const it = yard.items.find((i) => i.id === dlgComp);
+  if (!it) return;
+  const hit = e.target.closest('[data-plant]');
+  if (hit) {
+    dlgHot = hit.dataset.plant;
+    openComp(dlgComp);
+    $('y-dlg-list').querySelector(`[data-ref="${dlgHot}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    return;
+  }
+  const b = e.target.closest('[data-dup], [data-less]');
+  if (!b) return;
+  const [ri, pi] = (b.dataset.dup || b.dataset.less).split(':').map(Number);
+  const row = it.rows?.[ri];
+  const p = row?.plants[pi];
+  if (!p) return;
+  dlgHot = `${ri}:${pi}`;
+  if (b.dataset.dup) p.qty += 1;
+  else if (p.qty > 1) p.qty -= 1;
+  else {
+    row.plants.splice(pi, 1);
+    if (!row.plants.length) it.rows.splice(ri, 1);
+    dlgHot = null;
+  }
+  openComp(dlgComp);
+  yardChanged();
+});
 
 function suggestComps() {
   compMsgs = [];
@@ -4088,7 +4125,7 @@ function renderYardEditor(checks) {
     $('y-edit').innerHTML = `<div class="editor"><strong>${yard.plants.indexOf(o) + 1}. ${pl.name}</strong>`
       + `<span class="note">Высота ${yFmt(pl.h)} м · свет: ${pl.light.map((l) => LIGHT_TEXT[l]).join(', ')}${pl.note ? ` · ${pl.note}` : ''}</span>`
       + `<div class="msg ${c.level === 'good' ? 'good' : c.level === 'bad' ? 'bad' : 'mixed'}">${c.notes.join('<br>')}</div>`
-      + '<div class="row"><button type="button" class="secondary" data-act="del">Убрать</button></div></div>';
+      + '<div class="row"><button type="button" class="secondary" data-act="dup">＋ Дублировать</button><button type="button" class="secondary" data-act="del">Убрать</button></div></div>';
     return;
   }
   const b = BUILDING_BY_KEY[o.t];
@@ -4398,6 +4435,14 @@ function yardAct(e) {
   } else if (act === 'rot90' || act === 'rotp' || act === 'rotm') {
     const o = objById(yardSel);
     o.rot = (((o.rot || 0) + { rot90: 90, rotp: 15, rotm: -15 }[act]) % 360 + 360) % 360;
+  } else if (act === 'dup') {
+    // Копия растения рядом, на 0,8 м правее (или левее у края участка)
+    const o = yard.plants.find((p) => p.id === yardSel);
+    if (!o) return;
+    const dx = o.x + 0.8 <= yard.plot.w ? 0.8 : -0.8;
+    const c = { ...o, id: nextId(), x: Math.round((o.x + dx) * 10) / 10 };
+    yard.plants.push(c);
+    yardSel = c.id;
   } else if (act === 'comp-info') {
     openComp(yardSel);
     return;

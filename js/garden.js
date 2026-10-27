@@ -581,11 +581,14 @@ export function elevationSvg(rows, title = '', opt = {}) {
       const pl = PLANT_BY_KEY[p.key];
       // Соседние ряды сдвинуты на полшага, чтобы растения не заслоняли друг друга
       const x = 70 + ((k + 0.5 + ti * 0.27) / (n + 0.8)) * (W - 140);
-      const copies = Math.min(3, p.qty);
+      const copies = Math.min(5, p.qty);
+      const gap = copies > 3 ? 14 : 20;
+      const g = [];
       for (let c = copies - 1; c >= 0; c--) {
-        const sp = sketchPlant(pl, x + (c - (copies - 1) / 2) * 20, base - c * 2, sOf(pl) * (1 - c * 0.08), c);
-        parts.push(`<g filter="url(#${id}-wc)">${sp.wash}</g><g filter="url(#${id}-ink)">${sp.ink}</g>`);
+        const sp = sketchPlant(pl, x + (c - (copies - 1) / 2) * gap, base - c * 2, sOf(pl) * (1 - c * 0.06), c);
+        g.push(`<g filter="url(#${id}-wc)">${sp.wash}</g><g filter="url(#${id}-ink)">${sp.ink}</g>`);
       }
+      parts.push(`<g class="sk-plant" data-plant="${ti}:${k}"><title>${pl.name}</title>${g.join('')}</g>`);
       labels.push({ x, top: base - Math.max(16, hPx(pl)), name: pl.name, qty: p.qty });
     });
   });
@@ -612,7 +615,7 @@ export function bedLayout(item, rows) {
   const n = rows.length;
   rows.forEach((r, ti) => {
     const ly = item.d / 2 - ((ti + 0.5) / n) * item.d;
-    const all = r.plants.flatMap((p) => Array.from({ length: Math.min(p.qty, 5) }, () => p.key));
+    const all = r.plants.flatMap((p) => Array.from({ length: Math.min(p.qty, 8) }, () => p.key));
     all.forEach((key, k) => {
       const lx = -item.w / 2 + ((k + 0.5) / all.length) * item.w;
       const t = rad(item.rot || 0);

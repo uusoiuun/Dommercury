@@ -628,6 +628,12 @@ table.est td.note { font-size: 12px; margin: 0; }
 .y-house polygon { fill: var(--linen); stroke: var(--text); stroke-width: 0.18; }
 .y-facade { fill: none; stroke: var(--accent); stroke-width: 0.5; stroke-linecap: round; }
 .y-obj.sel polygon, .y-obj.sel circle:not(.ring):not(.y-comp-dot) { stroke: var(--accent); stroke-width: 0.3; }
+.y-rot { cursor: grab; touch-action: none; }
+.y-rot line { stroke: var(--accent); stroke-width: 0.12; stroke-dasharray: 0.3 0.2; }
+.y-rot circle { fill: var(--card); stroke: var(--accent); stroke-width: 0.15; }
+.y-rot text { fill: var(--accent); font-weight: 700; pointer-events: none; }
+.y-rot:hover circle { fill: var(--accent); }
+.y-rot:hover text { fill: #fff; }
 .y-plant circle { stroke: rgba(255, 255, 255, 0.85); stroke-width: 0.08; }
 .y-plant .ring { fill: none; stroke-width: 0.18; }
 .y-plant.lvl-good .ring { stroke: var(--good); }

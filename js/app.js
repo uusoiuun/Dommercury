@@ -3737,7 +3737,7 @@ function drawClock(t) {
     + `<line class="clock-m" x1="50" y1="50" x2="${50 + 33 * Math.sin(rad(mm))}" y2="${50 - 33 * Math.cos(rad(mm))}"/><circle cx="50" cy="50" r="3" class="clock-pin"/></svg>`;
 }
 
-function renderYardPlan() {
+function renderYardPlan(keepEditor = false) {
   const { w: W, d: D, rot: prot } = yard.plot;
   const M = Math.max(4, Math.max(W, D) * 0.08);
   const Y = (y) => D - y;
@@ -3822,6 +3822,19 @@ function renderYardPlan() {
       + `<text x="${p.x}" y="${Y(p.y) + fs * 0.3}" font-size="${fs * 0.8}" text-anchor="middle">${i + 1}</text></g>`);
   });
 
+  // Ручка поворота у выбранной постройки или композиции: тянуть по кругу
+  const selIt = yard.items.find((i) => i.id === yardSel);
+  if (selIt) {
+    const t = ((selIt.rot || 0) * Math.PI) / 180;
+    const reach = selIt.d / 2 + Math.max(1, fs * 1.4);
+    const kx = selIt.x + reach * Math.sin(t);
+    const ky = selIt.y + reach * Math.cos(t);
+    const ex = selIt.x + (selIt.d / 2) * Math.sin(t);
+    const ey = selIt.y + (selIt.d / 2) * Math.cos(t);
+    parts.push(`<g class="y-rot" data-rot="${selIt.id}"><line x1="${ex}" y1="${Y(ey)}" x2="${kx}" y2="${Y(ky)}"/><circle cx="${kx}" cy="${Y(ky)}" r="${fs * 0.7}"/>`
+      + `<text x="${kx}" y="${Y(ky) + fs * 0.35}" font-size="${fs}" text-anchor="middle">↻</text><title>Потяните, чтобы повернуть</title></g>`);
+  }
+
   // Точки золотого сечения — поверх построек
   if (yard.golden) parts.push(`<g class="y-gold">${goldenGrid(yard.plot).points.map(([x, y]) => `<circle cx="${x}" cy="${Y(y)}" r="${fs * 0.4}"/>`).join('')}</g>`);
 
@@ -3863,7 +3876,14 @@ function renderYardPlan() {
     ? `<span><i style="background:${HOURS_COLOR.sun}"></i>солнце — от ${hr(LIGHT_SHARE.sun)} ч</span><span><i style="background:${HOURS_COLOR.part}"></i>полутень — ${hr(LIGHT_SHARE.part)}–${hr(LIGHT_SHARE.sun)} ч</span><span><i style="background:${HOURS_COLOR.shade}"></i>тень — меньше ${hr(LIGHT_SHARE.part)} ч</span><span class="note">Открытое место в этот день получает ${hr(1)} ч солнца выше 10° над горизонтом. Солнце — от 65 % этого, полутень — 35–65 %, тень — меньше 35 %.</span>`
     : '<span><i class="lg-shadow"></i>тень</span><span><i class="lg-sun"></i>солнце</span><span class="note">Двигайте время или нажмите ▶.</span>';
 
-  renderYardEditor(checks);
+  // Пока крутим объект, карточку не перерисовываем — иначе ползунок теряет палец
+  if (!keepEditor) renderYardEditor(checks);
+  else {
+    const o = objById(yardSel);
+    const sl = $('y-edit').querySelector('[data-f="rot"]');
+    if (o && sl && document.activeElement !== sl) sl.value = Math.round(o.rot || 0);
+    if (o && $('y-rot-out')) $('y-rot-out').textContent = `${Math.round(o.rot || 0)}°`;
+  }
   renderYardWarnings(checks);
   renderHarmony();
   renderComps();
@@ -4076,8 +4096,10 @@ function renderYardEditor(checks) {
     + `<label>Ширина, м <input type="number" data-f="w" value="${o.w}" min="0.5" max="60" step="0.5"></label>`
     + `<label>Длина, м <input type="number" data-f="d" value="${o.d}" min="0.5" max="60" step="0.5"></label>`
     + (b.flat ? '' : `<label>Высота, м <input type="number" data-f="h" value="${o.h}" min="0" max="20" step="0.5"></label>`)
-    + `<label>Поворот, ° <input type="number" data-f="rot" value="${o.rot}" step="15"></label></div>`
-    + '<div class="row"><button type="button" class="secondary" data-act="rot90">Повернуть на 90°</button><button type="button" class="secondary" data-act="del">Убрать</button></div></div>';
+    + '</div>'
+    + `<label class="rot-row">Поворот: <output id="y-rot-out">${Math.round(o.rot || 0)}°</output><input type="range" data-f="rot" min="0" max="359" step="5" value="${Math.round(((o.rot || 0) % 360 + 360) % 360)}"></label>`
+    + '<span class="note">Или потяните за кружок со стрелкой у выбранного объекта на плане.</span>'
+    + `<div class="row wrap"><button type="button" class="secondary" data-act="rotm">↺ 15°</button><button type="button" class="secondary" data-act="rotp">↻ 15°</button><button type="button" class="secondary" data-act="rot90">↻ 90°</button>${b.bed ? '<button type="button" class="secondary" data-act="comp-info">Состав</button>' : ''}<button type="button" class="secondary" data-act="del">Убрать</button></div></div>`;
 }
 
 function renderYardWarnings(checks) {
@@ -4373,9 +4395,12 @@ function yardAct(e) {
     yard.items = yard.items.filter((i) => i.id !== yardSel);
     yard.plants = yard.plants.filter((p) => p.id !== yardSel);
     yardSel = null;
-  } else if (act === 'rot90') {
+  } else if (act === 'rot90' || act === 'rotp' || act === 'rotm') {
     const o = objById(yardSel);
-    o.rot = ((o.rot || 0) + 90) % 360;
+    o.rot = (((o.rot || 0) + { rot90: 90, rotp: 15, rotm: -15 }[act]) % 360 + 360) % 360;
+  } else if (act === 'comp-info') {
+    openComp(yardSel);
+    return;
   } else if (act === 'clear-plants') {
     if (!window.confirm('Убрать все растения с участка?')) return;
     yard.plants = [];
@@ -4393,7 +4418,8 @@ $('y-edit').addEventListener('input', (e) => {
   const v = Number(e.target.value);
   if (!Number.isFinite(v) || v < 0) return;
   o[f] = v;
-  renderYardPlan();
+  if (f === 'rot' && $('y-rot-out')) $('y-rot-out').textContent = `${v}°`;
+  renderYardPlan(f === 'rot');
   save();
 });
 
@@ -4406,7 +4432,15 @@ function planPoint(e) {
 }
 const snap = (v) => Math.round(v * 2) / 2;
 
+let rotDrag = null;
 $('y-plan').addEventListener('pointerdown', (e) => {
+  const rk = e.target.closest('[data-rot]');
+  if (rk) {
+    rotDrag = { id: rk.dataset.rot };
+    $('y-plan').setPointerCapture(e.pointerId);
+    e.preventDefault();
+    return;
+  }
   const g = e.target.closest('[data-id]');
   if (!g || yardTool) return;
   const o = objById(g.dataset.id);
@@ -4416,6 +4450,16 @@ $('y-plan').addEventListener('pointerdown', (e) => {
 });
 
 $('y-plan').addEventListener('pointermove', (e) => {
+  if (rotDrag) {
+    // Угол от центра объекта до пальца; 0° — ручка сверху, по часовой стрелке, шаг 5°
+    const o = objById(rotDrag.id);
+    const [x, y] = planPoint(e);
+    const a = (Math.atan2(x - o.x, y - o.y) * 180) / Math.PI;
+    o.rot = ((Math.round(a / 5) * 5) % 360 + 360) % 360;
+    rotDrag.moved = true;
+    renderYardPlan(true);
+    return;
+  }
   if (!drag) return;
   if (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 4) return;
   drag.moved = true;
@@ -4428,14 +4472,17 @@ $('y-plan').addEventListener('pointermove', (e) => {
 });
 
 $('y-plan').addEventListener('pointerup', (e) => {
+  if (rotDrag) {
+    rotDrag = null;
+    yardChanged();
+    return;
+  }
   if (drag) {
     if (!drag.moved) {
       yardSel = yardSel === drag.id ? null : drag.id;
+      // Композицию выбираем, как постройку: поворот и размеры в карточке, состав — кнопкой «Состав»
       const it = yard.items.find((i) => i.id === drag.id);
-      if (it && BUILDING_BY_KEY[it.t].bed) {
-        yardSel = drag.id;
-        openComp(drag.id);
-      }
+      if (it && BUILDING_BY_KEY[it.t].bed) yardSel = drag.id;
     }
     drag = null;
     yardChanged();

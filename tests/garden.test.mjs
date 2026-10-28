@@ -97,9 +97,9 @@ test('Якутия: готовые и автоматические композ�
     const rows = pickPlants(tpl, tpl.want === 'shade' ? 'shade' : 'sun', { known: false }, 'extreme', 'yak');
     for (const r of rows) for (const p of r.plants) assert.ok(forYakutia(PLANT_BY_KEY[p.key]), `${k}: ${p.key}`);
   }
-  // Хиты питомника — зона 1 и с ценой
+  // Хиты питомника — зона 1
   for (const k of ['berberis', 'sorbusSib', 'sorbaria', 'sorbocot', 'syringa', 'padusMaackii']) {
     assert.equal(PLANT_BY_KEY[k].usda, 1, k);
-    assert.ok(PLANT_BY_KEY[k].hit && PLANT_BY_KEY[k].price.length, k);
+    assert.ok(PLANT_BY_KEY[k].hit, k);
   }
 });

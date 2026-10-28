@@ -23,7 +23,7 @@ import { buildEstimate, priceEstimate } from './estimate.js';
 import {
   sunPosition, localToUtc, sunDay, tzGuess, HOUSE_SHAPES, rectPoly, houseOutline, houseFacade, inPoly, sunVector, shadowsAt, sunHours,
   BUILDINGS, BUILDING_BY_KEY, PLANTS, PLANT_BY_KEY, PLANT_GROUPS, LIGHT_TEXT, lightZone, checkPlant, checkBuildings, defaultYard, convexOverlap, housePieces, LIGHT_SHARE,
-  PHI, FIB, goldenGrid, nearestGolden, goldenError, fibAtLeast, isFib, phyllotaxis, plantGroups, goldenSpiral, frostOf, frostHtml, forYakutia, priceFrom,
+  PHI, FIB, goldenGrid, nearestGolden, goldenError, fibAtLeast, isFib, phyllotaxis, plantGroups, goldenSpiral, frostOf, frostHtml, forYakutia,
 } from './yard.js';
 import {
   SOIL_PH, SOIL_TEXTURE, SOIL_WATER, CLIMATE, climateGuess, soilFit, SOIL_TESTS, TEMPLATES, TEMPLATE_KEYS,
@@ -3615,7 +3615,6 @@ const yard = state.yard;
 yard.region ||= 'yak';
 const REGIONS = [['yak', '❄ Для Якутии (USDA 1)'], ['warm', 'Малоуходные, для тёплых регионов']];
 const inRegion = (pl) => (yard.region === 'warm' ? !forYakutia(pl) : forYakutia(pl));
-const priceHtml = (pl) => (pl.price ? `<span class="price">${pl.price.map(([h, v]) => `${h} — ${rub(v)} ₽`).join(' · ')}</span>` : '');
 let yardTool = null; // растение, которое сажаем нажатием на план
 let yardSel = null; // выбранный объект: 'house' или id
 let lightFilter = 'all';
@@ -3730,13 +3729,12 @@ function renderPlantPalette() {
   // Для Якутии сначала хиты питомника, для тёплых регионов — «посадил и забыл»
   const groups = yak ? [['hit', '🌟 Хиты якутских питомников'], ...PLANT_GROUPS.filter(([g]) => g !== 'top')] : PLANT_GROUPS.map(([g, t]) => (g === 'top' ? [g, 'Малоуходные «посадил и забыл»'] : [g, t]));
   const inGroup = (p, g) => (g === 'hit' ? p.hit : g === 'top' ? p.top : p.group === g && !(yak ? p.hit : p.top));
-  $('y-plants').innerHTML = (yak ? '<p class="note">Только растения, которые зимуют в Якутии без укрытия (зона USDA 1). Цены — якутского питомника за саженец.</p>' : '<p class="note">Эти растения не рассчитаны на зимы Якутии (зона USDA 2 и выше) — для участков в более тёплых регионах.</p>')
+  $('y-plants').innerHTML = (yak ? '<p class="note">Только растения, которые зимуют в Якутии без укрытия (зона USDA 1).</p>' : '<p class="note">Эти растения не рассчитаны на зимы Якутии (зона USDA 2 и выше) — для участков в более тёплых регионах.</p>')
     + groups.map(([g, title]) => {
       const list = PLANTS.filter((p) => inGroup(p, g) && ok(p)).sort((a, b) => (a.top || 0) - (b.top || 0));
       if (!list.length) return '';
       return `<p class="chip-group">${title}</p><div class="chips">${list.map((p) => {
-        const from = priceFrom(p);
-        return `<button type="button" class="chip plant-chip" data-plant="${p.key}" aria-pressed="${yardTool === p.key}" title="${p.light.map((l) => LIGHT_TEXT[l]).join(', ')}; ${frostOf(p).text}"><span class="dot" style="background:${p.color}"></span>${p.hit ? '🌟 ' : ''}${p.name}<small>${p.light.map((l) => LIGHT_ICON[l]).join('')}</small>${frostHtml(p)}${from ? `<small class="price-from">от ${rub(from)} ₽</small>` : ''}</button>`;
+        return `<button type="button" class="chip plant-chip" data-plant="${p.key}" aria-pressed="${yardTool === p.key}" title="${p.light.map((l) => LIGHT_TEXT[l]).join(', ')}; ${frostOf(p).text}"><span class="dot" style="background:${p.color}"></span>${p.hit ? '🌟 ' : ''}${p.name}<small>${p.light.map((l) => LIGHT_ICON[l]).join('')}</small>${frostHtml(p)}</button>`;
       }).join('')}</div>`;
     }).join('');
 }
@@ -4010,7 +4008,7 @@ function openComp(id) {
     const ref = `${ri}:${pi}`;
     const tools = `<span class="dlg-tools"><button type="button" class="secondary" data-dup="${ref}" title="Ещё одно такое же растение в этом же месте композиции">＋ Дублировать</button>`
       + `<button type="button" class="secondary" data-less="${ref}"${p.qty <= 1 && total <= 1 ? ' disabled' : ''} title="${p.qty > 1 ? "Убрать выбранное на рисунке (или последнее)" : "Убрать из композиции"}">−</button></span>`;
-    return `<li class="${level}${dlgHot === ref ? ' hot' : ''}" data-ref="${ref}"><b>${pl.name}</b> ${frostHtml(pl)} — ${p.qty} шт.${tools}<span class="note">${r.tier} · ${yFmt(pl.h)} м · ${pl.light.map((l) => LIGHT_TEXT[l]).join(', ')} · <span class="frost-text ${frostOf(pl).cls}">${frostOf(pl).text}</span></span>${pl.price ? `<br>${priceHtml(pl)}` : ''}${pl.note ? `<br>${pl.note}` : ''}${notes.length ? `<br>${notes.join(' ')}` : ''}${sf.fixes.length ? `<br><span class="fix">${sf.fixes.join(' ')}</span>` : ''}</li>`;
+    return `<li class="${level}${dlgHot === ref ? ' hot' : ''}" data-ref="${ref}"><b>${pl.name}</b> ${frostHtml(pl)} — ${p.qty} шт.${tools}<span class="note">${r.tier} · ${yFmt(pl.h)} м · ${pl.light.map((l) => LIGHT_TEXT[l]).join(', ')} · <span class="frost-text ${frostOf(pl).cls}">${frostOf(pl).text}</span></span>${pl.note ? `<br>${pl.note}` : ''}${notes.length ? `<br>${notes.join(' ')}` : ''}${sf.fixes.length ? `<br><span class="fix">${sf.fixes.join(' ')}</span>` : ''}</li>`;
   }));
   $('y-dlg-list').innerHTML = `<p class="note">Растения на рисунке можно перетаскивать: влево-вправо вдоль клумбы, вверх — на ряд назад, вниз — на ряд вперёд. Нажатие выбирает растение. «＋ Дублировать» ставит копию рядом с выбранным — дальше тяните её куда нужно.</p><ul class="dlg-list">${list.join('')}</ul>`;
   const dlg = $('y-dialog');
@@ -4220,7 +4218,7 @@ function renderYardEditor(checks) {
   if (o.t && PLANT_BY_KEY[o.t]) {
     const pl = PLANT_BY_KEY[o.t];
     const c = checks.get(o.id);
-    $('y-edit').innerHTML = `<div class="editor"><strong>${yard.plants.indexOf(o) + 1}. ${pl.name} ${frostHtml(pl)}</strong><span class="frost-text ${frostOf(pl).cls}">${frostOf(pl).text}</span>${priceHtml(pl)}`
+    $('y-edit').innerHTML = `<div class="editor"><strong>${yard.plants.indexOf(o) + 1}. ${pl.name} ${frostHtml(pl)}</strong><span class="frost-text ${frostOf(pl).cls}">${frostOf(pl).text}</span>`
       + `<span class="note">Высота ${yFmt(pl.h)} м · свет: ${pl.light.map((l) => LIGHT_TEXT[l]).join(', ')}${pl.note ? ` · ${pl.note}` : ''}</span>`
       + `<div class="msg ${c.level === 'good' ? 'good' : c.level === 'bad' ? 'bad' : 'mixed'}">${c.notes.join('<br>')}</div>`
       + '<div class="row"><button type="button" class="secondary" data-act="dup">＋ Дублировать</button><button type="button" class="secondary" data-act="del">Убрать</button></div></div>';

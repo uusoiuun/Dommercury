@@ -342,27 +342,8 @@ for (const p of PLANTS) {
   p.water = water.split(' ');
   p.hardy = hardy;
 }
-// Хиты и цены якутского питомника, ₽ за саженец по высоте
-const NURSERY = {
-  berberis: { hit: true, price: [['до 50 см', 1000], ['50–100 см', 1500]] },
-  crataegus: { price: [['до 50 см', 800], ['50–120 см', 950], ['выше 120 см', 1100]] },
-  caragana: { price: [['до 50 см', 650], ['50–100 см', 800]] },
-  cotoneaster: { price: [['до 50 см', 650], ['50–100 см', 1200]] },
-  hippophae: { price: [['до 50 см', 700], ['50–100 см', 900]] },
-  sorbusSib: { hit: true, price: [['до 50 см', 1000], ['50–100 см', 1500]] },
-  sorbaria: { hit: true, price: [['до 50 см', 600], ['50–100 см', 850], ['выше 100 см', 1200]] },
-  sorbocot: { hit: true, price: [['до 50 см', 1500]] },
-  syringa: { hit: true, price: [['до 50 см', 1000]] },
-  populusBer: { price: [['до 50 см', 750], ['100–150 см', 950], ['выше 150 см', 1100]] },
-  populusSuav: { price: [['до 50 см', 750], ['100–150 см', 950], ['выше 150 см', 1100]] },
-  padusMaackii: { hit: true, price: [['до 50 см', 1000], ['50–100 см', 1500], ['выше 100 см', 2000]] },
-  padus: { price: [['до 50 см', 900], ['50–100 см', 1100], ['выше 100 см', 1500]] },
-  rosaBegg: { price: [['до 50 см', 700], ['50–100 см', 850], ['выше 100 см', 1100]] },
-  rosaRugosa: { price: [['до 50 см', 700], ['50–100 см', 850], ['выше 100 см', 1100]] },
-  rosaAcic: { price: [['до 50 см', 650], ['50–100 см', 800], ['выше 100 см', 1000]] },
-  malusPurp: { price: [['до 50 см', 1200], ['50–100 см', 1350], ['выше 100 см', 1800]] },
-  malus: { price: [['до 50 см', 900], ['50–100 см', 1100], ['выше 100 см', 1500]] },
-};
+// Хиты якутских питомников
+const NURSERY_HITS = ['berberis', 'sorbusSib', 'sorbaria', 'sorbocot', 'syringa', 'padusMaackii'];
 
 // Зона морозостойкости USDA (самая холодная, где растение зимует без укрытия).
 // Якутск — зона 1 (зимой до −50 °C). Растениям, которые растут в Якутии в природе,
@@ -391,7 +372,7 @@ for (const k of YAKUTSK_PROVEN) USDA[k] = 1;
 for (const p of PLANTS) {
   p.usda = USDA[p.key] ?? 3;
   if (YAKUTSK_PROVEN.includes(p.key)) p.proven = true;
-  Object.assign(p, NURSERY[p.key] || {});
+  if (NURSERY_HITS.includes(p.key)) p.hit = true;
   // Зимостойкость в советах по почве и климату — по той же зоне
   if (p.usda === 1) p.hardy = 'very';
   else if (p.usda === 2) p.hardy = 'good';
@@ -399,7 +380,6 @@ for (const p of PLANTS) {
 }
 /** Каталог для Якутии — только зона 1 (и однолетники); остальное — малоуходные для тёплых регионов. */
 export const forYakutia = (pl) => pl.usda <= 1;
-export const priceFrom = (pl) => (pl.price ? Math.min(...pl.price.map(([, v]) => v)) : null);
 /** Метка морозостойкости: снежинка синяя — зона 1, для Якутии; красная — зона 2 и выше. */
 export function frostOf(pl) {
   if (pl.usda === 0) return { cls: 'annual', text: 'однолетник — зимовать не нужно' };

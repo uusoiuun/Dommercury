@@ -555,43 +555,76 @@ export function scenarioSpot(key, yard, opts) {
 // ---- Картинка композиции «в профиль»: рисунок тушью и акварелью ----
 
 /** Картинка композиции: растения в профиль с подписями, как рисунок от руки. */
+// Каждое растение композиции стоит в своём месте: u — вдоль клумбы (0 — левый край, 1 — правый),
+// v — вглубь (0 — задний край, 1 — передний). Пока растение не двигали, место считается по рядам.
+// Копии по умолчанию встают рядом, а не друг за другом.
+const ELEV = { W: 720, H: 380, pad: 70 };
+export const ELEV_SPAN = ELEV.W - 2 * ELEV.pad;
+const clamp01 = (v) => Math.max(0, Math.min(1, v));
+export function plantSpots(rows) {
+  const nRows = rows.length;
+  const out = [];
+  rows.forEach((r, ti) => {
+    const n = r.plants.length;
+    r.plants.forEach((p, k) => {
+      const u0 = (k + 0.5 + ti * 0.27) / (n + 0.8);
+      const step = Math.min(0.06, 0.5 / (n + 0.8) / Math.max(1, p.qty - 1));
+      for (let c = 0; c < p.qty; c++) {
+        const at = p.at?.[c];
+        const u = at ? at.u : u0 + (c - (p.qty - 1) / 2) * step;
+        const v = at ? at.v : nRows > 1 ? ti / (nRows - 1) : 0.5;
+        out.push({ ti, k, c, key: p.key, u: clamp01(u), v: clamp01(v) });
+      }
+    });
+  });
+  return out;
+}
+/** Записать места всех копий растения в p.at, чтобы их можно было двигать по одной. */
+export function fixSpots(rows) {
+  const spots = plantSpots(rows);
+  rows.forEach((r, ti) => r.plants.forEach((p, k) => {
+    p.at = spots.filter((sp) => sp.ti === ti && sp.k === k).map(({ u, v }) => ({ u, v }));
+  }));
+}
+
+/** Картинка композиции: растения в профиль с подписями, как рисунок от руки. */
 export function elevationSvg(rows, title = '', opt = {}) {
-  const W = 720;
-  const H = 380;
-  const list = rows.flatMap((r, ti) => r.plants.map((p) => ({ ...p, ti, pl: PLANT_BY_KEY[p.key] })));
+  const { W, H, pad } = ELEV;
+  const list = rows.flatMap((r) => r.plants.map((p) => PLANT_BY_KEY[p.key]));
   if (!list.length) return '';
-  const maxH = Math.max(1, ...list.map((p) => p.pl.h));
+  const maxH = Math.max(1, ...list.map((pl) => pl.h));
   // Невысокие растения крупнее, чем в масштабе, — иначе цветы теряются рядом с кустом или деревом
   const hPx = (pl) => 200 * (pl.h / maxH) ** 0.6;
   const sOf = (pl) => hPx(pl) / pl.h;
   const { id, defs } = sketchDefs();
-  const nRows = rows.length;
   const ground = H - 58;
   const parts = [defs, `<rect x="0" y="0" width="${W}" height="${H}" fill="#f7f1e3"/>`, `<rect x="0" y="0" width="${W}" height="${H}" filter="url(#${id}-paper)"/>`];
   // Земля: мазок охры и линия, проведённая от руки
   parts.push(`<g filter="url(#${id}-wc)"><path d="M30 ${ground + 14} Q${W * 0.3} ${ground + 4} ${W / 2} ${ground + 10} T${W - 30} ${ground + 8} L${W - 40} ${ground + 30} Q${W / 2} ${ground + 40} 40 ${ground + 30} Z" fill="#c8b48a" fill-opacity="0.45"/></g>`,
     `<g filter="url(#${id}-ink)"><path class="sk-ink" d="M24 ${ground + 12} Q${W * 0.28} ${ground + 3} ${W / 2} ${ground + 9} T${W - 24} ${ground + 7}" stroke-width="1.2"/>`
     + `<path class="sk-hatch" d="${Array.from({ length: 34 }, (_, k) => `M${50 + k * 19} ${ground + 18 + (k % 3) * 4} l9 -3`).join(' ')}"/></g>`);
-  const labels = [];
-  // Задний ряд рисуем первым и выше, передний — последним и ниже
-  rows.forEach((r, ti) => {
-    const base = ground - 4 + (ti / Math.max(1, nRows - 1)) * 30;
-    const n = r.plants.length;
-    r.plants.forEach((p, k) => {
-      const pl = PLANT_BY_KEY[p.key];
-      // Соседние ряды сдвинуты на полшага, чтобы растения не заслоняли друг друга
-      const x = 70 + ((k + 0.5 + ti * 0.27) / (n + 0.8)) * (W - 140);
-      const copies = Math.min(5, p.qty);
-      const gap = copies > 3 ? 14 : 20;
-      const g = [];
-      for (let c = copies - 1; c >= 0; c--) {
-        const sp = sketchPlant(pl, x + (c - (copies - 1) / 2) * gap, base - c * 2, sOf(pl) * (1 - c * 0.06), c);
-        g.push(`<g filter="url(#${id}-wc)">${sp.wash}</g><g filter="url(#${id}-ink)">${sp.ink}</g>`);
-      }
-      parts.push(`<g class="sk-plant" data-plant="${ti}:${k}"><title>${pl.name}</title>${g.join('')}</g>`);
-      labels.push({ x, top: base - Math.max(16, hPx(pl)), name: pl.name, qty: p.qty });
-    });
-  });
+  // Задние растения рисуем первыми и выше, передние — последними и ниже
+  // Выбранное растение — поверх остальных, чтобы его было легко взять
+  const isSel = (sp) => !!opt.sel && opt.sel.ref === `${sp.ti}:${sp.k}` && opt.sel.c === sp.c;
+  const spots = plantSpots(rows).sort((a, b) => isSel(a) - isSel(b) || a.v - b.v || a.u - b.u);
+  const groups = new Map();
+  for (const sp of spots) {
+    const pl = PLANT_BY_KEY[sp.key];
+    const x = pad + sp.u * ELEV_SPAN;
+    const base = ground - 4 + sp.v * 30;
+    const sel = isSel(sp) ? ' sel' : '';
+    const pic = sketchPlant(pl, x, base, sOf(pl), sp.c);
+    // Невидимая область нажатия по силуэту — чтобы попасть и в тонкие прутья, и в редкий злак
+    const hh = Math.max(16, hPx(pl));
+    const hit = `<ellipse class="sk-hit" cx="${x}" cy="${base - hh / 2}" rx="${Math.min(95, Math.max(14, pl.r * sOf(pl) * 0.8, hh * 0.3))}" ry="${hh / 2 + 4}"/>`;
+    parts.push(`<g class="sk-plant${sel}" data-plant="${sp.ti}:${sp.k}" data-c="${sp.c}"><title>${pl.name}</title>${hit}<g filter="url(#${id}-wc)">${pic.wash}</g><g filter="url(#${id}-ink)">${pic.ink}</g></g>`);
+    const g = groups.get(`${sp.ti}:${sp.k}`) || { xs: [], top: Infinity, pl, qty: 0 };
+    g.xs.push(x);
+    g.top = Math.min(g.top, base - Math.max(16, hPx(pl)));
+    g.qty++;
+    groups.set(`${sp.ti}:${sp.k}`, g);
+  }
+  const labels = [...groups.values()].map((g) => ({ x: g.xs.reduce((a, b) => a + b, 0) / g.xs.length, top: g.top, name: g.pl.name, qty: g.qty }));
   // Подписи от руки: каждая — в первую строку, где не наезжает на соседнюю
   const ends = [];
   labels.sort((a, b) => a.x - b.x).forEach((l) => {
@@ -609,19 +642,13 @@ export function elevationSvg(rows, title = '', opt = {}) {
   return `<svg class="elev sketch" viewBox="0 0 ${W} ${H}" role="img" aria-label="${title}">${parts.join('')}</svg>`;
 }
 
-/** Точки посадки внутри клумбы по рядам: задний — у дальнего края. */
+/** Точки посадки внутри клумбы — там же, где растения стоят на рисунке композиции. */
 export function bedLayout(item, rows) {
-  const out = [];
-  const n = rows.length;
-  rows.forEach((r, ti) => {
-    const ly = item.d / 2 - ((ti + 0.5) / n) * item.d;
-    const all = r.plants.flatMap((p) => Array.from({ length: Math.min(p.qty, 8) }, () => p.key));
-    all.forEach((key, k) => {
-      const lx = -item.w / 2 + ((k + 0.5) / all.length) * item.w;
-      const t = rad(item.rot || 0);
-      out.push({ key, x: item.x + lx * Math.cos(t) + ly * Math.sin(t), y: item.y - lx * Math.sin(t) + ly * Math.cos(t) });
-    });
+  const t = rad(item.rot || 0);
+  return plantSpots(rows).map((sp) => {
+    const lx = (-0.5 + 0.06 + sp.u * 0.88) * item.w;
+    const ly = (0.5 - 0.12 - sp.v * 0.76) * item.d;
+    return { key: sp.key, x: item.x + lx * Math.cos(t) + ly * Math.sin(t), y: item.y - lx * Math.sin(t) + ly * Math.cos(t) };
   });
-  return out;
 }
 

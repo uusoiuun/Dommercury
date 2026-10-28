@@ -28,7 +28,7 @@ import {
 import {
   SOIL_PH, SOIL_TEXTURE, SOIL_WATER, CLIMATE, climateGuess, HARDY_TEXT, soilFit, SOIL_TESTS, TEMPLATES, TEMPLATE_KEYS,
   pickPlants, placeTemplate, doorPlace, WIND_DIRS, windbreak, SCENARIOS, scenarioSpot, elevationSvg, bedLayout,
-  PRESETS, PRESET_KEYS, presetRows, placePreset,
+  PRESETS, PRESET_KEYS, presetRows, placePreset, fixSpots, ELEV_SPAN,
 } from './garden.js';
 
 const L = window.L;
@@ -3952,6 +3952,7 @@ function renderMemo(checks) {
 
 let dlgComp = null; // композиция, открытая в окне «Состав»
 let dlgHot = null; // растение, на которое нажали на рисунке: 'ряд:номер'
+let dlgInst = null; // какая из его копий выбрана
 function openComp(id) {
   const it = yard.items.find((i) => i.id === id);
   if (!it) return;
@@ -3962,7 +3963,7 @@ function openComp(id) {
   const zone = compZone(it);
   $('y-dlg-title').textContent = title;
   $('y-dlg-about').textContent = `${tpl.about} Место: ${LIGHT_TEXT[zone]}, ${yFmt(it.w)} × ${yFmt(it.d)} м.`.trim();
-  $('y-dlg-pic').innerHTML = elevationSvg(rows, title);
+  $('y-dlg-pic').innerHTML = elevationSvg(rows, title, { sel: dlgHot && { ref: dlgHot, c: dlgInst } });
   const total = rows.reduce((n, r) => n + r.plants.length, 0);
   const list = rows.flatMap((r, ri) => r.plants.map((p, pi) => {
     const pl = PLANT_BY_KEY[p.key];
@@ -3972,39 +3973,90 @@ function openComp(id) {
     const notes = [...(!lightOk ? [`Нужно: ${pl.light.map((l) => LIGHT_TEXT[l]).join(' или ')}.`] : []), ...sf.notes];
     const ref = `${ri}:${pi}`;
     const tools = `<span class="dlg-tools"><button type="button" class="secondary" data-dup="${ref}" title="Ещё одно такое же растение в этом же месте композиции">＋ Дублировать</button>`
-      + `<button type="button" class="secondary" data-less="${ref}"${p.qty <= 1 && total <= 1 ? ' disabled' : ''} title="${p.qty > 1 ? 'Убрать одно' : 'Убрать из композиции'}">−</button></span>`;
+      + `<button type="button" class="secondary" data-less="${ref}"${p.qty <= 1 && total <= 1 ? ' disabled' : ''} title="${p.qty > 1 ? "Убрать выбранное на рисунке (или последнее)" : "Убрать из композиции"}">−</button></span>`;
     return `<li class="${level}${dlgHot === ref ? ' hot' : ''}" data-ref="${ref}"><b>${pl.name}</b> — ${p.qty} шт.${tools}<span class="note">${r.tier} · ${yFmt(pl.h)} м · ${pl.light.map((l) => LIGHT_TEXT[l]).join(', ')} · ${HARDY_TEXT[pl.hardy]}</span>${pl.note ? `<br>${pl.note}` : ''}${notes.length ? `<br>${notes.join(' ')}` : ''}${sf.fixes.length ? `<br><span class="fix">${sf.fixes.join(' ')}</span>` : ''}</li>`;
   }));
-  $('y-dlg-list').innerHTML = `<p class="note">Нажмите на растение на рисунке, чтобы найти его в списке. «＋ Дублировать» добавляет ещё одно такое же растение туда же, в его ряд.</p><ul class="dlg-list">${list.join('')}</ul>`;
+  $('y-dlg-list').innerHTML = `<p class="note">Растения на рисунке можно перетаскивать: влево-вправо вдоль клумбы, вверх — дальше назад, вниз — ближе вперёд. Нажатие выбирает растение. «＋ Дублировать» ставит копию рядом с выбранным — дальше тяните её куда нужно.</p><ul class="dlg-list">${list.join('')}</ul>`;
   const dlg = $('y-dialog');
   if (dlg.open) return;
   if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', '');
 }
 
-// Дублировать растение в композиции или убрать одно
-$('y-dialog').addEventListener('click', (e) => {
-  const it = yard.items.find((i) => i.id === dlgComp);
-  if (!it) return;
-  const hit = e.target.closest('[data-plant]');
-  if (hit) {
-    dlgHot = hit.dataset.plant;
-    openComp(dlgComp);
-    $('y-dlg-list').querySelector(`[data-ref="${dlgHot}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    return;
-  }
+// Растения на рисунке композиции: выбрать нажатием, перетащить, дублировать рядом, убрать
+let dlgDrag = null;
+const dlgPoint = (e) => {
+  const svg = $('y-dlg-pic').querySelector('svg');
+  return new DOMPoint(e.clientX, e.clientY).matrixTransform(svg.getScreenCTM().inverse());
+};
+const dlgItem = () => yard.items.find((i) => i.id === dlgComp);
+$('y-dlg-pic').addEventListener('pointerdown', (e) => {
+  const g = e.target.closest('[data-plant]');
+  const it = dlgItem();
+  if (!g || !it) return;
+  const [ti, k] = g.dataset.plant.split(':').map(Number);
+  const c = Number(g.dataset.c);
+  fixSpots(it.rows);
+  const at = it.rows[ti].plants[k].at[c];
+  const pt = dlgPoint(e);
+  dlgDrag = { ti, k, c, u0: at.u, v0: at.v, x0: pt.x, y0: pt.y, sx: e.clientX, sy: e.clientY, moved: false };
+  $('y-dlg-pic').setPointerCapture(e.pointerId);
+  e.preventDefault();
+});
+$('y-dlg-pic').addEventListener('pointermove', (e) => {
+  if (!dlgDrag) return;
+  if (!dlgDrag.moved && Math.hypot(e.clientX - dlgDrag.sx, e.clientY - dlgDrag.sy) < 4) return;
+  dlgDrag.moved = true;
+  const pt = dlgPoint(e);
+  const at = dlgItem().rows[dlgDrag.ti].plants[dlgDrag.k].at[dlgDrag.c];
+  // Вдоль — по ширине рисунка; вглубь — по высоте: на 60 px вверх — к заднему краю
+  at.u = Math.max(0, Math.min(1, dlgDrag.u0 + (pt.x - dlgDrag.x0) / ELEV_SPAN));
+  at.v = Math.max(0, Math.min(1, dlgDrag.v0 + (pt.y - dlgDrag.y0) / 60));
+  dlgHot = `${dlgDrag.ti}:${dlgDrag.k}`;
+  dlgInst = dlgDrag.c;
+  openComp(dlgComp);
+});
+$('y-dlg-pic').addEventListener('pointerup', () => {
+  if (!dlgDrag) return;
+  const { ti, k, c, moved } = dlgDrag;
+  dlgDrag = null;
+  dlgHot = `${ti}:${k}`;
+  dlgInst = c;
+  openComp(dlgComp);
+  if (moved) yardChanged();
+  else $('y-dlg-list').querySelector(`[data-ref="${dlgHot}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+});
+$('y-dlg-list').addEventListener('click', (e) => {
+  const it = dlgItem();
   const b = e.target.closest('[data-dup], [data-less]');
-  if (!b) return;
-  const [ri, pi] = (b.dataset.dup || b.dataset.less).split(':').map(Number);
+  if (!it || !b) return;
+  const ref = b.dataset.dup || b.dataset.less;
+  const [ri, pi] = ref.split(':').map(Number);
   const row = it.rows?.[ri];
   const p = row?.plants[pi];
   if (!p) return;
-  dlgHot = `${ri}:${pi}`;
-  if (b.dataset.dup) p.qty += 1;
-  else if (p.qty > 1) p.qty -= 1;
-  else {
+  fixSpots(it.rows);
+  // Копия, с которой работаем: выбранная на рисунке или последняя
+  const c = dlgHot === ref && dlgInst != null && dlgInst < p.qty ? dlgInst : p.qty - 1;
+  if (b.dataset.dup) {
+    // Копия встаёт рядом сбоку — справа, а если там край, то слева
+    const pl = PLANT_BY_KEY[p.key];
+    const du = Math.max(0.07, Math.min(0.2, (pl.r * 1.4) / Math.max(it.w, 1)));
+    const src = p.at[c];
+    const u = src.u + du <= 1 ? src.u + du : Math.max(0, src.u - du);
+    p.at.push({ u, v: src.v });
+    p.qty += 1;
+    dlgHot = ref;
+    dlgInst = p.qty - 1;
+  } else if (p.qty > 1) {
+    p.at.splice(c, 1);
+    p.qty -= 1;
+    dlgHot = ref;
+    dlgInst = null;
+  } else {
     row.plants.splice(pi, 1);
     if (!row.plants.length) it.rows.splice(ri, 1);
     dlgHot = null;
+    dlgInst = null;
   }
   openComp(dlgComp);
   yardChanged();

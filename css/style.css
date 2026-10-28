@@ -787,3 +787,7 @@ table.est td.note { font-size: 12px; margin: 0; }
 .dlg-list li.hot { outline: 2px solid var(--accent); }
 .elev.sketch .sk-plant { cursor: pointer; }
 .elev.sketch .sk-plant:hover { filter: brightness(1.04); }
+#y-dlg-pic .elev { min-width: 0; touch-action: none; user-select: none; -webkit-user-select: none; }
+#y-dlg-pic .sk-plant { cursor: grab; }
+#y-dlg-pic .sk-plant.sel { filter: drop-shadow(0 0 2px #b4552d) drop-shadow(0 0 4px rgba(180, 85, 45, 0.6)); }
+.elev.sketch .sk-hit { fill: transparent; pointer-events: all; }

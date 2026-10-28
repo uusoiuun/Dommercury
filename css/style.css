@@ -794,3 +794,5 @@ table.est td.note { font-size: 12px; margin: 0; }
 .dlg-layer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px; margin: 8px 0 4px; font-size: 13px; }
 .dlg-layer button { padding: 4px 10px; font-size: 12px; min-height: 0; }
 p.dlg-layer { display: block; }
+.elev.sketch .sk-row path { stroke: #9a8a6a; stroke-width: 0.6; stroke-dasharray: 2 4; fill: none; opacity: 0.6; }
+.elev.sketch .sk-row text { font-family: 'Caveat', cursive; font-size: 13px; fill: #8a7a5a; }

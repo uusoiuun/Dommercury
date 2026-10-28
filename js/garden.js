@@ -558,7 +558,7 @@ export function scenarioSpot(key, yard, opts) {
 // Каждое растение композиции стоит в своём месте: u — вдоль клумбы (0 — левый край, 1 — правый),
 // v — вглубь (0 — задний край, 1 — передний). Пока растение не двигали, место считается по рядам.
 // Копии по умолчанию встают рядом, а не друг за другом.
-const ELEV = { W: 720, H: 380, pad: 70 };
+const ELEV = { W: 720, H: 410, pad: 70 };
 export const ELEV_SPAN = ELEV.W - 2 * ELEV.pad;
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
 export function plantSpots(rows) {
@@ -572,9 +572,9 @@ export function plantSpots(rows) {
       for (let c = 0; c < p.qty; c++) {
         const at = p.at?.[c];
         const u = at ? at.u : u0 + (c - (p.qty - 1) / 2) * step;
-        const v = at ? at.v : nRows > 1 ? ti / (nRows - 1) : 0.5;
+        const v = at ? at.v : snapV(nRows > 1 ? ti / (nRows - 1) : 0.5);
         // z — порядок наложения на рисунке: меньше — дальше (рисуется раньше)
-        out.push({ ti, k, c, key: p.key, u: clamp01(u), v: clamp01(v), z: at?.z ?? clamp01(v) });
+        out.push({ ti, k, c, key: p.key, u: clamp01(u), v: clamp01(v), z: at?.z ?? 0 });
       }
     });
   });
@@ -587,7 +587,13 @@ export function fixSpots(rows) {
     p.at = spots.filter((sp) => sp.ti === ti && sp.k === k).map(({ u, v, z }) => ({ u, v, z }));
   }));
 }
-const byLayer = (a, b) => a.z - b.z || a.v - b.v || a.u - b.u;
+// Глубина клумбы — 5 рядов: ряд 1 — передний (v = 1), ряд 5 — самый задний (v = 0)
+export const DEPTH_ROWS = 5;
+export const rowOfV = (v) => DEPTH_ROWS - Math.round(v * (DEPTH_ROWS - 1));
+const vOfRow = (row) => (DEPTH_ROWS - row) / (DEPTH_ROWS - 1);
+export const snapV = (v) => vOfRow(rowOfV(Math.max(0, Math.min(1, v))));
+// Сначала задние ряды, внутри ряда — по порядку наложения, затем слева направо
+const byLayer = (a, b) => a.v - b.v || a.z - b.z || a.u - b.u;
 // Масштаб рисунка: невысокие растения крупнее, чем в масштабе, — иначе цветы теряются рядом с кустом
 const scaleOf = (rows) => {
   const maxH = Math.max(1, ...rows.flatMap((r) => r.plants.map((p) => PLANT_BY_KEY[p.key].h)));
@@ -595,7 +601,7 @@ const scaleOf = (rows) => {
   return { hPx, sOf: (pl) => hPx(pl) / pl.h };
 };
 // Полуширина растения на рисунке, px
-const halfW = (pl, sc) => Math.min(95, Math.max(14, pl.r * sc.sOf(pl) * 0.8, Math.max(16, sc.hPx(pl)) * 0.3));
+const halfW = (pl, sc, k = 1) => k * Math.min(95, Math.max(14, pl.r * sc.sOf(pl) * 0.8, Math.max(16, sc.hPx(pl)) * 0.3));
 
 /**
  * Передвинуть растение (копию c растения ref = 'ряд:номер') по слоям рисунка:
@@ -603,34 +609,24 @@ const halfW = (pl, sc) => Math.min(95, Math.max(14, pl.r * sc.sOf(pl) * 0.8, Mat
  * front — перед ближайшим соседом спереди; top — на передний план.
  * Возвращает false, если двигать дальше некуда.
  */
-export function layerMove(rows, ref, c, dir) {
+/**
+ * Переставить растение (копию c растения ref = 'ряд:номер') по рядам клумбы:
+ * back — на ряд назад, front — на ряд вперёд, bottom — в самый задний (5-й), top — в передний (1-й).
+ * Возвращает новый номер ряда или false, если дальше некуда.
+ */
+export function rowMove(rows, ref, c, dir) {
   fixSpots(rows);
-  const sc = scaleOf(rows);
-  const order = plantSpots(rows).sort(byLayer);
-  order.forEach((sp, i) => { sp.z = (i + 0.5) / order.length; });
-  const i = order.findIndex((sp) => `${sp.ti}:${sp.k}` === ref && sp.c === c);
-  if (i < 0) return false;
-  const me = order[i];
-  const x = (sp) => ELEV.pad + sp.u * ELEV_SPAN;
-  const overlaps = (sp) => Math.abs(x(sp) - x(me)) < halfW(PLANT_BY_KEY[sp.key], sc) + halfW(PLANT_BY_KEY[me.key], sc);
-  let z = me.z;
-  if (dir === 'bottom') z = i === 0 ? null : order[0].z - 0.5 / order.length;
-  else if (dir === 'top') z = i === order.length - 1 ? null : order[order.length - 1].z + 0.5 / order.length;
-  else if (dir === 'back') {
-    let j = i - 1;
-    while (j >= 0 && !overlaps(order[j])) j--;
-    if (j < 0) z = i === 0 ? null : order[0].z - 0.5 / order.length;
-    else z = j > 0 ? (order[j - 1].z + order[j].z) / 2 : order[j].z - 0.5 / order.length;
-  } else {
-    let j = i + 1;
-    while (j < order.length && !overlaps(order[j])) j++;
-    if (j >= order.length) z = i === order.length - 1 ? null : order[order.length - 1].z + 0.5 / order.length;
-    else z = j < order.length - 1 ? (order[j].z + order[j + 1].z) / 2 : order[j].z + 0.5 / order.length;
-  }
-  for (const sp of order) rows[sp.ti].plants[sp.k].at[sp.c].z = sp.z;
-  if (z == null) return false;
-  rows[me.ti].plants[me.k].at[me.c].z = z;
-  return true;
+  const [ti, k] = ref.split(':').map(Number);
+  const at = rows[ti]?.plants[k]?.at?.[c];
+  if (!at) return false;
+  const now = rowOfV(at.v);
+  const to = { back: now + 1, front: now - 1, bottom: DEPTH_ROWS, top: 1 }[dir];
+  if (to < 1 || to > DEPTH_ROWS || to === now) return false;
+  at.v = vOfRow(to);
+  // В новом ряду — поверх тех, кто уже там стоит
+  const maxZ = Math.max(0, ...rows.flatMap((r) => r.plants.flatMap((p) => (p.at || []).filter((a) => a !== at && rowOfV(a.v) === to).map((a) => a.z ?? 0))));
+  at.z = maxZ + 0.01;
+  return to;
 }
 
 /** Картинка композиции: растения в профиль с подписями, как рисунок от руки. */
@@ -642,11 +638,23 @@ export function elevationSvg(rows, title = '', opt = {}) {
   const { hPx, sOf } = sc;
   const { id, defs } = sketchDefs();
   const ground = H - 58;
+  // Основание растения в ряду: задние ряды выше по рисунку и чуть мельче — так видна глубина клумбы
+  const depth = 52;
+  const baseOf = (v) => ground + 6 - (1 - v) * depth;
+  const kOf = (v) => 0.84 + 0.16 * v;
   const parts = [defs, `<rect x="0" y="0" width="${W}" height="${H}" fill="#f7f1e3"/>`, `<rect x="0" y="0" width="${W}" height="${H}" filter="url(#${id}-paper)"/>`];
   // Земля: мазок охры и линия, проведённая от руки
-  parts.push(`<g filter="url(#${id}-wc)"><path d="M30 ${ground + 14} Q${W * 0.3} ${ground + 4} ${W / 2} ${ground + 10} T${W - 30} ${ground + 8} L${W - 40} ${ground + 30} Q${W / 2} ${ground + 40} 40 ${ground + 30} Z" fill="#c8b48a" fill-opacity="0.45"/></g>`,
+  parts.push(`<g filter="url(#${id}-wc)"><path d="M44 ${ground - depth} Q${W / 2} ${ground - depth - 6} ${W - 44} ${ground - depth + 2} L${W - 30} ${ground + 8} Q${W / 2} ${ground + 4} 30 ${ground + 14} Z" fill="#c8b48a" fill-opacity="0.32"/>`
+    + `<path d="M30 ${ground + 14} Q${W * 0.3} ${ground + 4} ${W / 2} ${ground + 10} T${W - 30} ${ground + 8} L${W - 40} ${ground + 30} Q${W / 2} ${ground + 40} 40 ${ground + 30} Z" fill="#c8b48a" fill-opacity="0.45"/></g>`,
     `<g filter="url(#${id}-ink)"><path class="sk-ink" d="M24 ${ground + 12} Q${W * 0.28} ${ground + 3} ${W / 2} ${ground + 9} T${W - 24} ${ground + 7}" stroke-width="1.2"/>`
     + `<path class="sk-hatch" d="${Array.from({ length: 34 }, (_, k) => `M${50 + k * 19} ${ground + 18 + (k % 3) * 4} l9 -3`).join(' ')}"/></g>`);
+  // Подсказка рядов в окне «Состав»: тонкие линии и номера слева
+  if (opt.guides) {
+    for (let r = 1; r <= DEPTH_ROWS; r++) {
+      const y = baseOf(vOfRow(r));
+      parts.push(`<g class="sk-row"><path d="M46 ${y} L${W - 46} ${y}"/><text x="14" y="${y + 4}">ряд ${r}</text></g>`);
+    }
+  }
   // Задние растения рисуем первыми, передние — последними; порядок можно менять кнопками
   const isSel = (sp) => !!opt.sel && opt.sel.ref === `${sp.ti}:${sp.k}` && opt.sel.c === sp.c;
   const spots = plantSpots(rows).sort(byLayer);
@@ -655,18 +663,19 @@ export function elevationSvg(rows, title = '', opt = {}) {
   for (const sp of spots) {
     const pl = PLANT_BY_KEY[sp.key];
     const x = pad + sp.u * ELEV_SPAN;
-    const base = ground - 4 + sp.v * 30;
+    const base = baseOf(sp.v);
+    const kk = kOf(sp.v);
     const sel = isSel(sp) ? ' sel' : '';
-    const pic = sketchPlant(pl, x, base, sOf(pl), sp.c);
+    const pic = sketchPlant(pl, x, base, sOf(pl) * kk, sp.c);
     // Невидимая область нажатия по силуэту — чтобы попасть и в тонкие прутья, и в редкий злак
-    const hh = Math.max(16, hPx(pl));
-    const hit = `<ellipse class="sk-hit" cx="${x}" cy="${base - hh / 2}" rx="${halfW(pl, sc)}" ry="${hh / 2 + 4}"/>`;
+    const hh = Math.max(16, hPx(pl) * kk);
+    const hit = `<ellipse class="sk-hit" cx="${x}" cy="${base - hh / 2}" rx="${halfW(pl, sc, kk)}" ry="${hh / 2 + 4}"/>`;
     // Выбранное растение можно взять, даже если оно за другими: его область нажатия — поверх всех
     if (sel) selHit = `<g data-plant="${sp.ti}:${sp.k}" data-c="${sp.c}">${hit}</g>`;
     parts.push(`<g class="sk-plant${sel}" data-plant="${sp.ti}:${sp.k}" data-c="${sp.c}"><title>${pl.name}</title>${hit}<g filter="url(#${id}-wc)">${pic.wash}</g><g filter="url(#${id}-ink)">${pic.ink}</g></g>`);
     const g = groups.get(`${sp.ti}:${sp.k}`) || { xs: [], top: Infinity, pl, qty: 0 };
     g.xs.push(x);
-    g.top = Math.min(g.top, base - Math.max(16, hPx(pl)));
+    g.top = Math.min(g.top, base - hh);
     g.qty++;
     groups.set(`${sp.ti}:${sp.k}`, g);
   }
@@ -685,7 +694,7 @@ export function elevationSvg(rows, title = '', opt = {}) {
       `<text class="sk-label" x="${l.x}" y="${ly}" text-anchor="middle">${text}</text>`);
   });
   // Миниатюра в карточке — без подписей, обрезана по растениям
-  if (opt.thumb) return `<svg class="elev sketch" viewBox="40 100 ${W - 80} ${H - 110}" role="img" aria-label="${title}">${parts.filter((x) => !x.includes('sk-label') && !x.includes('sk-lead')).join('')}</svg>`;
+  if (opt.thumb) return `<svg class="elev sketch" viewBox="40 110 ${W - 80} ${H - 120}" role="img" aria-label="${title}">${parts.filter((x) => !x.includes('sk-label') && !x.includes('sk-lead') && !x.includes('sk-row')).join('')}</svg>`;
   return `<svg class="elev sketch" viewBox="0 0 ${W} ${H}" role="img" aria-label="${title}">${parts.join('')}</svg>`;
 }
 

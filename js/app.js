@@ -28,7 +28,7 @@ import {
 import {
   SOIL_PH, SOIL_TEXTURE, SOIL_WATER, CLIMATE, climateGuess, HARDY_TEXT, soilFit, SOIL_TESTS, TEMPLATES, TEMPLATE_KEYS,
   pickPlants, placeTemplate, doorPlace, WIND_DIRS, windbreak, SCENARIOS, scenarioSpot, elevationSvg, bedLayout,
-  PRESETS, PRESET_KEYS, presetRows, placePreset, fixSpots, ELEV_SPAN, layerMove,
+  PRESETS, PRESET_KEYS, presetRows, placePreset, fixSpots, ELEV_SPAN, rowMove, rowOfV, snapV, DEPTH_ROWS,
 } from './garden.js';
 
 const L = window.L;
@@ -3968,13 +3968,16 @@ function openComp(id) {
   const [hr, hk] = (dlgHot || '').split(':').map(Number);
   const hp = dlgHot && dlgInst != null ? rows[hr]?.plants[hk] : null;
   const bar = hp
-    ? `<div class="dlg-layer"><span>Выбрано: <b>${PLANT_BY_KEY[hp.key].name}</b>${hp.qty > 1 ? ` (${dlgInst + 1} из ${hp.qty})` : ''}${dlgMsg ? ` — ${dlgMsg}` : ''}</span>`
-      + '<span class="row wrap"><button type="button" class="secondary" data-z="back" title="За ближайшее растение сзади">↓ На задний план</button>'
-      + '<button type="button" class="secondary" data-z="bottom" title="Позади всех">⤓ В самый конец</button>'
-      + '<button type="button" class="secondary" data-z="front" title="Перед ближайшим растением спереди">↑ Вперёд</button>'
-      + '<button type="button" class="secondary" data-z="top" title="Впереди всех">⤒ На передний план</button></span></div>'
-    : '<p class="note dlg-layer">Нажмите на растение на рисунке, чтобы выбрать его: тогда его можно двигать, дублировать и переставлять на задний или передний план.</p>';
-  $('y-dlg-pic').innerHTML = bar + elevationSvg(rows, title, { sel: dlgHot && { ref: dlgHot, c: dlgInst } });
+    ? (() => {
+      const row = rowOfV(hp.at?.[dlgInst]?.v ?? 0.5);
+      return `<div class="dlg-layer"><span>Выбрано: <b>${PLANT_BY_KEY[hp.key].name}</b>${hp.qty > 1 ? ` (${dlgInst + 1} из ${hp.qty})` : ''} · <b>ряд ${row} из ${DEPTH_ROWS}</b>${dlgMsg ? ` — ${dlgMsg}` : ''}</span>`
+        + `<span class="row wrap"><button type="button" class="secondary" data-z="back"${row >= DEPTH_ROWS ? ' disabled' : ''}>↑ Ряд назад</button>`
+        + `<button type="button" class="secondary" data-z="front"${row <= 1 ? ' disabled' : ''}>↓ Ряд вперёд</button>`
+        + `<button type="button" class="secondary" data-z="bottom"${row >= DEPTH_ROWS ? ' disabled' : ''}>⤒ В самый конец</button>`
+        + `<button type="button" class="secondary" data-z="top"${row <= 1 ? ' disabled' : ''}>⤓ В передний ряд</button></span></div>`;
+    })()
+    : `<p class="note dlg-layer">Нажмите на растение на рисунке, чтобы выбрать его: тогда его можно двигать, дублировать и переставлять по рядам — всего ${DEPTH_ROWS} рядов, 1-й — передний.</p>`;
+  $('y-dlg-pic').innerHTML = bar + elevationSvg(rows, title, { sel: dlgHot && { ref: dlgHot, c: dlgInst }, guides: true });
   dlgMsg = '';
   const total = rows.reduce((n, r) => n + r.plants.length, 0);
   const list = rows.flatMap((r, ri) => r.plants.map((p, pi) => {
@@ -3988,7 +3991,7 @@ function openComp(id) {
       + `<button type="button" class="secondary" data-less="${ref}"${p.qty <= 1 && total <= 1 ? ' disabled' : ''} title="${p.qty > 1 ? "Убрать выбранное на рисунке (или последнее)" : "Убрать из композиции"}">−</button></span>`;
     return `<li class="${level}${dlgHot === ref ? ' hot' : ''}" data-ref="${ref}"><b>${pl.name}</b> — ${p.qty} шт.${tools}<span class="note">${r.tier} · ${yFmt(pl.h)} м · ${pl.light.map((l) => LIGHT_TEXT[l]).join(', ')} · ${HARDY_TEXT[pl.hardy]}</span>${pl.note ? `<br>${pl.note}` : ''}${notes.length ? `<br>${notes.join(' ')}` : ''}${sf.fixes.length ? `<br><span class="fix">${sf.fixes.join(' ')}</span>` : ''}</li>`;
   }));
-  $('y-dlg-list').innerHTML = `<p class="note">Растения на рисунке можно перетаскивать: влево-вправо вдоль клумбы, вверх — дальше назад, вниз — ближе вперёд. Нажатие выбирает растение. «＋ Дублировать» ставит копию рядом с выбранным — дальше тяните её куда нужно.</p><ul class="dlg-list">${list.join('')}</ul>`;
+  $('y-dlg-list').innerHTML = `<p class="note">Растения на рисунке можно перетаскивать: влево-вправо вдоль клумбы, вверх — на ряд назад, вниз — на ряд вперёд. Нажатие выбирает растение. «＋ Дублировать» ставит копию рядом с выбранным — дальше тяните её куда нужно.</p><ul class="dlg-list">${list.join('')}</ul>`;
   const dlg = $('y-dialog');
   if (dlg.open) return;
   if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', '');
@@ -4022,9 +4025,8 @@ $('y-dlg-pic').addEventListener('pointermove', (e) => {
   const at = dlgItem().rows[dlgDrag.ti].plants[dlgDrag.k].at[dlgDrag.c];
   // Вдоль — по ширине рисунка; вглубь — по высоте: на 60 px вверх — к заднему краю
   at.u = Math.max(0, Math.min(1, dlgDrag.u0 + (pt.x - dlgDrag.x0) / ELEV_SPAN));
-  at.v = Math.max(0, Math.min(1, dlgDrag.v0 + (pt.y - dlgDrag.y0) / 60));
-  // Заметно потянули вверх-вниз — слой следует за глубиной; чуть дрогнула рука — слой не меняем
-  if (Math.abs(pt.y - dlgDrag.y0) > 10) at.z = at.v;
+  // Вверх-вниз — по рядам: 13 px рисунка на ряд
+  at.v = snapV(dlgDrag.v0 + (pt.y - dlgDrag.y0) / 52);
   dlgHot = `${dlgDrag.ti}:${dlgDrag.k}`;
   dlgInst = dlgDrag.c;
   openComp(dlgComp);
@@ -4043,8 +4045,8 @@ $('y-dlg-pic').addEventListener('click', (e) => {
   const b = e.target.closest('[data-z]');
   const it = dlgItem();
   if (!b || !it || !dlgHot || dlgInst == null) return;
-  const moved = layerMove(it.rows, dlgHot, dlgInst, b.dataset.z);
-  if (!moved) dlgMsg = ['back', 'bottom'].includes(b.dataset.z) ? 'дальше назад некуда' : 'дальше вперёд некуда';
+  const moved = rowMove(it.rows, dlgHot, dlgInst, b.dataset.z);
+  if (!moved) dlgMsg = ['back', 'bottom'].includes(b.dataset.z) ? 'это самый задний ряд' : 'это передний ряд';
   openComp(dlgComp);
   yardChanged();
 });

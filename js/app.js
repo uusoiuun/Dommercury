@@ -4477,7 +4477,7 @@ $('y-presets').addEventListener('click', (e) => {
   // Сначала — состав композиции: посмотреть, подвигать, и только потом поставить
   const key = b.dataset.preset;
   const pr = PRESETS[key];
-  draftComp = { id: nextId(), t: 'comp', preset: key, x: 0, y: 0, w: pr.w, d: pr.d, h: 0, rot: 0, rows: presetRows(key) };
+  draftComp = { id: nextId(), t: 'comp', preset: key, x: 0, y: 0, w: pr.w, d: pr.d, h: 0, rot: 0, rows: presetRows(key), ...(pr.dense ? { dense: pr.dense } : {}) };
   dlgHot = null;
   dlgInst = null;
   openComp(draftComp.id);

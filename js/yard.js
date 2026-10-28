@@ -242,7 +242,7 @@ export const PLANTS = [
   P('filipendula', 'Лабазник', 'perennial', 1.2, 0.5, ['sun', 'part'], '#f0ece0'),
   P('primula', 'Примула', 'perennial', 0.2, 0.2, ['part'], '#e0d040'),
   P('heuchera', 'Гейхера', 'perennial', 0.4, 0.3, ['part', 'shade'], '#8a3a5a'),
-  P('chrysanthemum', 'Златоцвет', 'perennial', 0.5, 0.3, ['sun'], '#f4e04a'),
+  P('chrysanthemum', 'Хризантема (златоцвет)', 'perennial', 0.5, 0.3, ['sun'], '#f4e04a'),
   // Почвопокровные
   P('phloxSub', 'Флокс шиловидный', 'ground', 0.15, 0.3, ['sun'], '#f2c4d4', { note: '«White Delight» — белый, «Candy Stripe» — бело-розовый. Ковёр цветов в мае–июне.' }),
   P('thymus', 'Тимьян ползучий', 'ground', 0.1, 0.3, ['sun'], '#e8e0f0', { note: '«Albiflorus» — белые цветы, ароматный ковёр. Июнь–июль.' }),
@@ -299,6 +299,7 @@ export const PLANTS = [
   P('rosaBegg', 'Шиповник Беггера', 'shrub', 2, 1, ['sun'], '#f4f0e6', { note: 'Белые душистые цветы, мелкие красные плоды.' }),
   P('rosaRugosa', 'Шиповник морщинистый', 'shrub', 1.5, 0.8, ['sun'], '#c8407a', { note: 'Крупные малиновые цветы всё лето и крупные плоды.' }),
   P('malusPurp', 'Яблоня пурпурная', 'tree', 5, 2, ['sun'], '#a03060', { size: 'mid', note: 'Пурпурные цветы и листва, мелкие тёмные яблочки.' }),
+  P('aquilegia', 'Аквилегия (водосбор)', 'perennial', 0.6, 0.3, ['sun', 'part', 'shade'], '#7a6ac8', { note: 'Изящные поникающие цветки в июне; сама подсевается.' }),
 ];
 
 // Почва, влага и морозостойкость.
@@ -383,8 +384,13 @@ const USDA = {
   berberis: 1, crataegus: 1, caragana: 1, cotoneaster: 1, hippophae: 1, syringa: 1,
   sorbusSib: 1, sorbocot: 1, populusBer: 1, populusSuav: 1, padusMaackii: 1, rosaBegg: 1, rosaRugosa: 1, malusPurp: 1,
 };
+// Многолетники, которые по опыту якутских садоводов хорошо растут в Якутске:
+// снег укрывает их корни, поэтому они зимуют, хотя по справочникам зона у вида выше
+const YAKUTSK_PROVEN = ['paeonia', 'sedum', 'hosta', 'irisSib', 'irisBarb', 'phloxPan', 'chrysanthemum', 'astilbe', 'hemerocallis', 'delphinium', 'aquilegia'];
+for (const k of YAKUTSK_PROVEN) USDA[k] = 1;
 for (const p of PLANTS) {
   p.usda = USDA[p.key] ?? 3;
+  if (YAKUTSK_PROVEN.includes(p.key)) p.proven = true;
   Object.assign(p, NURSERY[p.key] || {});
   // Зимостойкость в советах по почве и климату — по той же зоне
   if (p.usda === 1) p.hardy = 'very';
@@ -397,6 +403,7 @@ export const priceFrom = (pl) => (pl.price ? Math.min(...pl.price.map(([, v]) =>
 /** Метка морозостойкости: снежинка синяя — зона 1, для Якутии; красная — зона 2 и выше. */
 export function frostOf(pl) {
   if (pl.usda === 0) return { cls: 'annual', text: 'однолетник — зимовать не нужно' };
+  if (pl.proven) return { cls: 'ok', text: 'Зимует в Якутске под снегом — проверено садоводами' };
   if (pl.usda <= 1) return { cls: 'ok', text: 'USDA 1 — выдерживает зимы Якутии' };
   return { cls: 'bad', text: `USDA ${pl.usda} — не рассчитано на зимы Якутии (зона 1)${pl.usda === 2 ? ': на грани, только в защищённом месте' : ''}` };
 }

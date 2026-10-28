@@ -108,8 +108,8 @@ export const TEMPLATES = {
     about: 'Пышное цветение всё лето: кустарники сзади, многолетники в середине, низкие и почвопокровные спереди.',
     tiersYak: [
       ['Задний ряд — кустарники', ['syringa', 'sorbocot', 'berberis', 'rosaRugosa', 'potentilla', 'caragana', 'sorbaria'], 2, 1],
-      ['Средний ряд — акценты', ['trollius', 'achillea', 'filipendula', 'rosaAcic'], 2, 3],
-      ['Передний ряд', ['pulsatilla', 'adonis', 'orostachys', 'alliumSch'], 3, 5],
+      ['Средний ряд — акценты', ['paeonia', 'phloxPan', 'hemerocallis', 'delphinium', 'irisSib', 'trollius', 'achillea'], 3, 3],
+      ['Передний ряд', ['sedum', 'chrysanthemum', 'pulsatilla', 'adonis', 'orostachys'], 3, 5],
       ['Злаки для лёгкости', ['bromus'], 1, 3],
     ],
     tiers: [
@@ -124,8 +124,8 @@ export const TEMPLATES = {
     about: 'Для северной стороны и тени деревьев: крупные листья, белые и кремовые соцветия светятся в полумраке. Тень обычно влажнее — растениям это нравится.',
     tiersYak: [
       ['Задний ряд — кустарники', ['cornus', 'sorbaria', 'padus'], 2, 1],
-      ['Средний ряд', ['spiraeaCham', 'filipendula', 'trollius'], 2, 3],
-      ['Передний ряд', ['ledum', 'trollius'], 1, 3],
+      ['Средний ряд', ['astilbe', 'aquilegia', 'spiraeaCham', 'filipendula', 'trollius'], 2, 3],
+      ['Передний ряд', ['hosta', 'ledum'], 2, 3],
     ],
     tiers: [
       ['Задний ряд — кустарники', ['viburnum', 'cornus', 'sorbaria', 'spiraeaCham', 'hydrangeaArb', 'cornusSton'], 2, 1],
@@ -140,7 +140,7 @@ export const TEMPLATES = {
     tiersYak: [
       ['Каркас', ['potentilla', 'pinus', 'cotoneaster'], 1, 1],
       ['Средний ярус', ['pulsatilla', 'adonis', 'bromus'], 2, 3],
-      ['Между камнями', ['orostachys', 'achillea'], 2, 5],
+      ['Между камнями', ['sedum', 'orostachys', 'achillea'], 3, 5],
     ],
     tiers: [
       ['Каркас', ['juniper', 'potentilla', 'pinus'], 1, 1],
@@ -153,8 +153,8 @@ export const TEMPLATES = {
     about: 'Небольшая аккуратная клумба у входа: красива с весны до осени, не мешает проходу, не колется.',
     tiersYak: [
       ['Акцент', ['berberis', 'potentilla', 'cornus', 'sorbaria'], 1, 1],
-      ['Середина', ['trollius', 'achillea'], 2, 3],
-      ['Край дорожки', ['pulsatilla', 'orostachys', 'alliumSch'], 1, 5],
+      ['Середина', ['hemerocallis', 'hosta', 'phloxPan', 'astilbe', 'trollius'], 2, 3],
+      ['Край дорожки', ['sedum', 'pulsatilla', 'orostachys', 'alliumSch'], 1, 5],
     ],
     tiers: [
       ['Акцент', ['hydrangeaPan', 'spiraeaJap', 'potentilla', 'cornus', 'hydrangeaArb'], 1, 1],
@@ -167,8 +167,8 @@ export const TEMPLATES = {
     about: 'Вдоль фасада — строгая и спокойная посадка: вечнозелёный каркас и повторяющиеся группы, чтобы дом выглядел нарядно круглый год.',
     tiersYak: [
       ['Каркас', ['berberis', 'spiraeaCham', 'cornus', 'cotoneaster', 'syringa'], 2, 1],
-      ['Цветение', ['trollius', 'achillea', 'filipendula'], 2, 3],
-      ['Бордюр', ['orostachys', 'pulsatilla', 'adonis'], 1, 5],
+      ['Цветение', ['hemerocallis', 'irisSib', 'astilbe', 'phloxPan', 'hosta', 'trollius'], 2, 3],
+      ['Бордюр', ['sedum', 'orostachys', 'pulsatilla', 'adonis'], 1, 5],
     ],
     tiers: [
       ['Каркас', ['juniper', 'berberis', 'spiraea', 'cornus', 'taxus', 'spiraeaCham'], 2, 1],
@@ -194,7 +194,7 @@ export const TEMPLATES = {
     short: 'Костровище', title: 'Костровище', want: 'sun', evening: true, fire: true, w: 6, d: 6,
     about: 'Круг из гравия с очагом посередине, вокруг — низкие негорючие растения. Не ближе 5 м к постройкам и 4 м к деревьям.',
     tiersYak: [
-      ['Вокруг гравийного круга', ['orostachys', 'achillea', 'pulsatilla'], 3, 5],
+      ['Вокруг гравийного круга', ['sedum', 'orostachys', 'achillea', 'pulsatilla'], 3, 5],
     ],
     tiers: [
       ['Вокруг гравийного круга', ['thymus', 'sedum', 'sempervivum', 'festuca', 'orostachys'], 3, 5],
@@ -371,6 +371,16 @@ export const PRESETS = {
       ['Край', [['orostachys', 5]]],
     ],
   },
+  yakClassic: {
+    region: 'yak', short: 'Пионы и флоксы', title: 'Якутская классика: пионы, флоксы, лилейники', side: 'Ю', want: 'sun', w: 7, d: 3,
+    about: 'Многолетники, которые годами цветут в якутских садах: дельфиниумы и флоксы сзади, пионы, ирисы и лилейники в середине, хризантемы и очиток спереди — цветение с июня до сентября.',
+    rows: [
+      ['Задний ряд', [['delphinium', 3], ['phloxPan', 3]]],
+      ['Средний ряд', [['paeonia', 3], ['irisSib', 3], ['hemerocallis', 3]]],
+      ['Передний ряд', [['chrysanthemum', 5], ['aquilegia', 3]]],
+      ['Край', [['sedum', 5]]],
+    ],
+  },
   yakBerry: {
     region: 'yak', short: 'Ягодный', title: 'Ягодный уголок', side: 'ЮВ', want: 'sun', w: 7, d: 3,
     about: 'Красиво и съедобно: черёмуха Маака и яблоня ягодная сзади, жимолость, облепиха и шиповник в середине, шнитт-лук и купальница спереди.',
@@ -382,11 +392,11 @@ export const PRESETS = {
   },
   yakShade: {
     region: 'yak', short: 'Северный угол', title: 'Северный тенистый угол', side: 'С', want: 'part', w: 6, d: 2.5,
-    about: 'Для северной стороны и тени: черёмуха, дерен и рябинник не боятся тени, лабазник и купальница любят влагу, багульник — кислую почву.',
+    about: 'Для северной стороны и тени: черёмуха, дерен и рябинник не боятся тени, хосты, астильбы и аквилегии любят полутень и влагу, багульник — кислую почву.',
     rows: [
       ['Задний ряд', [['padus', 1], ['cornus', 2]]],
-      ['Средний ряд', [['sorbaria', 1], ['spiraeaCham', 3], ['filipendula', 3]]],
-      ['Передний ряд', [['ledum', 3], ['trollius', 3]]],
+      ['Средний ряд', [['sorbaria', 1], ['astilbe', 3], ['aquilegia', 3]]],
+      ['Передний ряд', [['hosta', 3], ['ledum', 3], ['trollius', 3]]],
     ],
   },
   yakWind: {
@@ -410,10 +420,11 @@ export const PRESETS = {
   },
   yakEntrance: {
     region: 'yak', short: 'У входа', title: 'Клумба у входа', side: 'Ю', want: 'sun', w: 3.5, d: 1.8,
-    about: 'Аккуратно с весны до осени: барбарис амурский и лапчатка, весной — прострел, летом — шнитт-лук.',
+    about: 'Аккуратно с весны до осени: барбарис амурский и лапчатка, весной — прострел, летом — лилейники, осенью — очиток.',
     rows: [
       ['Задний ряд', [['berberis', 1], ['potentilla', 2]]],
-      ['Передний ряд', [['pulsatilla', 5], ['alliumSch', 5]]],
+      ['Средний ряд', [['hemerocallis', 3]]],
+      ['Передний ряд', [['sedum', 5], ['pulsatilla', 5]]],
     ],
   },
   sunSedum: {

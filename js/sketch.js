@@ -43,7 +43,7 @@ const HABIT = {
   spike: ['delphinium', 'salvia', 'nepeta', 'artemisiaDrac'],
   plume: ['astilbe', 'aruncus', 'filipendula', 'phloxPan'],
   sword: ['irisSib', 'irisBarb', 'hemerocallis', 'leek'],
-  daisy: ['echinacea', 'rudbeckia', 'chrysanthemum', 'adonis', 'geranium', 'pulsatilla', 'primula', 'borago', 'trollius'],
+  daisy: ['echinacea', 'rudbeckia', 'chrysanthemum', 'adonis', 'geranium', 'pulsatilla', 'primula', 'borago', 'trollius', 'aquilegia'],
   umbel: ['sedum', 'achillea'],
   leafy: ['hosta', 'bergenia', 'heuchera'],
   peony: ['paeonia'],

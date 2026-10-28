@@ -2,7 +2,7 @@
 // сценарии отдыха и картинка композиции «в профиль».
 import { sketchPlant, sketchDefs } from './sketch.js';
 import {
-  PLANT_BY_KEY, BUILDING_BY_KEY, rectPoly, housePieces, houseOutline, convexOverlap, inPoly, sunHours, circlePoly, frostOf, forYakutia, bloomLook, DEKADS,
+  PLANT_BY_KEY, BUILDING_BY_KEY, rectPoly, housePieces, houseOutline, convexOverlap, inPoly, sunHours, circlePoly, frostOf, forYakutia, bloomLook, DEKADS, seasonLook, dayLabel, SEASON_DAYS,
 } from './yard.js';
 
 const rad = (d) => (d * Math.PI) / 180;
@@ -774,8 +774,8 @@ export function elevationSvg(rows, title = '', opt = {}) {
     const base = baseOf(sp.v);
     const kk = kOf(sp.v);
     const sel = isSel(sp) ? ' sel' : '';
-    // С ползунком сезона — вид растения в выбранную декаду: цветёт, с ягодами или только листва
-    const look = opt.dekad != null ? bloomLook(pl, opt.dekad) : null;
+    // С ползунком сезона — вид растения в выбранный день: бутоны, цветы, ягоды, осенняя листва
+    const look = opt.day != null ? seasonLook(pl, opt.day) : null;
     const pic = sketchPlant(pl, x, base, sOf(pl) * kk, sp.c, look);
     // Невидимая область нажатия по силуэту — чтобы попасть и в тонкие прутья, и в редкий злак
     const hh = Math.max(16, hPx(pl) * kk);
@@ -801,7 +801,7 @@ export function elevationSvg(rows, title = '', opt = {}) {
     ends[line] = l.x + half;
     const ly = 24 + line * 18;
     parts.push(`<path class="sk-lead" d="M${l.x} ${ly + 5} Q${l.x + 6} ${(ly + l.top) / 2} ${l.x} ${l.top - 4}"/>`,
-      `<text class="sk-label${!l.look ? '' : l.look.flower ? ' on' : l.look.fruit ? ' fruit' : ' off'}" x="${l.x}" y="${ly}" text-anchor="middle">${l.look?.flower ? '✿ ' : ''}${text}${l.frost.cls === 'annual' ? '' : `<tspan class="sk-frost ${l.frost.cls}" dx="3">❄\uFE0E</tspan>`}<title>${l.frost.text}</title></text>`);
+      `<text class="sk-label${!l.look ? '' : l.look.amt >= 0.4 ? ' on' : l.look.famt >= 0.5 ? ' fruit' : ' off'}" x="${l.x}" y="${ly}" text-anchor="middle">${l.look?.amt >= 0.4 ? '✿ ' : ''}${text}${l.frost.cls === 'annual' ? '' : `<tspan class="sk-frost ${l.frost.cls}" dx="3">❄\uFE0E</tspan>`}<title>${l.frost.text}</title></text>`);
   });
   // Миниатюра в карточке — без подписей, обрезана по растениям
   if (opt.thumb) return `<svg class="elev sketch" viewBox="40 110 ${W - 80} ${H - 120}" role="img" aria-label="${title}">${parts.filter((x) => !x.includes('sk-label') && !x.includes('sk-lead') && !x.includes('sk-row')).join('')}</svg>`;
@@ -812,7 +812,7 @@ export function elevationSvg(rows, title = '', opt = {}) {
  * Календарь цветения композиции: полоса на каждое растение с мая по сентябрь,
  * цветение — цветом цветков, ягоды — штрихом; вертикальная линия — выбранная декада.
  */
-export function bloomChartSvg(rows, dekad) {
+export function bloomChartSvg(rows, day) {
   const seen = new Set();
   const list = rows.flatMap((r) => r.plants.map((p) => PLANT_BY_KEY[p.key])).filter((pl) => !seen.has(pl.key) && seen.add(pl.key));
   list.sort((a, b) => (a.bloom ? a.bloom[0] : 99) - (b.bloom ? b.bloom[0] : 99) || (a.fruit ? a.fruit[0] : 99) - (b.fruit ? b.fruit[0] : 99));
@@ -830,15 +830,15 @@ export function bloomChartSvg(rows, dekad) {
   });
   list.forEach((pl, i) => {
     const y = top + i * rowH;
-    const look = bloomLook(pl, dekad);
-    parts.push(`<text class="bc-name${look.flower ? ' on' : ''}" x="${L - 8}" y="${y + 13}" text-anchor="end">${look.flower ? '✿ ' : ''}${pl.name.replace(/\s*\(.*\)/, '')}</text>`);
+    const on = seasonLook(pl, day).amt >= 0.4;
+    parts.push(`<text class="bc-name${on ? ' on' : ''}" x="${L - 8}" y="${y + 13}" text-anchor="end">${on ? '✿ ' : ''}${pl.name.replace(/\s*\(.*\)/, '')}</text>`);
     if (pl.fruit) parts.push(`<rect x="${X(pl.fruit[0]) + 1}" y="${y + 5}" width="${(pl.fruit[1] - pl.fruit[0] + 1) * cell - 2}" height="9" rx="4" fill="${pl.fruitColor}" fill-opacity="0.75"/><rect x="${X(pl.fruit[0]) + 1}" y="${y + 5}" width="${(pl.fruit[1] - pl.fruit[0] + 1) * cell - 2}" height="9" rx="4" fill="url(#bc-fruit)"/>`);
     if (pl.bloom) parts.push(`<rect class="bc-bar" x="${X(pl.bloom[0]) + 1}" y="${y + 3}" width="${(pl.bloom[1] - pl.bloom[0] + 1) * cell - 2}" height="13" rx="6" fill="${pl.flowerColor}"/>`);
     if (!pl.bloom && !pl.fruit) parts.push(`<text class="bc-none" x="${L + 6}" y="${y + 13}">декоративная листва и хвоя</text>`);
   });
-  const nx = X(dekad) + cell / 2;
+  const nx = L + (day / SEASON_DAYS) * (R - L);
   parts.push(`<line class="bc-now" x1="${nx}" y1="${top - 8}" x2="${nx}" y2="${top + list.length * rowH + 6}"/>`,
-    `<text class="bc-nowt" x="${nx}" y="${top + list.length * rowH + 22}" text-anchor="middle">${DEKADS[dekad]}</text>`);
+    `<text class="bc-nowt" x="${nx}" y="${top + list.length * rowH + 22}" text-anchor="middle">${dayLabel(day)}</text>`);
   return `<svg class="bloom-chart" viewBox="0 0 720 ${H}" role="img" aria-label="Календарь цветения">${parts.join('')}</svg>`;
 }
 

@@ -23,7 +23,7 @@ import { buildEstimate, priceEstimate } from './estimate.js';
 import {
   sunPosition, localToUtc, sunDay, tzGuess, HOUSE_SHAPES, rectPoly, houseOutline, houseFacade, inPoly, sunVector, shadowsAt, sunHours,
   BUILDINGS, BUILDING_BY_KEY, PLANTS, PLANT_BY_KEY, PLANT_GROUPS, LIGHT_TEXT, lightZone, checkPlant, checkBuildings, defaultYard, convexOverlap, housePieces, LIGHT_SHARE,
-  PHI, FIB, goldenGrid, nearestGolden, goldenError, fibAtLeast, isFib, phyllotaxis, plantGroups, goldenSpiral, frostOf, frostHtml, forYakutia, DEKADS, bloomLook,
+  PHI, FIB, goldenGrid, nearestGolden, goldenError, fibAtLeast, isFib, phyllotaxis, plantGroups, goldenSpiral, frostOf, frostHtml, forYakutia, DEKADS, bloomLook, seasonLook, dayLabel, SEASON_DAYS,
 } from './yard.js';
 import {
   SOIL_PH, SOIL_TEXTURE, SOIL_WATER, CLIMATE, climateGuess, soilFit, SOIL_TESTS, TEMPLATES, TEMPLATE_KEYS,
@@ -3973,42 +3973,47 @@ let dlgComp = null; // композиция, открытая в окне «Со
 let dlgHot = null; // растение, на которое нажали на рисунке: 'ряд:номер'
 let dlgInst = null; // какая из его копий выбрана
 let dlgMsg = ''; // подсказка после нажатия кнопки слоя
-let dlgDekad = null; // декада сезона на ползунке: 0 — начало мая … 14 — конец сентября
-let dlgSeasonFor = null; // для какой композиции выбрана декада
-let seasonTimer = null;
+let dlgDay = null; // день сезона на ползунке: 0 — 1 мая … 152 — 30 сентября
+let dlgSeasonFor = null; // для какой композиции выбран день
+let seasonAnim = null; // идёт показ всего сезона
+let seasonFrame = 0;
 
 // Ползунок сезона: создаётся один раз, при перерисовке только обновляется — иначе палец срывается
 function renderSeason(rows) {
   const box = $('y-dlg-season');
   if (!box.querySelector('input')) {
-    box.innerHTML = '<div class="season-head"><span>Цветение: <b class="season-date"></b></span><button type="button" class="secondary season-play" aria-label="Показать весь сезон">▶ Весь сезон</button></div>'
-      + `<input type="range" min="0" max="${DEKADS.length - 1}" step="1" class="season-range" aria-label="Декада сезона">`
+    box.innerHTML = '<div class="season-head"><span>Сезон: <b class="season-date"></b></span><button type="button" class="secondary season-play" aria-label="Показать весь сезон">▶ Весь сезон</button></div>'
+      + `<input type="range" min="0" max="${SEASON_DAYS - 1}" step="1" class="season-range" aria-label="День сезона">`
       + '<div class="season-months"><span>май</span><span>июнь</span><span>июль</span><span>август</span><span>сентябрь</span></div><p class="note season-now"></p>';
   }
   const range = box.querySelector('input');
-  if (document.activeElement !== range) range.value = dlgDekad;
-  box.querySelector('.season-date').textContent = DEKADS[dlgDekad];
-  box.querySelector('.season-play').textContent = seasonTimer ? '❚❚ Пауза' : '▶ Весь сезон';
+  if (document.activeElement !== range || seasonAnim) range.value = Math.round(dlgDay);
+  box.querySelector('.season-date').textContent = dayLabel(dlgDay);
+  box.querySelector('.season-play').textContent = seasonAnim ? '❚❚ Пауза' : '▶ Весь сезон';
   const seen = new Set();
   const pls = rows.flatMap((r) => r.plants.map((p) => PLANT_BY_KEY[p.key])).filter((pl) => !seen.has(pl.key) && seen.add(pl.key));
-  const on = pls.filter((pl) => bloomLook(pl, dlgDekad).flower).map((pl) => pl.name);
-  const fr = pls.filter((pl) => !bloomLook(pl, dlgDekad).flower && bloomLook(pl, dlgDekad).fruit).map((pl) => pl.name);
+  const looks = pls.map((pl) => [pl, seasonLook(pl, dlgDay)]);
+  const on = looks.filter(([, l]) => l.amt >= 0.4).map(([pl]) => pl.name);
+  const bud = looks.filter(([, l]) => l.flower && l.amt < 0.4).map(([pl]) => pl.name);
+  const fr = looks.filter(([, l]) => l.famt >= 0.5).map(([pl]) => pl.name);
   const gaps = bloomGaps(rows);
   box.querySelector('.season-now').innerHTML = (on.length ? `<b>Цветут:</b> ${on.join(', ')}.` : '<b>Сейчас ничего не цветёт.</b>')
+    + (bud.length ? ` <b>Бутоны или отцветают:</b> ${bud.join(', ')}.` : '')
     + (fr.length ? ` <b>Ягоды:</b> ${fr.join(', ')}.` : '')
     + (gaps.length ? `<br><span class="season-gap">Без цветения: ${gaps.map((d) => DEKADS[d]).join(', ')} — можно добавить растение, которое цветёт в это время.</span>` : '<br><span class="season-ok">Что-то цветёт всё время с мая по сентябрь.</span>');
 }
-function openComp(id) {
+
+function openComp(id, opt = {}) {
   const it = yard.items.find((i) => i.id === id);
   if (!it) return;
   dlgComp = id;
   const rows = bedRows(it);
   // Новая композиция — ползунок на декаде, когда цветёт больше всего растений
-  if (dlgSeasonFor !== id || dlgDekad == null) {
+  if (dlgSeasonFor !== id || dlgDay == null) {
     dlgSeasonFor = id;
     const pls = rows.flatMap((r) => r.plants.map((p) => PLANT_BY_KEY[p.key]));
     const counts = DEKADS.map((_, d) => pls.filter((pl) => bloomLook(pl, d).flower).length);
-    dlgDekad = counts.indexOf(Math.max(...counts));
+    dlgDay = Math.round((counts.indexOf(Math.max(...counts)) + 0.5) * (SEASON_DAYS / DEKADS.length));
   }
   renderSeason(rows);
   const tpl = compInfo(it);
@@ -4029,9 +4034,11 @@ function openComp(id) {
         + `<button type="button" class="secondary" data-z="top"${row <= 1 ? ' disabled' : ''}>⤓ В передний ряд</button></span></div>`;
     })()
     : `<p class="note dlg-layer">Нажмите на растение на рисунке, чтобы выбрать его: тогда его можно двигать, дублировать и переставлять по рядам — всего ${DEPTH_ROWS} рядов, 1-й — передний.</p>`;
-  $('y-dlg-pic').innerHTML = bar + elevationSvg(rows, title, { sel: dlgHot && { ref: dlgHot, c: dlgInst }, guides: true, dekad: dlgDekad });
-  $('y-dlg-chart').innerHTML = `<h4 class="sub">Календарь цветения</h4>${bloomChartSvg(rows, dlgDekad)}<p class="note">Цветная полоса — цветение, полоса со штрихом — ягоды и плоды. Сроки — для якутского лета${yard.region === 'warm' ? ' (во вкладке тёплых регионов — для средней полосы)' : ''}, в разные годы сдвигаются на 1–2 недели.</p>`;
+  $('y-dlg-pic').innerHTML = bar + elevationSvg(rows, title, { sel: dlgHot && { ref: dlgHot, c: dlgInst }, guides: true, day: dlgDay });
+  $('y-dlg-chart').innerHTML = `<h4 class="sub">Календарь цветения</h4>${bloomChartSvg(rows, dlgDay)}<p class="note">Цветная полоса — цветение, полоса со штрихом — ягоды и плоды. Сроки — для якутского лета${yard.region === 'warm' ? ' (во вкладке тёплых регионов — для средней полосы)' : ''}, в разные годы сдвигаются на 1–2 недели.</p>`;
   dlgMsg = '';
+  // Пока двигают ползунок сезона, список растений не перестраиваем — так анимация плавнее
+  if (opt.seasonOnly) return;
   const total = rows.reduce((n, r) => n + r.plants.length, 0);
   const list = rows.flatMap((r, ri) => r.plants.map((p, pi) => {
     const pl = PLANT_BY_KEY[p.key];
@@ -4513,29 +4520,38 @@ $('y-scenario').addEventListener('click', (e) => {
   yardChanged(true);
 });
 $('y-dlg-close').addEventListener('click', () => $('y-dialog').close());
-$('y-dialog').addEventListener('close', () => { clearInterval(seasonTimer); seasonTimer = null; });
+const stopSeason = () => { if (seasonAnim) cancelAnimationFrame(seasonAnim); seasonAnim = null; };
+$('y-dialog').addEventListener('close', stopSeason);
+// Перерисовка не чаще раза за кадр: ползунок двигается плавно
+const seasonDraw = () => {
+  if (seasonFrame) return;
+  seasonFrame = requestAnimationFrame(() => { seasonFrame = 0; openComp(dlgComp, { seasonOnly: true }); });
+};
 $('y-dlg-season').addEventListener('input', (e) => {
   if (!e.target.matches('.season-range')) return;
-  dlgDekad = Number(e.target.value);
-  openComp(dlgComp);
+  stopSeason();
+  dlgDay = Number(e.target.value);
+  seasonDraw();
 });
 $('y-dlg-season').addEventListener('click', (e) => {
   if (!e.target.closest('.season-play')) return;
-  if (seasonTimer) {
-    clearInterval(seasonTimer);
-    seasonTimer = null;
-  } else {
-    // Весь сезон по декадам, с начала мая
-    dlgDekad = -1;
-    const step = () => {
-      dlgDekad += 1;
-      if (dlgDekad >= DEKADS.length - 1) { clearInterval(seasonTimer); seasonTimer = null; }
-      openComp(dlgComp);
-    };
-    seasonTimer = setInterval(step, 900);
-    step();
+  if (seasonAnim) {
+    stopSeason();
+    openComp(dlgComp, { seasonOnly: true });
+    return;
   }
-  openComp(dlgComp);
+  // Весь сезон с 1 мая до 30 сентября примерно за 7 секунд
+  if (dlgDay >= SEASON_DAYS - 2) dlgDay = 0;
+  let last = performance.now();
+  const tick = (now) => {
+    dlgDay = Math.min(SEASON_DAYS - 1, dlgDay + ((now - last) / 1000) * 22);
+    last = now;
+    openComp(dlgComp, { seasonOnly: true });
+    if (dlgDay >= SEASON_DAYS - 1) { seasonAnim = null; openComp(dlgComp, { seasonOnly: true }); return; }
+    seasonAnim = requestAnimationFrame(tick);
+  };
+  seasonAnim = requestAnimationFrame(tick);
+  openComp(dlgComp, { seasonOnly: true });
 });
 $('y-dialog').addEventListener('click', (e) => {
   if (e.target === $('y-dialog')) $('y-dialog').close();

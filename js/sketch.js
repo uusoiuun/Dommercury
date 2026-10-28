@@ -54,6 +54,13 @@ const HABIT = {
   rosette: ['sempervivum', 'orostachys'],
   carpet: ['phloxSub', 'thymus', 'sagina', 'trifolium', 'vinca'],
 };
+// Осенний цвет листвы
+const AUTUMN = {
+  berberis: '#c8402a', sorbusSib: '#d8602a', sorbocot: '#c8502a', cotoneaster: '#d0602a', crataegus: '#c85a2a', rosaRugosa: '#d8a030',
+  rosaAcic: '#c8602a', betula: '#e8c040', populusBer: '#e0c040', populusSuav: '#e0c040', larix: '#e0b030', padus: '#c8a040',
+  padusMaackii: '#d0a838', malus: '#d0a040', malusPurp: '#a03a3a', syringa: '#a8a050', caragana: '#e0c050', sorbaria: '#c8a040', viburnum: '#b0303a',
+  amelanchier: '#d8582a', spiraeaJap: '#d07030', physocarpus: '#a0302a', hippophae: '#c0b070',
+};
 const HABIT_OF = Object.fromEntries(Object.entries(HABIT).flatMap(([h, keys]) => keys.map((k) => [k, h])));
 const habitOf = (pl) => HABIT_OF[pl.key] || (pl.group === 'tree' ? 'tree' : pl.group === 'grass' ? 'fountain' : pl.group === 'ground' ? 'carpet' : pl.group === 'herb' ? 'herb' : ['shrub', 'fruit'].includes(pl.group) ? 'bloomShrub' : 'daisy');
 
@@ -150,8 +157,16 @@ export function sketchPlant(pl, x, base, s, salt = 0, look = null) {
   const fl = !look || look.flower;
   const col = look ? look.fcol || pl.color : pl.color;
   const fruit = look?.fruit ? look.rcol : null;
-  const berries = (cx, cy, rx, ry, n, r) => { if (fruit) blossoms(cx, cy, rx, ry, n, r, fruit, rnd, W, I); };
-  const leaf = FOLIAGE[seedOf(pl.key) % FOLIAGE.length];
+  // Размер цветков по стадии: бутон → раскрытый → увядающий; ягоды наливаются
+  const fs = look ? 0.3 + 0.7 * (look.amt ?? (look.flower ? 1 : 0)) : 1;
+  const fr = 0.4 + 0.6 * (look?.famt ?? 1);
+  const berries = (cx, cy, rx, ry, n, r) => { if (fruit) blossoms(cx, cy, rx, ry, n, r * fr, fruit, rnd, W, I); };
+  let leaf = FOLIAGE[seedOf(pl.key) % FOLIAGE.length];
+  // Листва по сезону: в начале мая только распускается (бледная), в сентябре желтеет и краснеет
+  const spring = look?.day != null ? Math.max(0, 1 - look.day / 24) : 0;
+  const autumn = look?.day != null ? Math.max(0, (look.day - 112) / 41) : 0;
+  if (spring) leaf = mix(leaf, '#e4ead0', spring * 0.75);
+  if (autumn) leaf = mix(leaf, AUTUMN[pl.key] || '#d4b040', autumn * (['tree', 'shrub', 'fruit'].includes(pl.group) ? 0.85 : 0.45));
   const h = Math.max(16, pl.h * s);
   const habit = habitOf(pl);
   // Ширина — по кроне, но не шире разумного относительно высоты: низкие растения в укрупнённом
@@ -176,12 +191,12 @@ export function sketchPlant(pl, x, base, s, salt = 0, look = null) {
     const crown = cloud(x, cy, cw / 2, h * 0.34, rnd, 12, 0.25);
     W.push(wash(crown, leaf, 0.55), wash(cloud(x - cw * 0.12, cy - h * 0.08, cw * 0.28, h * 0.17, rnd, 8), light(leaf, 0.35), 0.45),
       wash(cloud(x + cw * 0.15, cy + h * 0.1, cw * 0.3, h * 0.16, rnd, 8), dark(leaf, 0.25), 0.4));
-    if (fl && ['malus', 'malusDec', 'malusPurp', 'padus', 'padusMaackii', 'crataegus', 'sorbusSib'].includes(pl.key)) blossoms(x, cy, cw / 2, h * 0.32, 22, Math.max(2, cw / 28), col, rnd, W, I);
+    if (fl && ['malus', 'malusDec', 'malusPurp', 'padus', 'padusMaackii', 'crataegus', 'sorbusSib'].includes(pl.key)) blossoms(x, cy, cw / 2, h * 0.32, 22, Math.max(2, cw / 28) * fs, col, rnd, W, I);
     berries(x, cy + h * 0.04, cw / 2.2, h * 0.28, 20, Math.max(1.8, cw / 34));
     I.push(ink(crown, 1.1, sketchDash(rnd)), hatch(x, cy, cw / 2, h * 0.34, rnd));
   } else if (habit === 'spruce' || habit === 'yew') {
     const cw = habit === 'yew' ? wd(0.75) : Math.max(30, Math.min(h * 0.42, pl.r * 2 * s * 0.5));
-    const green = habit === 'yew' ? '#3f5a45' : pl.key === 'larix' ? '#7f9a5a' : '#3f5f4a';
+    const green = habit === 'yew' ? '#3f5a45' : pl.key === 'larix' ? mix(mix('#7f9a5a', '#c8d8a0', spring * 0.6), '#e0b030', autumn * 0.9) : '#3f5f4a';
     I.push(ink(`M${f1(x)} ${base} L${f1(x)} ${f1(base - h)}`, 1.2));
     const tiers = habit === 'yew' ? 5 : 8;
     const shape = [];
@@ -240,7 +255,7 @@ export function sketchPlant(pl, x, base, s, salt = 0, look = null) {
     for (const lp of leaves) W.push(wash(lp, pl.key === 'cornus' ? '#8aa86a' : leaf, 0.55));
     I.push(ink(leaves.filter((_, k) => k % 2 === 0).join(' '), 0.6));
     // Щитки цветков и белые ягоды у дерена — на концах побегов
-    if (look && look.flower) blossoms(x, base - h * 0.82, w * 0.45, h * 0.14, 12, 2.6, col, rnd, W, I);
+    if (look && look.flower) blossoms(x, base - h * 0.82, w * 0.45, h * 0.14, 12, 2.6 * fs, col, rnd, W, I);
     berries(x, base - h * 0.78, w * 0.45, h * 0.16, 12, 2.2);
   } else if (habit === 'panicle') {
     const w = wd(0.75);
@@ -251,7 +266,7 @@ export function sketchPlant(pl, x, base, s, salt = 0, look = null) {
       const rr = 0.45 + rnd() * 0.4;
       const px = x + Math.cos(a) * w * 0.42 * rr;
       const py = cy + Math.sin(a) * h * 0.4 * rr + h * 0.05;
-      const ph = Math.min(26, Math.max(9, h * 0.18));
+      const ph = Math.min(26, Math.max(9, h * 0.18)) * fs;
       const pw = ph * 0.45;
       const d = `M${f1(px - pw / 2)} ${f1(py + 2)} C${f1(px - pw * 0.6)} ${f1(py - ph * 0.5)} ${f1(px - pw * 0.15)} ${f1(py - ph * 0.9)} ${f1(px)} ${f1(py - ph)} C${f1(px + pw * 0.15)} ${f1(py - ph * 0.9)} ${f1(px + pw * 0.6)} ${f1(py - ph * 0.5)} ${f1(px + pw / 2)} ${f1(py + 2)} Z`;
       W.push(wash(d, col, 0.7));
@@ -269,7 +284,7 @@ export function sketchPlant(pl, x, base, s, salt = 0, look = null) {
       if (habit === 'bloomShrub') blossoms(x, cy, w / 2, h / 2, 26, Math.max(2, w / 22), col, rnd, W, I);
       if (habit === 'berry') blossoms(x, cy + h * 0.1, w / 2, h / 2.4, 18, Math.max(1.6, w / 34), col, rnd, W, I);
     } else {
-      if (fl) blossoms(x, cy, w / 2, h / 2, habit === 'berry' ? 18 : 26, Math.max(1.8, w / (habit === 'berry' ? 30 : 22)), col, rnd, W, I);
+      if (fl) blossoms(x, cy, w / 2, h / 2, habit === 'berry' ? 18 : 26, Math.max(1.8, w / (habit === 'berry' ? 30 : 22)) * fs, col, rnd, W, I);
       berries(x, cy + h * 0.1, w / 2, h / 2.4, 20, Math.max(1.6, w / 34));
     }
   } else if (habit === 'spike' || habit === 'plume') {
@@ -283,10 +298,10 @@ export function sketchPlant(pl, x, base, s, salt = 0, look = null) {
       const u = n === 1 ? 0 : k / (n - 1) - 0.5;
       const px = x + u * w * 0.6;
       const top = base - h * (0.92 + rnd() * 0.08);
-      const ph = h * (habit === 'plume' ? 0.42 : 0.5);
+      const ph = h * (habit === 'plume' ? 0.42 : 0.5) * fs;
       I.push(ink(`M${f1(x + u * 4)} ${f1(cy)} Q${f1(px)} ${f1(top + ph)} ${f1(px)} ${f1(top + ph * 0.3)}`, 0.8));
       if (habit === 'plume') {
-        const pw = Math.max(6, w * 0.22);
+        const pw = Math.max(6, w * 0.22) * fs;
         const p = `M${f1(px - pw / 2)} ${f1(top + ph)} Q${f1(px - pw * 0.2)} ${f1(top + ph * 0.3)} ${f1(px)} ${f1(top)} Q${f1(px + pw * 0.2)} ${f1(top + ph * 0.3)} ${f1(px + pw / 2)} ${f1(top + ph)} Z`;
         W.push(wash(p, col, 0.75));
         const fe = [];
@@ -295,7 +310,7 @@ export function sketchPlant(pl, x, base, s, salt = 0, look = null) {
       } else {
         for (let j = 0; j < 8; j++) {
           const yy = top + ph * (j / 8);
-          const rr = Math.max(1.6, (w / 16) * (0.5 + j / 10));
+          const rr = Math.max(1.6, (w / 16) * (0.5 + j / 10)) * fs;
           W.push(dot(px + (j % 2 ? 1 : -1) * rr * 0.6, yy, rr, col));
           if (j % 3 === 0) I.push(`<circle class="sk-ink" cx="${f1(px + (j % 2 ? 1 : -1) * rr * 0.6)}" cy="${f1(yy)}" r="${f1(rr)}" stroke-width="0.5"/>`);
         }
@@ -316,7 +331,7 @@ export function sketchPlant(pl, x, base, s, salt = 0, look = null) {
         const fx = x + (k - 1) * w * 0.28;
         const fy = base - h * (0.85 + rnd() * 0.12);
         I.push(ink(`M${f1(x + (k - 1) * 3)} ${f1(base - h * 0.3)} L${f1(fx)} ${f1(fy)}`, 0.7));
-        const r = Math.max(3.5, w * 0.1);
+        const r = Math.max(3.5, w * 0.1) * fs;
         const petals = [0, 1, 2].map((j) => leafPath(fx, fy, r * 1.6, r * 0.55, -Math.PI / 2 + (j - 1) * 0.9));
         W.push(...petals.map((p) => wash(p, col, 0.85)));
         I.push(ink(petals.join(' '), 0.6));
@@ -329,7 +344,7 @@ export function sketchPlant(pl, x, base, s, salt = 0, look = null) {
     W.push(wash(d, leaf, 0.6));
     I.push(ink(d, 0.9, sketchDash(rnd)), hatch(x, base - fh / 2, w / 2, fh / 2, rnd, 0.7));
     if (habit === 'herb') {
-      if (fl) blossoms(x, base - fh * 0.6, w / 2.2, fh / 3, 10, Math.max(1.5, w / 26), col, rnd, W, I);
+      if (fl) blossoms(x, base - fh * 0.6, w / 2.2, fh / 3, 10, Math.max(1.5, w / 26) * fs, col, rnd, W, I);
     } else {
       const n = !fl ? 0 : habit === 'peony' ? 4 : habit === 'umbel' ? 5 : 6;
       for (let k = 0; k < n; k++) {
@@ -337,7 +352,7 @@ export function sketchPlant(pl, x, base, s, salt = 0, look = null) {
         const fx = x + u * w * 0.75 + (rnd() - 0.5) * 4;
         const fy = base - h * (habit === 'umbel' ? 0.85 + rnd() * 0.1 : 0.78 + rnd() * 0.22);
         I.push(ink(`M${f1(x + u * w * 0.3)} ${f1(base - fh * 0.4)} Q${f1(fx)} ${f1((fy + base) / 2)} ${f1(fx)} ${f1(fy)}`, 0.6));
-        const r = Math.max(3, w * (habit === 'peony' ? 0.14 : 0.09));
+        const r = Math.max(3, w * (habit === 'peony' ? 0.14 : 0.09)) * fs;
         if (habit === 'daisy') {
           const pts = [];
           for (let j = 0; j < 8; j++) { const a = (j / 8) * Math.PI * 2; pts.push(leafPath(fx, fy, r * 1.3, r * 0.35, a)); }
@@ -368,7 +383,7 @@ export function sketchPlant(pl, x, base, s, salt = 0, look = null) {
     I.push(ink(leaves.join(' '), 0.7));
     // Жилки и цветонос
     if (fl) I.push(ink(`M${f1(x + 4)} ${base} Q${f1(x + 8)} ${f1(base - h * 0.6)} ${f1(x + 6)} ${f1(base - h)}`, 0.7));
-    for (let j = 0; j < (fl ? 5 : 0); j++) W.push(dot(x + 6 + (j % 2 ? 2 : -2), base - h * (0.7 + j * 0.06), 2.2, pl.key === 'heuchera' ? '#f0d0d8' : pl.key === 'hosta' ? '#c8b8e0' : col));
+    for (let j = 0; j < (fl ? 5 : 0); j++) W.push(dot(x + 6 + (j % 2 ? 2 : -2), base - h * (0.7 + j * 0.06), 2.2 * fs, pl.key === 'heuchera' ? '#f0d0d8' : pl.key === 'hosta' ? '#c8b8e0' : col));
   } else if (habit === 'tuft' || habit === 'fountain') {
     const w = wd(habit === 'tuft' ? 1.2 : 1);
     const green = habit === 'tuft' ? pl.color : leaf;
@@ -389,7 +404,7 @@ export function sketchPlant(pl, x, base, s, salt = 0, look = null) {
         const d = `M${f1(x + u * 4)} ${f1(base - h * 0.3)} Q${f1(x + u * w * 0.3)} ${f1(base - h * 0.8)} ${f1(tx)} ${f1(ty)}`;
         I.push(ink(d, 0.5));
         if (pl.key === 'stipa') W.push(`<path d="M${f1(tx)} ${f1(ty)} q${f1(u * 14 + 6)} ${f1(4)} ${f1(u * 20 + 12)} ${f1(14)}" stroke="${col}" stroke-width="3" fill="none" stroke-linecap="round" opacity="0.7"/>`);
-        else W.push(`<ellipse cx="${f1(tx)}" cy="${f1(ty + 5)}" rx="${f1(Math.max(3, w * 0.07))}" ry="${f1(Math.max(5, h * 0.12))}" fill="${col}" fill-opacity="0.55" transform="rotate(${f1(u * 30)} ${f1(tx)} ${f1(ty + 5)})"/>`);
+        else W.push(`<ellipse cx="${f1(tx)}" cy="${f1(ty + 5)}" rx="${f1(Math.max(3, w * 0.07) * fs)}" ry="${f1(Math.max(5, h * 0.12) * fs)}" fill="${col}" fill-opacity="0.55" transform="rotate(${f1(u * 30)} ${f1(tx)} ${f1(ty + 5)})"/>`);
       }
     }
   } else if (habit === 'rosette') {
@@ -403,7 +418,7 @@ export function sketchPlant(pl, x, base, s, salt = 0, look = null) {
       I.push(ink(petals.join(' '), 0.5));
       // Цветонос-свечка, когда цветёт
       if (look && look.flower && k === 1) {
-        const sp = `M${f1(cx - r * 0.35)} ${f1(base - r * 0.6)} Q${f1(cx)} ${f1(base - r * 3.2)} ${f1(cx + r * 0.35)} ${f1(base - r * 0.6)} Z`;
+        const sp = `M${f1(cx - r * 0.35)} ${f1(base - r * 0.6)} Q${f1(cx)} ${f1(base - r * (0.8 + 2.4 * fs))} ${f1(cx + r * 0.35)} ${f1(base - r * 0.6)} Z`;
         W.push(wash(sp, col, 0.85));
         I.push(ink(sp, 0.6));
       }
@@ -415,7 +430,7 @@ export function sketchPlant(pl, x, base, s, salt = 0, look = null) {
     const d = `M${f1(x - w / 2)} ${base} Q${f1(x - w / 2)} ${f1(base - hh)} ${f1(x - w / 4)} ${f1(base - hh)} Q${f1(x)} ${f1(base - hh * 1.3)} ${f1(x + w / 4)} ${f1(base - hh)} Q${f1(x + w / 2)} ${f1(base - hh)} ${f1(x + w / 2)} ${base} Z`;
     W.push(wash(d, pl.key === 'sagina' || pl.key === 'trifolium' ? pl.color : leaf, 0.6));
     I.push(ink(d, 0.8, sketchDash(rnd)));
-    if (fl && !['sagina'].includes(pl.key)) for (let k = 0; k < 12; k++) W.push(dot(x - w * 0.42 + rnd() * w * 0.84, base - hh * (0.4 + rnd() * 0.6), Math.min(3, Math.max(1.6, w / 30)), pl.key === 'trifolium' ? '#f4f0e4' : col));
+    if (fl && !['sagina'].includes(pl.key)) for (let k = 0; k < 12; k++) W.push(dot(x - w * 0.42 + rnd() * w * 0.84, base - hh * (0.4 + rnd() * 0.6), Math.min(3, Math.max(1.6, w / 30)) * fs, pl.key === 'trifolium' ? '#f4f0e4' : col));
   }
   return { wash: W.join(''), ink: I.join('') };
 }

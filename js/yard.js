@@ -436,6 +436,56 @@ for (const p of PLANTS) {
   p.flowerColor = bl?.fc || p.color;
   p.fruitColor = bl?.rc || null;
 }
+// ---- Сезон по дням: 0 — 1 мая … 152 — 30 сентября ----
+export const SEASON_DAYS = 153;
+const MONTH_DAYS = [['мая', 31], ['июня', 30], ['июля', 31], ['августа', 31], ['сентября', 30]];
+export function dayLabel(day) {
+  let d = Math.round(day);
+  for (const [m, n] of MONTH_DAYS) {
+    if (d < n) return `${d + 1} ${m}`;
+    d -= n;
+  }
+  return '30 сентября';
+}
+const DEK = SEASON_DAYS / 15; // дней в декаде
+const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+export const mixColor = (a, b, k) => {
+  const x = hex(a);
+  const y = hex(b);
+  return `#${x.map((v, i) => Math.round(v + (y[i] - v) * Math.max(0, Math.min(1, k))).toString(16).padStart(2, '0')).join('')}`;
+};
+// Сила явления на отрезке декад [a, b] в день day: бутоны за 6 дней до начала, раскрытие, полный цвет, увядание
+function wave(r, day, lead = 6, keep = false) {
+  if (!r) return { amt: 0, phase: null };
+  const start = r[0] * DEK;
+  const end = (r[1] + 1) * DEK;
+  const ramp = Math.max(4, (end - start) * 0.3);
+  if (day < start - lead || day > end) return { amt: 0, phase: null };
+  if (day < start) return { amt: 0.25 * (day - (start - lead)) / lead, phase: 'bud' };
+  if (day < start + ramp) return { amt: 0.25 + 0.75 * ((day - start) / ramp), phase: 'open' };
+  if (day > end - ramp && !keep) return { amt: Math.max(0.05, (end - day) / ramp), phase: 'fade' };
+  return { amt: 1, phase: 'full' };
+}
+/**
+ * Вид растения в день сезона: цветки растут из бутонов, раскрываются и увядают,
+ * плоды наливаются от зелёных до спелых. day — число дней от 1 мая.
+ */
+export function seasonLook(pl, day) {
+  const f = wave(pl.bloom, day);
+  // Ягоды висят до морозов — не увядают
+  const r = wave(pl.fruit, day, 12, true);
+  const BUD = '#7e9a5a';
+  return {
+    day,
+    flower: f.amt > 0,
+    amt: f.amt,
+    fcol: f.phase === 'bud' ? mixColor(BUD, pl.flowerColor, 0.35) : f.phase === 'fade' ? mixColor(pl.flowerColor, '#c8b8a0', 1 - f.amt) : pl.flowerColor,
+    fruit: r.amt > 0 && !!pl.fruitColor,
+    famt: r.amt,
+    rcol: pl.fruitColor ? (r.phase === 'bud' ? mixColor('#8aa860', pl.fruitColor, 0.2) : r.phase === 'open' ? mixColor('#8aa860', pl.fruitColor, r.amt) : pl.fruitColor) : null,
+  };
+}
+
 /** Как выглядит растение в декаду d: цветёт ли, видны ли ягоды. */
 export function bloomLook(pl, d) {
   const inside = (r) => !!r && d >= r[0] && d <= r[1];

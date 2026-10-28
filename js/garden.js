@@ -383,13 +383,13 @@ export const PRESETS = {
       ]],
     ],
   },
-  // Расстановка — по образцу, собранному вручную; сосна — за рябинокизильником
+  // Расстановка — по образцу, собранному вручную; сосна высотой 2 м — за рябинокизильником
   yakClassic: {
     region: 'yak', short: 'Пионы и флоксы', title: 'Якутская классика: пионы, флоксы, лилейники', side: 'Ю', want: 'sun', w: 9, d: 3.5,
     about: 'Фоном — сосна, рябина сибирская, рябинокизильник Позднякова и шиповник морщинистый. Перед ними многолетники, которые годами цветут в якутских садах: дельфиниумы и пионы слева, ирисы, флоксы и лилейники в середине, аквилегия справа; по переднему краю — хризантемы, прострел и очиток. Цветение с мая до сентября.',
     rows: [
       ['Фон — хиты', [
-        ['pinus', 1, [[0.35, 5]]],
+        ['pinus', 1, [[0.35, 5]], { h: 2, r: 1 }],
         ['sorbusSib', 1, [[0.68, 5]]],
         ['sorbocot', 2, [[0.27, 4], [0.42, 4]]],
         ['rosaRugosa', 3, [[0.51, 4], [0.60, 4], [0.75, 4]]],
@@ -559,10 +559,17 @@ export const PRESET_KEYS = Object.keys(PRESETS);
 const SIDE_AZ = { С: 0, СВ: 45, В: 90, ЮВ: 135, Ю: 180, ЮЗ: 225, З: 270, СЗ: 315 };
 
 /** Ряды готовой композиции в общем виде: [{ tier, plants: [{ key, qty }] }]. */
+// Растение композиции: можно задать свою высоту и ширину кроны (например, сосна-саженец 2 м)
+export const plantOf = (p) => {
+  const base = PLANT_BY_KEY[p.key];
+  if (p.h == null && p.r == null) return base;
+  return { ...base, h: p.h ?? base.h, r: p.r ?? base.r, name: `${base.name}, ${String(p.h ?? base.h).replace('.', ',')} м` };
+};
+
 // Если у растения в образце указаны места — [доля вдоль клумбы, ряд 1–5], — композиция открывается сразу так
 export const presetRows = (key) => PRESETS[key].rows.map(([tier, list]) => ({
   tier,
-  plants: list.map(([k, qty, at]) => ({ key: k, qty, ...(at ? { at: at.map(([u, row]) => ({ u, v: (DEPTH_ROWS - row) / (DEPTH_ROWS - 1), z: 0 })) } : {}) })),
+  plants: list.map(([k, qty, at, size]) => ({ key: k, qty, ...(size || {}), ...(at ? { at: at.map(([u, row]) => ({ u, v: (DEPTH_ROWS - row) / (DEPTH_ROWS - 1), z: 0 })) } : {}) })),
 }));
 
 /**
@@ -718,7 +725,7 @@ export function plantSpots(rows) {
         const v = at ? at.v : snapV(nRows > 1 ? ti / (nRows - 1) : 0.5);
         // z — порядок наложения на рисунке: меньше — дальше (рисуется раньше)
         // mx, my — точное место в клумбе, м, после расстановки по нормам
-        out.push({ ti, k, c, key: p.key, u: clamp01(u), v: clamp01(v), z: at?.z ?? 0, mx: at?.mx, my: at?.my });
+        out.push({ ti, k, c, key: p.key, pl: plantOf(p), u: clamp01(u), v: clamp01(v), z: at?.z ?? 0, mx: at?.mx, my: at?.my });
       }
     });
   });
@@ -740,7 +747,7 @@ export const snapV = (v) => vOfRow(rowOfV(Math.max(0, Math.min(1, v))));
 const byLayer = (a, b) => a.v - b.v || a.z - b.z || a.u - b.u;
 // Масштаб рисунка: невысокие растения крупнее, чем в масштабе, — иначе цветы теряются рядом с кустом
 const scaleOf = (rows) => {
-  const maxH = Math.max(1, ...rows.flatMap((r) => r.plants.map((p) => PLANT_BY_KEY[p.key].h)));
+  const maxH = Math.max(1, ...rows.flatMap((r) => r.plants.map((p) => plantOf(p).h)));
   const hPx = (pl) => 200 * (pl.h / maxH) ** 0.45;
   return { hPx, sOf: (pl) => hPx(pl) / pl.h };
 };
@@ -778,7 +785,7 @@ export function rowMove(rows, ref, c, dir) {
 /** Картинка композиции: растения в профиль с подписями, как рисунок от руки. */
 export function elevationSvg(rows, title = '', opt = {}) {
   const { W, H, pad } = ELEV;
-  const list = rows.flatMap((r) => r.plants.map((p) => PLANT_BY_KEY[p.key]));
+  const list = rows.flatMap((r) => r.plants.map((p) => plantOf(p)));
   if (!list.length) return '';
   const sc = scaleOf(rows);
   const { hPx, sOf } = sc;
@@ -807,7 +814,7 @@ export function elevationSvg(rows, title = '', opt = {}) {
   let selHit = '';
   const groups = new Map();
   for (const sp of spots) {
-    const pl = PLANT_BY_KEY[sp.key];
+    const pl = sp.pl;
     const x = pad + sp.u * ELEV_SPAN;
     const base = baseOf(sp.v);
     const kk = kOf(sp.v);
@@ -906,7 +913,7 @@ export function arrangeBed(item, rows) {
   for (const sp of spots) {
     const k = rowOfV(sp.v);
     if (!byRow.has(k)) byRow.set(k, []);
-    byRow.get(k).push({ sp, pl: PLANT_BY_KEY[sp.key], r: edgeR(PLANT_BY_KEY[sp.key]) });
+    byRow.get(k).push({ sp, pl: sp.pl, r: edgeR(sp.pl) });
   }
   // Ряды от заднего (5) к переднему (1)
   const rowList = [...byRow.entries()].sort((a, b) => b[0] - a[0]).map(([, l]) => l.sort((a, b) => a.sp.u - b.sp.u));
@@ -948,7 +955,7 @@ const edgeR = (pl) => (isTree(pl) ? Math.min(pl.r, TRUNK_ZONE) : pl.r);
 export function spacingRows(rows) {
   const seen = new Map();
   for (const r of rows) for (const p of r.plants) {
-    const pl = PLANT_BY_KEY[p.key];
+    const pl = plantOf(p);
     const e = seen.get(p.key) || { pl, qty: 0 };
     e.qty += p.qty;
     seen.set(p.key, e);
@@ -976,7 +983,7 @@ export function topSchemeSvg(item, rows) {
   for (let m = 0.5; m < w; m += 0.5) parts.push(`<line class="ts-grid${Math.abs(m % 1) < 1e-6 ? ' m' : ''}" x1="${X(m)}" y1="${T}" x2="${X(m)}" y2="${T + Dp}"/>`);
   for (let m = 0.5; m < d; m += 0.5) parts.push(`<line class="ts-grid${Math.abs(m % 1) < 1e-6 ? ' m' : ''}" x1="${L}" y1="${Y(m)}" x2="${L + Wp}" y2="${Y(m)}"/>`);
   const pts = spots.map((sp) => {
-    const pl = PLANT_BY_KEY[sp.key];
+    const pl = sp.pl;
     const [mx, my] = bedXY(sp, w, d);
     return { sp, pl, mx, my };
   });

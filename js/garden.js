@@ -2,7 +2,7 @@
 // сценарии отдыха и картинка композиции «в профиль».
 import { sketchPlant, sketchDefs } from './sketch.js';
 import {
-  PLANT_BY_KEY, BUILDING_BY_KEY, rectPoly, housePieces, houseOutline, convexOverlap, inPoly, sunHours, circlePoly, frostOf, forYakutia,
+  PLANT_BY_KEY, BUILDING_BY_KEY, rectPoly, housePieces, houseOutline, convexOverlap, inPoly, sunHours, circlePoly, frostOf, forYakutia, bloomLook, DEKADS,
 } from './yard.js';
 
 const rad = (d) => (d * Math.PI) / 180;
@@ -368,7 +368,7 @@ export const PRESETS = {
       ['Задний ряд — хиты', [['syringa', 1], ['sorbaria', 1]]],
       ['Средний ряд — хиты', [['berberis', 3]]],
       ['Подбивка — многолетники', [['paeonia', 3], ['hemerocallis', 3], ['trollius', 3]]],
-      ['Край', [['sedum', 5], ['aquilegia', 3]]],
+      ['Край', [['pulsatilla', 5], ['sedum', 5], ['aquilegia', 3]]],
     ],
   },
   yakClassic: {
@@ -379,7 +379,7 @@ export const PRESETS = {
       ['Задний ряд', [['delphinium', 3], ['phloxPan', 3]]],
       ['Средний ряд', [['paeonia', 3], ['irisSib', 3], ['hemerocallis', 3]]],
       ['Передний ряд', [['chrysanthemum', 5], ['aquilegia', 3]]],
-      ['Край', [['sedum', 5]]],
+      ['Край', [['pulsatilla', 5], ['sedum', 5]]],
     ],
   },
   yakBerry: {
@@ -388,7 +388,8 @@ export const PRESETS = {
     rows: [
       ['Задний ряд', [['malus', 1], ['padusMaackii', 1]]],
       ['Средний ряд', [['lonicera', 3], ['hippophae', 2], ['rosaAcic', 2]]],
-      ['Передний ряд', [['alliumSch', 5], ['trollius', 3]]],
+      ['Передний ряд', [['alliumSch', 5], ['trollius', 3], ['potentilla', 3]]],
+      ['Край', [['pulsatilla', 5], ['sedum', 5]]],
     ],
   },
   yakShade: {
@@ -396,7 +397,7 @@ export const PRESETS = {
     about: 'Для северной стороны и тени: черёмуха, дерен и рябинник не боятся тени, хосты, астильбы и аквилегии любят полутень и влагу, багульник — кислую почву.',
     rows: [
       ['Задний ряд', [['padus', 1], ['cornus', 2]]],
-      ['Средний ряд', [['sorbaria', 1], ['astilbe', 3], ['aquilegia', 3]]],
+      ['Средний ряд', [['sorbaria', 1], ['astilbe', 3], ['aquilegia', 3], ['phloxPan', 3]]],
       ['Передний ряд', [['hosta', 3], ['ledum', 3], ['trollius', 3]]],
     ],
   },
@@ -407,6 +408,7 @@ export const PRESETS = {
       ['Задний ряд', [['populusBer', 1], ['caragana', 3]]],
       ['Средний ряд', [['crataegus', 2], ['rosaBegg', 2]]],
       ['Передний ряд', [['cotoneaster', 3]]],
+      ['Подбивка', [['potentilla', 3], ['pulsatilla', 5], ['sedum', 5]]],
     ],
   },
   yakMeadow: {
@@ -434,7 +436,7 @@ export const PRESETS = {
     rows: [
       ['Задний ряд', [['potentilla', 1], ['spiraea', 1]]],
       ['Средний ряд', [['echinacea', 3], ['rudbeckia', 3], ['irisSib', 3]]],
-      ['Передний ряд', [['sedum', 5], ['nepeta', 3], ['thymus', 5]]],
+      ['Передний ряд', [['sedum', 5], ['nepeta', 3], ['thymus', 5], ['bergenia', 3]]],
       ['Злаки', [['stipa', 3]]],
     ],
   },
@@ -444,7 +446,7 @@ export const PRESETS = {
     rows: [
       ['Задний ряд — структура', [['cornus', 1], ['spiraea', 1], ['juniper', 1]]],
       ['Средний ряд', [['hemerocallis', 3], ['phloxPan', 3], ['echinacea', 3]]],
-      ['Передний ряд', [['phloxSub', 5], ['sedum', 3], ['thymus', 5], ['festuca', 3]]],
+      ['Передний ряд', [['phloxSub', 5], ['sedum', 3], ['thymus', 5], ['festuca', 3], ['bergenia', 3]]],
       ['Акценты', [['stipa', 3]]],
     ],
   },
@@ -454,7 +456,7 @@ export const PRESETS = {
     rows: [
       ['Акцент', [['rosaPark', 1]]],
       ['Середина', [['irisBarb', 3], ['phloxPan', 3], ['hemerocallis', 3]]],
-      ['Передний край', [['sedum', 3], ['heuchera', 3]]],
+      ['Передний край', [['sedum', 3], ['heuchera', 3], ['bergenia', 3], ['phloxSub', 5]]],
     ],
   },
   philadelphus: {
@@ -463,7 +465,7 @@ export const PRESETS = {
     rows: [
       ['Фон', [['philadelphus', 1], ['rosaPark', 1]]],
       ['Середина', [['phloxPan', 3], ['nepeta', 3]]],
-      ['Край площадки', [['armeria', 5], ['thymus', 3]]],
+      ['Край площадки', [['armeria', 5], ['thymus', 3], ['bergenia', 3], ['phloxSub', 3], ['sedum', 3]]],
     ],
   },
   yellowViolet: {
@@ -472,14 +474,14 @@ export const PRESETS = {
     rows: [
       ['Задний план', [['trollius', 3], ['deschampsia', 3]]],
       ['Средний план', [['irisSib', 5], ['stipa', 3]]],
-      ['Передний край', [['festuca', 5]]],
+      ['Передний край', [['festuca', 5], ['primula', 5], ['bergenia', 3]]],
     ],
   },
   shadeHosta: {
     short: 'Хоста и астильба', title: 'Тенистый уголок: хоста и астильба', side: 'С', want: 'shade', w: 6, d: 2.5,
     about: 'Для северной стороны: крупные листья хост, пышные метёлки астильб, бадан и гейхеры у края. В тени влажнее — им это нравится.',
     rows: [
-      ['Задний ряд', [['viburnum', 1], ['cornus', 1]]],
+      ['Задний ряд', [['viburnum', 1], ['cornus', 1], ['hydrangeaArb', 1]]],
       ['Средний ряд', [['astilbe', 5], ['hosta', 3], ['aruncus', 1]]],
       ['Передний ряд', [['bergenia', 3], ['heuchera', 3], ['sagina', 5]]],
     ],
@@ -499,7 +501,7 @@ export const PRESETS = {
     rows: [
       ['Задний ряд', [['syringaVulg', 1], ['cornus', 1]]],
       ['Середина', [['hydrangeaPan', 2], ['spiraeaJap', 3]]],
-      ['Передний ряд', [['juniper', 2]]],
+      ['Передний ряд', [['juniper', 2], ['bergenia', 3]]],
     ],
   },
   rockery: {
@@ -772,21 +774,23 @@ export function elevationSvg(rows, title = '', opt = {}) {
     const base = baseOf(sp.v);
     const kk = kOf(sp.v);
     const sel = isSel(sp) ? ' sel' : '';
-    const pic = sketchPlant(pl, x, base, sOf(pl) * kk, sp.c);
+    // С ползунком сезона — вид растения в выбранную декаду: цветёт, с ягодами или только листва
+    const look = opt.dekad != null ? bloomLook(pl, opt.dekad) : null;
+    const pic = sketchPlant(pl, x, base, sOf(pl) * kk, sp.c, look);
     // Невидимая область нажатия по силуэту — чтобы попасть и в тонкие прутья, и в редкий злак
     const hh = Math.max(16, hPx(pl) * kk);
     const hit = `<ellipse class="sk-hit" cx="${x}" cy="${base - hh / 2}" rx="${halfW(pl, sc, kk)}" ry="${hh / 2 + 4}"/>`;
     // Выбранное растение можно взять, даже если оно за другими: его область нажатия — поверх всех
     if (sel) selHit = `<g data-plant="${sp.ti}:${sp.k}" data-c="${sp.c}">${hit}</g>`;
     parts.push(`<g class="sk-plant${sel}" data-plant="${sp.ti}:${sp.k}" data-c="${sp.c}"><title>${pl.name}</title>${hit}<g filter="url(#${id}-wc)">${pic.wash}</g><g filter="url(#${id}-ink)">${pic.ink}</g></g>`);
-    const g = groups.get(`${sp.ti}:${sp.k}`) || { xs: [], top: Infinity, pl, qty: 0 };
+    const g = groups.get(`${sp.ti}:${sp.k}`) || { xs: [], top: Infinity, pl, qty: 0, look };
     g.xs.push(x);
     g.top = Math.min(g.top, base - hh);
     g.qty++;
     groups.set(`${sp.ti}:${sp.k}`, g);
   }
   if (selHit) parts.push(selHit);
-  const labels = [...groups.values()].map((g) => ({ x: g.xs.reduce((a, b) => a + b, 0) / g.xs.length, top: g.top, name: g.pl.name, qty: g.qty, frost: frostOf(g.pl) }));
+  const labels = [...groups.values()].map((g) => ({ x: g.xs.reduce((a, b) => a + b, 0) / g.xs.length, top: g.top, name: g.pl.name, qty: g.qty, frost: frostOf(g.pl), look: g.look }));
   // Подписи от руки: каждая — в первую строку, где не наезжает на соседнюю
   const ends = [];
   labels.sort((a, b) => a.x - b.x).forEach((l) => {
@@ -797,11 +801,51 @@ export function elevationSvg(rows, title = '', opt = {}) {
     ends[line] = l.x + half;
     const ly = 24 + line * 18;
     parts.push(`<path class="sk-lead" d="M${l.x} ${ly + 5} Q${l.x + 6} ${(ly + l.top) / 2} ${l.x} ${l.top - 4}"/>`,
-      `<text class="sk-label" x="${l.x}" y="${ly}" text-anchor="middle">${text}${l.frost.cls === 'annual' ? '' : `<tspan class="sk-frost ${l.frost.cls}" dx="3">❄\uFE0E</tspan>`}<title>${l.frost.text}</title></text>`);
+      `<text class="sk-label${!l.look ? '' : l.look.flower ? ' on' : l.look.fruit ? ' fruit' : ' off'}" x="${l.x}" y="${ly}" text-anchor="middle">${l.look?.flower ? '✿ ' : ''}${text}${l.frost.cls === 'annual' ? '' : `<tspan class="sk-frost ${l.frost.cls}" dx="3">❄\uFE0E</tspan>`}<title>${l.frost.text}</title></text>`);
   });
   // Миниатюра в карточке — без подписей, обрезана по растениям
   if (opt.thumb) return `<svg class="elev sketch" viewBox="40 110 ${W - 80} ${H - 120}" role="img" aria-label="${title}">${parts.filter((x) => !x.includes('sk-label') && !x.includes('sk-lead') && !x.includes('sk-row')).join('')}</svg>`;
   return `<svg class="elev sketch" viewBox="0 0 ${W} ${H}" role="img" aria-label="${title}">${parts.join('')}</svg>`;
+}
+
+/**
+ * Календарь цветения композиции: полоса на каждое растение с мая по сентябрь,
+ * цветение — цветом цветков, ягоды — штрихом; вертикальная линия — выбранная декада.
+ */
+export function bloomChartSvg(rows, dekad) {
+  const seen = new Set();
+  const list = rows.flatMap((r) => r.plants.map((p) => PLANT_BY_KEY[p.key])).filter((pl) => !seen.has(pl.key) && seen.add(pl.key));
+  list.sort((a, b) => (a.bloom ? a.bloom[0] : 99) - (b.bloom ? b.bloom[0] : 99) || (a.fruit ? a.fruit[0] : 99) - (b.fruit ? b.fruit[0] : 99));
+  const L = 190;
+  const R = 712;
+  const cell = (R - L) / DEKADS.length;
+  const rowH = 20;
+  const top = 34;
+  const H = top + list.length * rowH + 30;
+  const X = (d) => L + d * cell;
+  const parts = [`<defs><pattern id="bc-fruit" patternUnits="userSpaceOnUse" width="5" height="5" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="5" stroke="#fff" stroke-width="1.6" stroke-opacity="0.55"/></pattern></defs>`];
+  ['Май', 'Июнь', 'Июль', 'Август', 'Сентябрь'].forEach((m, i) => {
+    parts.push(`<rect class="bc-month${i % 2 ? ' alt' : ''}" x="${X(i * 3)}" y="${top - 6}" width="${cell * 3}" height="${list.length * rowH + 10}"/>`,
+      `<text class="bc-mtext" x="${X(i * 3) + cell * 1.5}" y="${top - 12}" text-anchor="middle">${m}</text>`);
+  });
+  list.forEach((pl, i) => {
+    const y = top + i * rowH;
+    const look = bloomLook(pl, dekad);
+    parts.push(`<text class="bc-name${look.flower ? ' on' : ''}" x="${L - 8}" y="${y + 13}" text-anchor="end">${look.flower ? '✿ ' : ''}${pl.name.replace(/\s*\(.*\)/, '')}</text>`);
+    if (pl.fruit) parts.push(`<rect x="${X(pl.fruit[0]) + 1}" y="${y + 5}" width="${(pl.fruit[1] - pl.fruit[0] + 1) * cell - 2}" height="9" rx="4" fill="${pl.fruitColor}" fill-opacity="0.75"/><rect x="${X(pl.fruit[0]) + 1}" y="${y + 5}" width="${(pl.fruit[1] - pl.fruit[0] + 1) * cell - 2}" height="9" rx="4" fill="url(#bc-fruit)"/>`);
+    if (pl.bloom) parts.push(`<rect class="bc-bar" x="${X(pl.bloom[0]) + 1}" y="${y + 3}" width="${(pl.bloom[1] - pl.bloom[0] + 1) * cell - 2}" height="13" rx="6" fill="${pl.flowerColor}"/>`);
+    if (!pl.bloom && !pl.fruit) parts.push(`<text class="bc-none" x="${L + 6}" y="${y + 13}">декоративная листва и хвоя</text>`);
+  });
+  const nx = X(dekad) + cell / 2;
+  parts.push(`<line class="bc-now" x1="${nx}" y1="${top - 8}" x2="${nx}" y2="${top + list.length * rowH + 6}"/>`,
+    `<text class="bc-nowt" x="${nx}" y="${top + list.length * rowH + 22}" text-anchor="middle">${DEKADS[dekad]}</text>`);
+  return `<svg class="bloom-chart" viewBox="0 0 720 ${H}" role="img" aria-label="Календарь цветения">${parts.join('')}</svg>`;
+}
+
+/** Декады без цветения в композиции — подсказка, где «провал». */
+export function bloomGaps(rows) {
+  const pls = rows.flatMap((r) => r.plants.map((p) => PLANT_BY_KEY[p.key]));
+  return DEKADS.map((_, d) => d).filter((d) => !pls.some((pl) => bloomLook(pl, d).flower));
 }
 
 /** Точки посадки внутри клумбы — там же, где растения стоят на рисунке композиции. */

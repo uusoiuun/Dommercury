@@ -392,6 +392,56 @@ export const frostHtml = (pl) => {
   return `<span class="frost ${f.cls}" title="${f.text}">${f.cls === 'annual' ? '◌' : '❄\uFE0E'}${pl.usda ? `<small>${pl.usda}</small>` : ''}</span>`;
 };
 
+// ---- Цветение по декадам: 0 — 1–10 мая … 14 — 21–30 сентября ----
+// Для растений Якутии — сроки якутского лета (весна поздняя, лето короткое и жаркое),
+// для тёплых регионов — средней полосы. b — цветение, r — ягоды и плоды (декоративны),
+// fc — цвет цветков (если не совпадает с основным цветом растения), rc — цвет ягод.
+// null — заметного цветения нет (хвойные, тополь, берёза).
+export const DEKADS = ['1–10 мая', '11–20 мая', '21–31 мая', '1–10 июня', '11–20 июня', '21–30 июня', '1–10 июля', '11–20 июля', '21–31 июля',
+  '1–10 августа', '11–20 августа', '21–31 августа', '1–10 сентября', '11–20 сентября', '21–30 сентября'];
+const WHITE = '#f6f2ea';
+const BLOOM = {
+  // Якутия
+  cornus: { b: [4, 6], fc: WHITE, r: [9, 12], rc: '#e8ecf2' }, potentilla: { b: [5, 13] }, larix: null, pinus: null, picea: null, betula: null,
+  populusBer: null, populusSuav: null, padus: { b: [2, 3], fc: WHITE, r: [8, 10], rc: '#1e1a1e' },
+  padusMaackii: { b: [2, 3], fc: WHITE, r: [8, 10], rc: '#1e1a1e' }, rosaAcic: { b: [4, 6], fc: '#e070a0', r: [9, 13], rc: '#c83a2a' },
+  sorbaria: { b: [6, 9], fc: '#f2eedc' }, salix: { b: [0, 1], fc: '#e8e0a0' }, ledum: { b: [3, 5], fc: WHITE },
+  lonicera: { b: [2, 3], fc: '#f0e8a0', r: [5, 6], rc: '#3a4a8a' }, malus: { b: [2, 4], fc: '#f6e8ec', r: [10, 14], rc: '#c0402a' },
+  trollius: { b: [3, 5] }, adonis: { b: [1, 3] }, pulsatilla: { b: [0, 2] }, achillea: { b: [6, 11], fc: '#f4f0e4' }, filipendula: { b: [6, 9] },
+  orostachys: { b: [11, 14], fc: '#f0ead0' }, bromus: { b: [6, 9], fc: '#b8a878' }, spiraeaCham: { b: [3, 4], fc: WHITE }, alliumSch: { b: [4, 6] },
+  berberis: { b: [3, 4], fc: '#f0d040', r: [10, 14], rc: '#d0302a' }, crataegus: { b: [4, 5], fc: WHITE, r: [10, 14], rc: '#b02a2a' },
+  caragana: { b: [3, 4] }, cotoneaster: { b: [3, 4], fc: '#f0c8c8', r: [10, 14], rc: '#1e1a24' }, hippophae: { b: null, r: [10, 14], rc: '#f08a20' },
+  syringa: { b: [4, 5] }, sorbusSib: { b: [3, 4], fc: WHITE, r: [9, 14], rc: '#e0582a' }, sorbocot: { b: [3, 4], fc: '#f4ece0', r: [9, 13], rc: '#6a1a2a' },
+  rosaBegg: { b: [5, 8], fc: WHITE, r: [10, 14], rc: '#c03a2a' }, rosaRugosa: { b: [5, 11], fc: '#c8407a', r: [9, 14], rc: '#d0402a' },
+  malusPurp: { b: [2, 4], fc: '#c04080', r: [10, 14], rc: '#5a1a2a' },
+  paeonia: { b: [5, 7] }, sedum: { b: [10, 14] }, hosta: { b: [8, 10] }, irisSib: { b: [5, 6] }, irisBarb: { b: [4, 6] }, phloxPan: { b: [8, 12] },
+  chrysanthemum: { b: [10, 13] }, astilbe: { b: [7, 10] }, hemerocallis: { b: [8, 11] }, delphinium: { b: [6, 9] }, aquilegia: { b: [4, 6] },
+  leek: null, ocimum: null, borago: { b: [6, 11] },
+  // Тёплые регионы
+  spiraea: { b: [3, 4], fc: WHITE }, physocarpus: { b: [3, 5], fc: '#f4ece6' }, bergenia: { b: [0, 2] }, geranium: { b: [4, 7] }, primula: { b: [0, 1] },
+  heuchera: { b: [4, 10] }, phloxSub: { b: [2, 4] }, thymus: { b: [5, 9] }, sempervivum: { b: [6, 8], fc: '#e0a0b0' }, sagina: { b: [3, 5], fc: '#f4f4ec' },
+  trifolium: { b: [4, 11] }, festuca: { b: [3, 5], fc: '#c8c0a0' }, deschampsia: { b: [6, 14] }, stipa: { b: [3, 5] }, spiraeaJap: { b: [6, 11] },
+  spiraeaVan: { b: [2, 3] }, philadelphus: { b: [4, 6] }, syringaVulg: { b: [2, 4] }, syringaMeyer: { b: [2, 3] },
+  amelanchier: { b: [1, 2], fc: WHITE, r: [6, 7], rc: '#3a2a5a' }, viburnum: { b: [3, 4], fc: WHITE, r: [10, 14], rc: '#d03a2a' }, salixPurp: { b: [0, 1], fc: '#d8c890' },
+  hydrangeaPan: { b: [8, 14] }, hydrangeaArb: { b: [6, 12] }, rosaPark: { b: [5, 8] }, taxus: null, juniper: null, rhododendron: { b: [2, 3] },
+  malusDec: { b: [1, 2], r: [10, 14], rc: '#a02a3a' }, rubus: { b: [3, 5], fc: WHITE, r: [8, 10], rc: '#b0203a' }, nepeta: { b: [4, 11] }, armeria: { b: [4, 10] },
+  aruncus: { b: [5, 7] }, vinca: { b: [0, 2] }, melissa: { b: [7, 10], fc: '#f4f0e8' }, mentha: { b: [7, 10], fc: '#c8a8d8' }, origanum: { b: [7, 11] },
+  salvia: { b: [4, 7], fc: '#9a88c8' }, artemisiaDrac: { b: [9, 11], fc: '#d8d0a0' }, ribes: { b: [1, 2], fc: '#d8d0a0', r: [7, 9], rc: '#2a2030' },
+  prunus: { b: [2, 2], fc: WHITE, r: [9, 10], rc: '#3a1a2a' }, echinacea: { b: [7, 13] }, rudbeckia: { b: [8, 14] },
+};
+for (const p of PLANTS) {
+  const bl = BLOOM[p.key] === undefined ? { b: [6, 8] } : BLOOM[p.key];
+  p.bloom = bl && bl.b ? bl.b : null;
+  p.fruit = bl && bl.r ? bl.r : null;
+  p.flowerColor = bl?.fc || p.color;
+  p.fruitColor = bl?.rc || null;
+}
+/** Как выглядит растение в декаду d: цветёт ли, видны ли ягоды. */
+export function bloomLook(pl, d) {
+  const inside = (r) => !!r && d >= r[0] && d <= r[1];
+  return { flower: inside(pl.bloom), fruit: inside(pl.fruit), fcol: pl.flowerColor, rcol: pl.fruitColor };
+}
+
 export const PLANT_BY_KEY = Object.fromEntries(PLANTS.map((p) => [p.key, p]));
 
 export const PLANT_GROUPS = [

@@ -811,3 +811,25 @@ p.dlg-layer { display: block; }
 .y-region { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px; margin: 4px 0 10px; border-radius: 12px; background: var(--snow); border: 1px solid var(--line); }
 .y-region button { flex: 1 1 auto; border: 0; border-radius: 9px; padding: 8px 12px; background: transparent; color: var(--text); font: inherit; font-size: 14px; cursor: pointer; min-height: 0; }
 .y-region button[aria-selected="true"] { background: var(--card); box-shadow: var(--shadow); font-weight: 600; }
+/* Сезон цветения в окне «Состав» */
+.season { margin: 8px 0 4px; }
+.season-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: 15px; }
+.season-head button { padding: 4px 12px; font-size: 13px; min-height: 0; }
+.season-range { width: 100%; margin: 8px 0 0; accent-color: #b4552d; }
+.season-months { display: grid; grid-template-columns: repeat(5, 1fr); font-size: 12px; color: var(--muted); text-align: center; }
+.season-now { margin: 6px 0 0; }
+.season-gap { color: #b4552d; }
+.season-ok { color: var(--good, #4a7a3a); }
+.bloom-chart { width: 100%; height: auto; display: block; }
+.bloom-chart .bc-month { fill: rgba(150, 130, 90, 0.06); }
+.bloom-chart .bc-month.alt { fill: rgba(150, 130, 90, 0.14); }
+.bloom-chart .bc-mtext { font-size: 12px; fill: var(--muted); }
+.bloom-chart .bc-name { font-size: 12px; fill: var(--muted); }
+.bloom-chart .bc-name.on { fill: var(--text); font-weight: 600; }
+.bloom-chart .bc-bar { stroke: rgba(40, 30, 20, 0.35); stroke-width: 0.8; }
+.bloom-chart .bc-none { font-size: 11px; fill: var(--muted); font-style: italic; }
+.bloom-chart .bc-now { stroke: #b4552d; stroke-width: 2; }
+.bloom-chart .bc-nowt { font-size: 12px; fill: #b4552d; font-weight: 600; }
+.elev.sketch .sk-label.off { opacity: 0.45; }
+.elev.sketch .sk-label.on { fill: #8a2a4a; }
+.elev.sketch .sk-label.fruit { fill: #8a3a1a; }

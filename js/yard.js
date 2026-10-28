@@ -222,7 +222,7 @@ export const PLANTS = [
   // Плодово-ягодные
   P('lonicera', 'Жимолость', 'fruit', 1.5, 0.8, ['sun', 'part'], '#4a5fa0', { note: 'Одна из самых стойких ягод.' }),
   P('malus', 'Яблоня ягодная', 'fruit', 5, 2, ['sun'], '#c0504a', { size: 'mid', note: 'Очень зимостойкая, без укрытия.' }),
-  P('ribes', 'Смородина', 'fruit', 1.5, 0.8, ['sun', 'part'], '#3a3050'),
+  P('ribes', 'Смородина чёрная', 'fruit', 1.5, 0.8, ['sun', 'part'], '#3a3050', { note: 'Ягоды в июле; в Якутске растёт в каждом саду.' }),
   P('hippophae', 'Облепиха (женское растение)', 'fruit', 3, 1.5, ['sun'], '#e08a2a', { size: 'mid', note: 'Для ягод нужно мужское растение рядом — одно на 5–8 женских. Корни у поверхности — не перекапывайте рядом.' }),
   P('prunus', 'Вишня песчаная', 'fruit', 1.2, 0.7, ['sun'], '#7a2a3a', { note: 'Иногда подмерзает — место потеплее.' }),
   // Многолетники
@@ -299,6 +299,7 @@ export const PLANTS = [
   P('rosaBegg', 'Шиповник Беггера', 'shrub', 2, 1, ['sun'], '#f4f0e6', { note: 'Белые душистые цветы, мелкие красные плоды.' }),
   P('rosaRugosa', 'Шиповник морщинистый', 'shrub', 1.5, 0.8, ['sun'], '#c8407a', { note: 'Крупные малиновые цветы всё лето и крупные плоды.' }),
   P('malusPurp', 'Яблоня пурпурная', 'tree', 5, 2, ['sun'], '#a03060', { size: 'mid', note: 'Пурпурные цветы и листва, мелкие тёмные яблочки.' }),
+  P('rubusRem', 'Малина ремонтантная', 'fruit', 1.5, 0.6, ['sun'], '#c0203a', { note: 'Осенью побеги срезают под корень — зимуют только корни под снегом. Ягоды с августа до морозов.' }),
   P('aquilegia', 'Аквилегия (водосбор)', 'perennial', 0.6, 0.3, ['sun', 'part', 'shade'], '#7a6ac8', { note: 'Изящные поникающие цветки в июне; сама подсевается.' }),
 ];
 
@@ -367,7 +368,7 @@ const USDA = {
 };
 // Многолетники, которые по опыту якутских садоводов хорошо растут в Якутске:
 // снег укрывает их корни, поэтому они зимуют, хотя по справочникам зона у вида выше
-const YAKUTSK_PROVEN = ['paeonia', 'sedum', 'hosta', 'irisSib', 'irisBarb', 'phloxPan', 'chrysanthemum', 'astilbe', 'hemerocallis', 'delphinium', 'aquilegia'];
+const YAKUTSK_PROVEN = ['paeonia', 'sedum', 'hosta', 'irisSib', 'irisBarb', 'phloxPan', 'chrysanthemum', 'astilbe', 'hemerocallis', 'delphinium', 'aquilegia', 'ribes', 'rubusRem'];
 for (const k of YAKUTSK_PROVEN) USDA[k] = 1;
 for (const p of PLANTS) {
   p.usda = USDA[p.key] ?? 3;
@@ -426,7 +427,8 @@ const BLOOM = {
   hydrangeaPan: { b: [8, 14] }, hydrangeaArb: { b: [6, 12] }, rosaPark: { b: [5, 8] }, taxus: null, juniper: null, rhododendron: { b: [2, 3] },
   malusDec: { b: [1, 2], r: [10, 14], rc: '#a02a3a' }, rubus: { b: [3, 5], fc: WHITE, r: [8, 10], rc: '#b0203a' }, nepeta: { b: [4, 11] }, armeria: { b: [4, 10] },
   aruncus: { b: [5, 7] }, vinca: { b: [0, 2] }, melissa: { b: [7, 10], fc: '#f4f0e8' }, mentha: { b: [7, 10], fc: '#c8a8d8' }, origanum: { b: [7, 11] },
-  salvia: { b: [4, 7], fc: '#9a88c8' }, artemisiaDrac: { b: [9, 11], fc: '#d8d0a0' }, ribes: { b: [1, 2], fc: '#d8d0a0', r: [7, 9], rc: '#2a2030' },
+  salvia: { b: [4, 7], fc: '#9a88c8' }, artemisiaDrac: { b: [9, 11], fc: '#d8d0a0' }, ribes: { b: [2, 3], fc: '#d8d0a0', r: [7, 9], rc: '#1a1420' },
+  rubusRem: { b: [5, 8], fc: WHITE, r: [9, 13], rc: '#c0203a' },
   prunus: { b: [2, 2], fc: WHITE, r: [9, 10], rc: '#3a1a2a' }, echinacea: { b: [7, 13] }, rudbeckia: { b: [8, 14] },
 };
 for (const p of PLANTS) {

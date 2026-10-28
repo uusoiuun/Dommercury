@@ -38,7 +38,7 @@ const HABIT = {
   stems: ['cornus', 'cornusSton', 'salix', 'salixPurp'],
   panicle: ['syringa', 'syringaVulg', 'syringaMeyer', 'sorbaria', 'hydrangeaPan'],
   bloomShrub: ['spiraea', 'spiraeaCham', 'spiraeaJap', 'spiraeaVan', 'philadelphus', 'potentilla', 'rosaAcic', 'rosaCanina', 'rosaPark', 'caragana', 'rhododendron', 'hydrangeaArb', 'amelanchier', 'ledum'],
-  berry: ['lonicera', 'ribes', 'hippophae', 'prunus', 'rubus', 'viburnum', 'cotoneaster', 'sorbocot', 'berberis'],
+  berry: ['lonicera', 'ribes', 'hippophae', 'prunus', 'rubus', 'rubusRem', 'viburnum', 'cotoneaster', 'sorbocot', 'berberis'],
   leafShrub: ['physocarpus'],
   spike: ['delphinium', 'salvia', 'nepeta', 'artemisiaDrac'],
   plume: ['astilbe', 'aruncus', 'filipendula', 'phloxPan'],

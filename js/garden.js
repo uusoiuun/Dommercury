@@ -441,12 +441,20 @@ export const PRESETS = {
     ],
   },
   yakShade: {
-    region: 'yak', short: 'Северный угол', title: 'Северный тенистый угол', side: 'С', want: 'part', w: 6, d: 2.5,
-    about: 'Для северной стороны и тени: черёмуха, дерен и рябинник не боятся тени, хосты, астильбы и аквилегии любят полутень и влагу, багульник — кислую почву.',
+    region: 'yak', short: 'Северный угол', title: 'Северный тенистый угол в японском стиле', side: 'С', want: 'part', w: 6, d: 2.5,
+    about: 'Без деревьев: сзади кремовые метёлки волжанки, в середине пышные астильбы, внизу хосты и гейхеры с красивой листвой. Два японских каменных фонаря-торо — спокойные акценты в тени.',
     rows: [
-      ['Задний ряд', [['padus', 1], ['cornus', 2]]],
-      ['Средний ряд', [['sorbaria', 1], ['astilbe', 3], ['aquilegia', 3], ['phloxPan', 3]]],
-      ['Передний ряд', [['hosta', 3], ['ledum', 3], ['trollius', 3]]],
+      ['Задний ряд', [
+        ['aruncus', 3, [[0.15, 5], [0.50, 5], [0.85, 5]]],
+      ]],
+      ['Средний ряд', [
+        ['astilbe', 7, [[0.06, 4], [0.21, 4], [0.35, 4], [0.50, 4], [0.65, 4], [0.79, 4], [0.94, 4]]],
+        ['lantern', 2, [[0.30, 3], [0.72, 3]]],
+      ]],
+      ['Подбивка', [
+        ['hosta', 5, [[0.10, 2], [0.30, 2], [0.50, 2], [0.70, 2], [0.90, 2]]],
+        ['heuchera', 7, [[0.06, 1], [0.21, 1], [0.35, 1], [0.50, 1], [0.65, 1], [0.79, 1], [0.94, 1]]],
+      ]],
     ],
   },
   yakWind: {
@@ -854,18 +862,29 @@ export function elevationSvg(rows, title = '', opt = {}) {
     groups.set(`${sp.ti}:${sp.k}`, g);
   }
   if (selHit) parts.push(selHit);
-  const labels = [...groups.values()].map((g) => ({ x: g.xs.reduce((a, b) => a + b, 0) / g.xs.length, top: g.top, name: g.pl.name, qty: g.qty, frost: frostOf(g.pl), look: g.look }));
+  const labels = [...groups.values()].map((g) => ({ x: g.xs.reduce((a, b) => a + b, 0) / g.xs.length, xs: g.xs, top: g.top, name: g.pl.name, qty: g.qty, frost: frostOf(g.pl), look: g.look }));
+  // Если подписи сбились в кучу (композиция симметричная), каждая ведёт к своему растению по всей ширине
+  labels.sort((a, b) => a.x - b.x);
+  if (labels.some((l, i) => i && l.x - labels[i - 1].x < 40)) {
+    const used = new Set();
+    labels.forEach((l, i) => {
+      const t = pad + ((i + 0.5) / labels.length) * ELEV_SPAN;
+      const best = [...l.xs].sort((a, b) => Math.abs(a - t) - Math.abs(b - t)).find((x) => !used.has(Math.round(x))) ?? l.x;
+      used.add(Math.round(best));
+      l.x = best;
+    });
+  }
   // Подписи от руки: каждая — в первую строку, где не наезжает на соседнюю
   const ends = [];
   labels.sort((a, b) => a.x - b.x).forEach((l) => {
     const text = `${l.name}${l.qty > 1 ? ` ×${l.qty}` : ''}`;
-    const half = (text.length + 2) * 3.6 + 6;
+    const half = (text.length + 2 + (l.look?.amt >= 0.4 ? 2 : 0)) * 3.8 + 8;
     let line = ends.findIndex((e) => e < l.x - half);
     if (line < 0) line = ends.length;
     ends[line] = l.x + half;
     const ly = 24 + line * 18;
     parts.push(`<path class="sk-lead" d="M${l.x} ${ly + 5} Q${l.x + 6} ${(ly + l.top) / 2} ${l.x} ${l.top - 4}"/>`,
-      `<text class="sk-label${!l.look ? '' : l.look.amt >= 0.4 ? ' on' : l.look.famt >= 0.5 ? ' fruit' : ' off'}" x="${l.x}" y="${ly}" text-anchor="middle">${l.look?.amt >= 0.4 ? '✿ ' : ''}${text}${l.frost.cls === 'annual' ? '' : `<tspan class="sk-frost ${l.frost.cls}" dx="3">❄\uFE0E</tspan>`}<title>${l.frost.text}</title></text>`);
+      `<text class="sk-label${!l.look ? '' : l.look.amt >= 0.4 ? ' on' : l.look.famt >= 0.5 ? ' fruit' : ' off'}" x="${l.x}" y="${ly}" text-anchor="middle">${l.look?.amt >= 0.4 ? '✿ ' : ''}${text}${['annual', 'decor'].includes(l.frost.cls) ? '' : `<tspan class="sk-frost ${l.frost.cls}" dx="3">❄\uFE0E</tspan>`}<title>${l.frost.text}</title></text>`);
   });
   // Миниатюра в карточке — без подписей, обрезана по растениям
   if (opt.thumb) return `<svg class="elev sketch" viewBox="40 110 ${W - 80} ${H - 120}" role="img" aria-label="${title}">${parts.filter((x) => !x.includes('sk-label') && !x.includes('sk-lead') && !x.includes('sk-row')).join('')}</svg>`;

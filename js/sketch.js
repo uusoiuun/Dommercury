@@ -53,6 +53,7 @@ const HABIT = {
   fountain: ['deschampsia', 'stipa', 'bromus'],
   rosette: ['sempervivum', 'orostachys'],
   carpet: ['phloxSub', 'thymus', 'sagina', 'trifolium', 'vinca'],
+  lantern: ['lantern'],
 };
 // Осенний цвет листвы
 const AUTUMN = {
@@ -173,7 +174,23 @@ export function sketchPlant(pl, x, base, s, salt = 0, look = null) {
   // масштабе иначе расползаются на полкартинки
   const wd = (k, rel = 1.6) => Math.max(18, Math.min(pl.r * 2 * s * k, Math.max(h * rel, 40), 190));
 
-  if (habit === 'tree') {
+  if (habit === 'lantern') {
+    // Японский каменный фонарь (торо): основание, столб, площадка, камера с окошком, крыша с загнутыми углами, навершие
+    const H = Math.max(30, h);
+    const stone = '#a8a49a';
+    const y = (k) => base - H * k;
+    const box = (w2, y1, y2) => `M${f1(x - w2)} ${f1(y(y1))} L${f1(x + w2)} ${f1(y(y1))} L${f1(x + w2 * 0.96)} ${f1(y(y2))} L${f1(x - w2 * 0.96)} ${f1(y(y2))} Z`;
+    const parts = [box(H * 0.28, 0, 0.08), box(H * 0.075, 0.08, 0.45), box(H * 0.21, 0.45, 0.52), box(H * 0.15, 0.52, 0.72)];
+    const roof = `M${f1(x - H * 0.34)} ${f1(y(0.76))} Q${f1(x - H * 0.2)} ${f1(y(0.74))} ${f1(x - H * 0.12)} ${f1(y(0.84))} L${f1(x + H * 0.12)} ${f1(y(0.84))} Q${f1(x + H * 0.2)} ${f1(y(0.74))} ${f1(x + H * 0.34)} ${f1(y(0.76))} L${f1(x + H * 0.3)} ${f1(y(0.72))} L${f1(x - H * 0.3)} ${f1(y(0.72))} Z`;
+    const top = `M${f1(x - H * 0.05)} ${f1(y(0.84))} Q${f1(x - H * 0.06)} ${f1(y(0.93))} ${f1(x)} ${f1(y(1))} Q${f1(x + H * 0.06)} ${f1(y(0.93))} ${f1(x + H * 0.05)} ${f1(y(0.84))} Z`;
+    for (const d of [...parts, roof, top]) W.push(wash(d, stone, 0.75));
+    // Окошко: тёплый свет внутри
+    const win = `M${f1(x - H * 0.07)} ${f1(y(0.56))} L${f1(x + H * 0.07)} ${f1(y(0.56))} L${f1(x + H * 0.07)} ${f1(y(0.68))} L${f1(x - H * 0.07)} ${f1(y(0.68))} Z`;
+    W.push(`<path d="${win}" fill="#f4d890" fill-opacity="0.9"/>`);
+    // Мох у основания
+    for (let k = 0; k < 6; k++) W.push(dot(x - H * 0.24 + rnd() * H * 0.48, y(0.02 + rnd() * 0.05), 1.6 + rnd() * 1.4, '#7a9a5a'));
+    I.push(ink([...parts, roof, top, win].join(' '), 0.9, sketchDash(rnd)), hatch(x + H * 0.06, y(0.26), H * 0.05, H * 0.17, rnd, 0.6));
+  } else if (habit === 'tree') {
     const cw = Math.max(40, Math.min(h * 0.75, pl.r * 2 * s * 0.6));
     const birch = pl.key === 'betula';
     const trunk = birch ? '#f2efe6' : pl.key === 'padusMaackii' ? '#c07a3a' : '#7a5a3e';

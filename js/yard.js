@@ -300,6 +300,8 @@ export const PLANTS = [
   P('rosaRugosa', 'Шиповник морщинистый', 'shrub', 1.5, 0.8, ['sun'], '#c8407a', { note: 'Крупные малиновые цветы всё лето и крупные плоды.' }),
   P('malusPurp', 'Яблоня пурпурная', 'tree', 5, 2, ['sun'], '#a03060', { size: 'mid', note: 'Пурпурные цветы и листва, мелкие тёмные яблочки.' }),
   P('rubusRem', 'Малина ремонтантная', 'fruit', 1.5, 0.6, ['sun'], '#c0203a', { note: 'Осенью побеги срезают под корень — зимуют только корни под снегом. Ягоды с августа до морозов.' }),
+  // Садовый декор для композиций (в каталоге растений не показывается)
+  P('lantern', 'Японский каменный фонарь', 'decor', 1.1, 0.35, ['sun', 'part', 'shade'], '#a8a49a', { note: 'Каменный фонарь-торо: акцент в тенистом саду, зимой красиво стоит в снегу.' }),
   P('aquilegia', 'Аквилегия (водосбор)', 'perennial', 0.6, 0.3, ['sun', 'part', 'shade'], '#7a6ac8', { note: 'Изящные поникающие цветки в июне; сама подсевается.' }),
 ];
 
@@ -335,7 +337,7 @@ const SOIL = {
   irisBarb: ['NK', 'dry', 'good'], vinca: ['NK', 'normal', 'risky'],
   alliumSch: ['NK', 'normal', 'very'], melissa: ['N', 'normal', 'good'], mentha: ['ANK', 'normal wet', 'very'], origanum: ['NK', 'dry', 'very'],
   salvia: ['NK', 'dry', 'risky'], artemisiaDrac: ['NK', 'dry normal', 'very'], leek: ['NK', 'normal', 'very'], ocimum: ['N', 'normal', 'very'],
-  borago: ['NK', 'normal', 'very'],
+  borago: ['NK', 'normal', 'very'], lantern: ['ANK', 'dry normal wet', 'very'],
 };
 for (const p of PLANTS) {
   const [ph, water, hardy] = SOIL[p.key] || ['ANK', 'normal', 'good'];
@@ -368,10 +370,12 @@ const USDA = {
 };
 // Многолетники, которые по опыту якутских садоводов хорошо растут в Якутске:
 // снег укрывает их корни, поэтому они зимуют, хотя по справочникам зона у вида выше
-const YAKUTSK_PROVEN = ['paeonia', 'sedum', 'hosta', 'irisSib', 'irisBarb', 'phloxPan', 'chrysanthemum', 'astilbe', 'hemerocallis', 'delphinium', 'aquilegia', 'ribes', 'rubusRem'];
+const YAKUTSK_PROVEN = ['paeonia', 'sedum', 'hosta', 'irisSib', 'irisBarb', 'phloxPan', 'chrysanthemum', 'astilbe', 'hemerocallis', 'delphinium', 'aquilegia', 'ribes', 'rubusRem', 'aruncus', 'heuchera'];
 for (const k of YAKUTSK_PROVEN) USDA[k] = 1;
+USDA.lantern = 0;
 for (const p of PLANTS) {
   p.usda = USDA[p.key] ?? 3;
+  if (p.group === 'decor') p.hardy = 'very';
   if (YAKUTSK_PROVEN.includes(p.key)) p.proven = true;
   if (NURSERY_HITS.includes(p.key)) p.hit = true;
   // Зимостойкость в советах по почве и климату — по той же зоне
@@ -383,6 +387,7 @@ for (const p of PLANTS) {
 export const forYakutia = (pl) => pl.usda <= 1;
 /** Метка морозостойкости: снежинка синяя — зона 1, для Якутии; красная — зона 2 и выше. */
 export function frostOf(pl) {
+  if (pl.group === 'decor') return { cls: 'decor', text: 'садовый декор' };
   if (pl.usda === 0) return { cls: 'annual', text: 'однолетник — зимовать не нужно' };
   if (pl.proven) return { cls: 'ok', text: 'Зимует в Якутске под снегом — проверено садоводами' };
   if (pl.usda <= 1) return { cls: 'ok', text: 'USDA 1 — выдерживает зимы Якутии' };
@@ -390,6 +395,7 @@ export function frostOf(pl) {
 }
 export const frostHtml = (pl) => {
   const f = frostOf(pl);
+  if (f.cls === 'decor') return '';
   return `<span class="frost ${f.cls}" title="${f.text}">${f.cls === 'annual' ? '◌' : '❄\uFE0E'}${pl.usda ? `<small>${pl.usda}</small>` : ''}</span>`;
 };
 
@@ -428,7 +434,7 @@ const BLOOM = {
   malusDec: { b: [1, 2], r: [10, 14], rc: '#a02a3a' }, rubus: { b: [3, 5], fc: WHITE, r: [8, 10], rc: '#b0203a' }, nepeta: { b: [4, 11] }, armeria: { b: [4, 10] },
   aruncus: { b: [5, 7] }, vinca: { b: [0, 2] }, melissa: { b: [7, 10], fc: '#f4f0e8' }, mentha: { b: [7, 10], fc: '#c8a8d8' }, origanum: { b: [7, 11] },
   salvia: { b: [4, 7], fc: '#9a88c8' }, artemisiaDrac: { b: [9, 11], fc: '#d8d0a0' }, ribes: { b: [2, 3], fc: '#d8d0a0', r: [7, 9], rc: '#1a1420' },
-  rubusRem: { b: [5, 8], fc: WHITE, r: [9, 13], rc: '#c0203a' },
+  rubusRem: { b: [5, 8], fc: WHITE, r: [9, 13], rc: '#c0203a' }, lantern: null,
   prunus: { b: [2, 2], fc: WHITE, r: [9, 10], rc: '#3a1a2a' }, echinacea: { b: [7, 13] }, rudbeckia: { b: [8, 14] },
 };
 for (const p of PLANTS) {

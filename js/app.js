@@ -23,10 +23,10 @@ import { buildEstimate, priceEstimate } from './estimate.js';
 import {
   sunPosition, localToUtc, sunDay, tzGuess, HOUSE_SHAPES, rectPoly, houseOutline, houseFacade, inPoly, sunVector, shadowsAt, sunHours,
   BUILDINGS, BUILDING_BY_KEY, PLANTS, PLANT_BY_KEY, PLANT_GROUPS, LIGHT_TEXT, lightZone, checkPlant, checkBuildings, defaultYard, convexOverlap, housePieces, LIGHT_SHARE,
-  PHI, FIB, goldenGrid, nearestGolden, goldenError, fibAtLeast, isFib, phyllotaxis, plantGroups, goldenSpiral,
+  PHI, FIB, goldenGrid, nearestGolden, goldenError, fibAtLeast, isFib, phyllotaxis, plantGroups, goldenSpiral, frostOf, frostHtml,
 } from './yard.js';
 import {
-  SOIL_PH, SOIL_TEXTURE, SOIL_WATER, CLIMATE, climateGuess, HARDY_TEXT, soilFit, SOIL_TESTS, TEMPLATES, TEMPLATE_KEYS,
+  SOIL_PH, SOIL_TEXTURE, SOIL_WATER, CLIMATE, climateGuess, soilFit, SOIL_TESTS, TEMPLATES, TEMPLATE_KEYS,
   pickPlants, placeTemplate, doorPlace, WIND_DIRS, windbreak, SCENARIOS, scenarioSpot, elevationSvg, bedLayout,
   PRESETS, PRESET_KEYS, presetRows, placePreset, fixSpots, ELEV_SPAN, rowMove, rowOfV, snapV, DEPTH_ROWS,
 } from './garden.js';
@@ -3716,7 +3716,7 @@ function renderPlantPalette() {
   $('y-plants').innerHTML = PLANT_GROUPS.map(([g, title]) => {
     const list = PLANTS.filter((p) => (g === 'top' ? p.top : !p.top && p.group === g) && ok(p)).sort((a, b) => (a.top || 0) - (b.top || 0));
     if (!list.length) return '';
-    return `<p class="chip-group">${title}</p><div class="chips">${list.map((p) => `<button type="button" class="chip plant-chip" data-plant="${p.key}" aria-pressed="${yardTool === p.key}" title="${p.light.map((l) => LIGHT_TEXT[l]).join(', ')}"><span class="dot" style="background:${p.color}"></span>${p.top ? `<b>${p.top}</b> ` : ''}${p.name}<small>${p.light.map((l) => LIGHT_ICON[l]).join('')}</small></button>`).join('')}</div>`;
+    return `<p class="chip-group">${title}</p><div class="chips">${list.map((p) => `<button type="button" class="chip plant-chip" data-plant="${p.key}" aria-pressed="${yardTool === p.key}" title="${p.light.map((l) => LIGHT_TEXT[l]).join(', ')}; ${frostOf(p).text}"><span class="dot" style="background:${p.color}"></span>${p.top ? `<b>${p.top}</b> ` : ''}${p.name}<small>${p.light.map((l) => LIGHT_ICON[l]).join('')}</small>${frostHtml(p)}</button>`).join('')}</div>`;
   }).join('');
 }
 
@@ -3989,7 +3989,7 @@ function openComp(id) {
     const ref = `${ri}:${pi}`;
     const tools = `<span class="dlg-tools"><button type="button" class="secondary" data-dup="${ref}" title="Ещё одно такое же растение в этом же месте композиции">＋ Дублировать</button>`
       + `<button type="button" class="secondary" data-less="${ref}"${p.qty <= 1 && total <= 1 ? ' disabled' : ''} title="${p.qty > 1 ? "Убрать выбранное на рисунке (или последнее)" : "Убрать из композиции"}">−</button></span>`;
-    return `<li class="${level}${dlgHot === ref ? ' hot' : ''}" data-ref="${ref}"><b>${pl.name}</b> — ${p.qty} шт.${tools}<span class="note">${r.tier} · ${yFmt(pl.h)} м · ${pl.light.map((l) => LIGHT_TEXT[l]).join(', ')} · ${HARDY_TEXT[pl.hardy]}</span>${pl.note ? `<br>${pl.note}` : ''}${notes.length ? `<br>${notes.join(' ')}` : ''}${sf.fixes.length ? `<br><span class="fix">${sf.fixes.join(' ')}</span>` : ''}</li>`;
+    return `<li class="${level}${dlgHot === ref ? ' hot' : ''}" data-ref="${ref}"><b>${pl.name}</b> ${frostHtml(pl)} — ${p.qty} шт.${tools}<span class="note">${r.tier} · ${yFmt(pl.h)} м · ${pl.light.map((l) => LIGHT_TEXT[l]).join(', ')} · <span class="frost-text ${frostOf(pl).cls}">${frostOf(pl).text}</span></span>${pl.note ? `<br>${pl.note}` : ''}${notes.length ? `<br>${notes.join(' ')}` : ''}${sf.fixes.length ? `<br><span class="fix">${sf.fixes.join(' ')}</span>` : ''}</li>`;
   }));
   $('y-dlg-list').innerHTML = `<p class="note">Растения на рисунке можно перетаскивать: влево-вправо вдоль клумбы, вверх — на ряд назад, вниз — на ряд вперёд. Нажатие выбирает растение. «＋ Дублировать» ставит копию рядом с выбранным — дальше тяните её куда нужно.</p><ul class="dlg-list">${list.join('')}</ul>`;
   const dlg = $('y-dialog');
@@ -4199,7 +4199,7 @@ function renderYardEditor(checks) {
   if (o.t && PLANT_BY_KEY[o.t]) {
     const pl = PLANT_BY_KEY[o.t];
     const c = checks.get(o.id);
-    $('y-edit').innerHTML = `<div class="editor"><strong>${yard.plants.indexOf(o) + 1}. ${pl.name}</strong>`
+    $('y-edit').innerHTML = `<div class="editor"><strong>${yard.plants.indexOf(o) + 1}. ${pl.name} ${frostHtml(pl)}</strong><span class="frost-text ${frostOf(pl).cls}">${frostOf(pl).text}</span>`
       + `<span class="note">Высота ${yFmt(pl.h)} м · свет: ${pl.light.map((l) => LIGHT_TEXT[l]).join(', ')}${pl.note ? ` · ${pl.note}` : ''}</span>`
       + `<div class="msg ${c.level === 'good' ? 'good' : c.level === 'bad' ? 'bad' : 'mixed'}">${c.notes.join('<br>')}</div>`
       + '<div class="row"><button type="button" class="secondary" data-act="dup">＋ Дублировать</button><button type="button" class="secondary" data-act="del">Убрать</button></div></div>';
@@ -4221,7 +4221,7 @@ function renderYardWarnings(checks) {
   $('y-warn').innerHTML = msgs.length ? `<ul class="y-warn">${msgs.join('')}</ul>` : '';
   const list = yard.plants.map((p, i) => {
     const c = checks.get(p.id);
-    return `<li class="${c.level}" data-pick="${p.id}"><b>${i + 1}. ${PLANT_BY_KEY[p.t].name}</b> — ${yFmt(c.hours)} ч солнца, ${LIGHT_TEXT[c.zone]}${c.level === 'good' ? ' ✓' : `<br><span>${c.notes.filter((n) => !n.startsWith('Свет подходит')).join(' ')}${c.fixes?.length ? ` ${c.fixes.join(' ')}` : ''}</span>`}</li>`;
+    return `<li class="${c.level}" data-pick="${p.id}"><b>${i + 1}. ${PLANT_BY_KEY[p.t].name}</b> ${frostHtml(PLANT_BY_KEY[p.t])} — ${yFmt(c.hours)} ч солнца, ${LIGHT_TEXT[c.zone]}${c.level === 'good' ? ' ✓' : `<br><span>${c.notes.filter((n) => !n.startsWith('Свет подходит')).join(' ')}${c.fixes?.length ? ` ${c.fixes.join(' ')}` : ''}</span>`}</li>`;
   });
   $('y-plant-list').innerHTML = list.length
     ? `<h3 class="sub">Посажено</h3><ul class="y-plant-list">${list.join('')}</ul><button type="button" class="link" data-act="clear-plants">Убрать все растения</button>`

@@ -2,7 +2,7 @@
 // сценарии отдыха и картинка композиции «в профиль».
 import { sketchPlant, sketchDefs } from './sketch.js';
 import {
-  PLANT_BY_KEY, BUILDING_BY_KEY, rectPoly, housePieces, houseOutline, convexOverlap, inPoly, sunHours, circlePoly,
+  PLANT_BY_KEY, BUILDING_BY_KEY, rectPoly, housePieces, houseOutline, convexOverlap, inPoly, sunHours, circlePoly, frostOf,
 } from './yard.js';
 
 const rad = (d) => (d * Math.PI) / 180;
@@ -680,18 +680,18 @@ export function elevationSvg(rows, title = '', opt = {}) {
     groups.set(`${sp.ti}:${sp.k}`, g);
   }
   if (selHit) parts.push(selHit);
-  const labels = [...groups.values()].map((g) => ({ x: g.xs.reduce((a, b) => a + b, 0) / g.xs.length, top: g.top, name: g.pl.name, qty: g.qty }));
+  const labels = [...groups.values()].map((g) => ({ x: g.xs.reduce((a, b) => a + b, 0) / g.xs.length, top: g.top, name: g.pl.name, qty: g.qty, frost: frostOf(g.pl) }));
   // Подписи от руки: каждая — в первую строку, где не наезжает на соседнюю
   const ends = [];
   labels.sort((a, b) => a.x - b.x).forEach((l) => {
     const text = `${l.name}${l.qty > 1 ? ` ×${l.qty}` : ''}`;
-    const half = text.length * 3.6 + 6;
+    const half = (text.length + 2) * 3.6 + 6;
     let line = ends.findIndex((e) => e < l.x - half);
     if (line < 0) line = ends.length;
     ends[line] = l.x + half;
     const ly = 24 + line * 18;
     parts.push(`<path class="sk-lead" d="M${l.x} ${ly + 5} Q${l.x + 6} ${(ly + l.top) / 2} ${l.x} ${l.top - 4}"/>`,
-      `<text class="sk-label" x="${l.x}" y="${ly}" text-anchor="middle">${text}</text>`);
+      `<text class="sk-label" x="${l.x}" y="${ly}" text-anchor="middle">${text}${l.frost.cls === 'annual' ? '' : `<tspan class="sk-frost ${l.frost.cls}" dx="3">❄\uFE0E</tspan>`}<title>${l.frost.text}</title></text>`);
   });
   // Миниатюра в карточке — без подписей, обрезана по растениям
   if (opt.thumb) return `<svg class="elev sketch" viewBox="40 110 ${W - 80} ${H - 120}" role="img" aria-label="${title}">${parts.filter((x) => !x.includes('sk-label') && !x.includes('sk-lead') && !x.includes('sk-row')).join('')}</svg>`;

@@ -332,6 +332,35 @@ for (const p of PLANTS) {
   p.water = water.split(' ');
   p.hardy = hardy;
 }
+// Зона морозостойкости USDA (самая холодная, где растение зимует без укрытия).
+// Якутск — зона 1 (зимой до −50 °C). Растениям, которые растут в Якутии в природе,
+// ставим 1, даже если в западных справочниках у вида зона выше.
+// 0 — однолетник: зимовать ему не нужно.
+const USDA = {
+  cornus: 1, spiraea: 4, physocarpus: 2, cotoneaster: 2, potentilla: 1, bergenia: 2, sedum: 3, irisSib: 3,
+  larix: 1, pinus: 1, betula: 1, padus: 1, crataegus: 2, juniper: 4, syringa: 2, caragana: 2,
+  rosaAcic: 1, rosaCanina: 3, sorbaria: 1, salix: 1, ledum: 1, lonicera: 1, malus: 1, ribes: 2,
+  hippophae: 2, prunus: 3, trollius: 1, hemerocallis: 3, astilbe: 4, phloxPan: 3, echinacea: 3, rudbeckia: 3,
+  paeonia: 2, delphinium: 3, adonis: 1, pulsatilla: 1, hosta: 3, achillea: 1, geranium: 2, filipendula: 1,
+  primula: 3, heuchera: 4, chrysanthemum: 3, phloxSub: 3, thymus: 3, sempervivum: 4, sagina: 4, orostachys: 1,
+  trifolium: 2, festuca: 4, deschampsia: 2, stipa: 3, bromus: 1,
+  cornusSton: 2, spiraeaCham: 1, spiraeaJap: 4, spiraeaVan: 3, philadelphus: 3, syringaVulg: 3, syringaMeyer: 3,
+  amelanchier: 2, berberis: 3, viburnum: 2, salixPurp: 4, hydrangeaPan: 3, hydrangeaArb: 3, rosaPark: 3, taxus: 4,
+  rhododendron: 4, picea: 1, malusDec: 3, rubus: 2, nepeta: 3, armeria: 4, aruncus: 3, irisBarb: 3, vinca: 4,
+  alliumSch: 1, melissa: 4, mentha: 3, origanum: 4, salvia: 5, artemisiaDrac: 2, leek: 0, ocimum: 0, borago: 0,
+};
+for (const p of PLANTS) p.usda = USDA[p.key] ?? 3;
+/** Метка морозостойкости: снежинка синяя — зона 1, для Якутии; красная — зона 2 и выше. */
+export function frostOf(pl) {
+  if (pl.usda === 0) return { cls: 'annual', text: 'однолетник — зимовать не нужно' };
+  if (pl.usda <= 1) return { cls: 'ok', text: 'USDA 1 — выдерживает зимы Якутии' };
+  return { cls: 'bad', text: `USDA ${pl.usda} — не рассчитано на зимы Якутии (зона 1)${pl.usda === 2 ? ': на грани, только в защищённом месте' : ''}` };
+}
+export const frostHtml = (pl) => {
+  const f = frostOf(pl);
+  return `<span class="frost ${f.cls}" title="${f.text}">${f.cls === 'annual' ? '◌' : '❄\uFE0E'}${pl.usda ? `<small>${pl.usda}</small>` : ''}</span>`;
+};
+
 export const PLANT_BY_KEY = Object.fromEntries(PLANTS.map((p) => [p.key, p]));
 
 export const PLANT_GROUPS = [

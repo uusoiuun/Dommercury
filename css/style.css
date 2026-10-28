@@ -796,3 +796,14 @@ table.est td.note { font-size: 12px; margin: 0; }
 p.dlg-layer { display: block; }
 .elev.sketch .sk-row path { stroke: #9a8a6a; stroke-width: 0.6; stroke-dasharray: 2 4; fill: none; opacity: 0.6; }
 .elev.sketch .sk-row text { font-family: 'Caveat', cursive; font-size: 13px; fill: #8a7a5a; }
+/* Морозостойкость: синяя снежинка — USDA 1 (Якутия), красная — теплее */
+.frost { display: inline-flex; align-items: baseline; gap: 1px; margin-left: 4px; font-size: 13px; font-weight: 700; line-height: 1; }
+.frost small { font-size: 9px; font-weight: 600; }
+.frost.ok { color: #2f7fc1; }
+.frost.bad { color: #c0392b; }
+.frost.annual { color: var(--muted); }
+.frost-text.ok { color: #2f7fc1; }
+.frost-text.bad { color: #c0392b; }
+.plant-chip:has(.frost.bad) { border-color: rgba(192, 57, 43, 0.55); }
+.elev.sketch .sk-frost.ok { fill: #2f7fc1; }
+.elev.sketch .sk-frost.bad { fill: #c0392b; }

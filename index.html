@@ -505,7 +505,7 @@
       <section class="card y-o3b">
         <h2>Готовые композиции</h2>
         <div class="seg y-region" role="tablist"></div>
-        <p class="note">Нажмите — композиция встанет на свою сторону участка: солнечные — на юг, теневые — на север. Потом её можно передвинуть. Нажмите на клумбу на плане — откроется картинка растений с названиями.</p>
+        <p class="note">Нажмите — откроется состав композиции: растения можно подвинуть, продублировать и переставить по рядам. Кнопка «Поставить на участок» поставит её на свою сторону: солнечные — на юг, теневые — на север, — и покажет схему посадки сверху с расстояниями.</p>
         <div class="presets" id="y-presets"></div>
         <h3 class="sub">Подобрать автоматически</h3>
         <p class="note">Сайт сам найдёт места по солнцу и тени и подберёт растения под свет, почву и климат.</p>
@@ -515,13 +515,6 @@
           <button type="button" id="y-comp-clear" class="secondary">Убрать предложенные</button>
         </div>
         <div id="y-comps"></div>
-      </section>
-
-      <section class="card y-o3c">
-        <h2>Сценарии отдыха</h2>
-        <p class="note">Выберите, как хотите проводить время, — сайт найдёт место по солнцу в нужные часы.</p>
-        <div class="chips" id="y-scenarios"></div>
-        <div id="y-scenario"></div>
       </section>
 
       <section class="card y-o5">
@@ -557,8 +550,10 @@
   <dialog id="y-dialog" class="y-dialog">
     <div class="dlg-head"><h3 id="y-dlg-title"></h3><button type="button" class="secondary" id="y-dlg-close" aria-label="Закрыть">✕</button></div>
     <p class="note" id="y-dlg-about"></p>
+    <div id="y-dlg-place"></div>
     <div id="y-dlg-season" class="season"></div>
     <div id="y-dlg-pic"></div>
+    <div id="y-dlg-top"></div>
     <div id="y-dlg-chart"></div>
     <div id="y-dlg-list"></div>
   </dialog>

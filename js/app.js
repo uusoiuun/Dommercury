@@ -27,7 +27,7 @@ import {
 } from './yard.js';
 import {
   SOIL_PH, SOIL_TEXTURE, SOIL_WATER, CLIMATE, climateGuess, soilFit, SOIL_TESTS, TEMPLATES, TEMPLATE_KEYS,
-  pickPlants, placeTemplate, doorPlace, WIND_DIRS, windbreak, SCENARIOS, scenarioSpot, elevationSvg, bedLayout,
+  pickPlants, placeTemplate, doorPlace, WIND_DIRS, windbreak, elevationSvg, bedLayout, topSchemeSvg, arrangeBed,
   PRESETS, PRESET_KEYS, presetRows, placePreset, fixSpots, ELEV_SPAN, rowMove, rowOfV, snapV, DEPTH_ROWS, bloomChartSvg, bloomGaps,
 } from './garden.js';
 
@@ -3694,10 +3694,9 @@ function renderYardControls() {
     $('y-presets').innerHTML = PRESET_KEYS.filter((k) => PRESETS[k].region === yard.region).map((k) => {
       const pr = PRESETS[k];
       return `<button type="button" class="preset" data-preset="${k}"><span class="preset-pic">${elevationSvg(presetRows(k), pr.title, { thumb: true })}</span>`
-        + `<span class="preset-side">${pr.side} · ${LIGHT_TEXT[pr.want]}</span><b>${pr.title}</b><span class="preset-add">＋ Вставить</span></button>`;
+        + `<span class="preset-side">${pr.side} · ${LIGHT_TEXT[pr.want]}</span><b>${pr.title}</b><span class="preset-add">Открыть состав →</span></button>`;
     }).join('');
   }
-  $('y-scenarios').innerHTML = Object.entries(SCENARIOS).map(([k, v]) => `<button type="button" class="chip" data-scn="${k}" aria-pressed="${yard.scenario === k}">${v.title}</button>`).join('');
   renderPlantPalette();
 }
 
@@ -3858,8 +3857,6 @@ function renderYardPlan(keepEditor = false) {
   if (yard.golden) parts.push(`<g class="y-gold">${goldenGrid(yard.plot).points.map(([x, y]) => `<circle cx="${x}" cy="${Y(y)}" r="${fs * 0.4}"/>`).join('')}</g>`);
 
   // Место для сценария отдыха
-  const scn = yard.scenario && currentScenario();
-  if (scn) parts.push(`<g class="y-scn"><circle cx="${scn.x}" cy="${Y(scn.y)}" r="2"/><text x="${scn.x}" y="${Y(scn.y) - 2.4}" font-size="${fs * 0.9}" text-anchor="middle">${SCENARIOS[yard.scenario].title}</text></g>`);
 
   // Север, солнце, масштаб
   parts.push(`<g class="y-north" transform="translate(${W + M / 2} ${M * 0.2 + fs * 2})"><g transform="rotate(${-prot})"><path d="M0 ${-fs * 1.6} L${fs * 0.6} ${fs * 0.6} L0 0 L${-fs * 0.6} ${fs * 0.6} Z"/></g><text y="${fs * 2.2}" font-size="${fs}" text-anchor="middle">С</text></g>`);
@@ -3906,21 +3903,12 @@ function renderYardPlan(keepEditor = false) {
   renderYardWarnings(checks);
   renderHarmony();
   renderComps();
-  renderScenario();
   renderMemo(checks);
 }
 
-// ---- Композиции, сценарии, памятка ----
+// ---- Композиции и памятка ----
 
 let compMsgs = [];
-let scnCache = { key: '', spot: null };
-
-function currentScenario() {
-  const opts = { year: YEAR, lat: state.center[0], lng: state.center[1], tz: yardTz(), date: yard.date };
-  const key = JSON.stringify([yard.scenario, yard.plot, yard.house, yard.items, yard.plants.length, yard.date, opts]);
-  if (scnCache.key !== key) scnCache = { key, spot: scenarioSpot(yard.scenario, yard, opts) };
-  return scnCache.spot;
-}
 
 function compZone(it) {
   return lightZone(bedHours(it), yardHours().grid.maxHours);
@@ -3938,18 +3926,6 @@ function renderComps() {
   if (wind.length) li.push(`<li><b>Ветрозащита</b><span>${wind.length} растений вдоль наветренных сторон: ${[...new Set(wind.map((p) => PLANT_BY_KEY[p.t].name))].join(', ')}</span></li>`);
   $('y-comps').innerHTML = (compMsgs.length ? `<p class="msg mixed">${compMsgs.join('<br>')}</p>` : '')
     + (li.length ? `<ul class="comp-list">${li.join('')}</ul>` : '');
-}
-
-function renderScenario() {
-  if (!yard.scenario) {
-    $('y-scenario').innerHTML = '';
-    return;
-  }
-  const sc = SCENARIOS[yard.scenario];
-  const spot = currentScenario();
-  $('y-scenario').innerHTML = spot
-    ? `<div class="msg good"><strong>${sc.title}: место отмечено на плане</strong>${sc.about} С ${sc.from}:00 до ${sc.to}:00 здесь ${sc.want === 'sun' ? 'солнце' : 'тень'} ${Math.round((sc.want === 'sun' ? spot.share : 1 - spot.share) * 100)} % времени, до дома ${yFmt(Math.round(spot.dist))} м.<br><button type="button" class="secondary" data-act="scn-place">Поставить сюда: ${BUILDING_BY_KEY[sc.item].label.toLowerCase()}</button></div>`
-    : `<p class="msg bad">Свободного места для «${sc.title}» не нашлось — освободите часть участка.</p>`;
 }
 
 function renderMemo(checks) {
@@ -4003,8 +3979,12 @@ function renderSeason(rows) {
     + (gaps.length ? `<br><span class="season-gap">Без цветения: ${gaps.map((d) => DEKADS[d]).join(', ')} — можно добавить растение, которое цветёт в это время.</span>` : '<br><span class="season-ok">Что-то цветёт всё время с мая по сентябрь.</span>');
 }
 
+// Готовая композиция, открытая для просмотра и правки, но ещё не поставленная на участок
+let draftComp = null;
+const compById = (id) => (draftComp && draftComp.id === id ? draftComp : yard.items.find((i) => i.id === id));
+
 function openComp(id, opt = {}) {
-  const it = yard.items.find((i) => i.id === id);
+  const it = compById(id);
   if (!it) return;
   dlgComp = id;
   const rows = bedRows(it);
@@ -4018,9 +3998,14 @@ function openComp(id, opt = {}) {
   renderSeason(rows);
   const tpl = compInfo(it);
   const title = tpl.title;
-  const zone = compZone(it);
+  const draft = it === draftComp;
+  // Пока композиция не поставлена, свет — тот, на который она рассчитана
+  const zone = draft ? (tpl.want === 'any' ? 'sun' : tpl.want) : compZone(it);
   $('y-dlg-title').textContent = title;
-  $('y-dlg-about').textContent = `${tpl.about} Место: ${LIGHT_TEXT[zone]}, ${yFmt(it.w)} × ${yFmt(it.d)} м.`.trim();
+  $('y-dlg-about').textContent = `${tpl.about} ${draft ? 'Рассчитана на' : 'Место'}: ${LIGHT_TEXT[zone]}, ${yFmt(it.w)} × ${yFmt(it.d)} м.`.trim();
+  $('y-dlg-place').innerHTML = draft
+    ? `<div class="msg mixed dlg-place"><span>Это предпросмотр: двигайте растения, дублируйте и переставляйте по рядам. Когда всё устроит — поставьте композицию на участок, на сторону ${tpl.side}.</span><button type="button" id="y-place-draft">＋ Поставить на участок</button></div>`
+    : '';
   // Панель выбранного растения: слои — назад, вперёд, в самый конец, на передний план
   const [hr, hk] = (dlgHot || '').split(':').map(Number);
   const hp = dlgHot && dlgInst != null ? rows[hr]?.plants[hk] : null;
@@ -4039,6 +4024,18 @@ function openComp(id, opt = {}) {
   dlgMsg = '';
   // Пока двигают ползунок сезона, список растений не перестраиваем — так анимация плавнее
   if (opt.seasonOnly) return;
+  // Поставленная композиция — схема посадки сверху в масштабе и расстояния
+  if (draft) $('y-dlg-top').innerHTML = '';
+  else {
+    const top = topSchemeSvg(it, rows);
+    const cm = (m) => `${Math.round(m * 100)} см`;
+    $('y-dlg-top').innerHTML = `<div class="ts-head"><h4 class="sub">Схема посадки — вид сверху, в масштабе · ${yFmt(it.w)} × ${yFmt(it.d)} м</h4><button type="button" class="secondary" id="y-arrange">Расставить по нормам</button></div>`
+      + '<p class="note">Круг — крона взрослого растения, цифра — номер в таблице. Линия — расстояние до ближайшего соседа в сантиметрах; красная — тесно: через «/» указано, сколько нужно. Двигайте растения на рисунке выше — схема перестроится.</p>'
+      + top.svg
+      + (top.tight ? `<p class="msg mixed">Тесно в ${top.tight} ${top.tight === 1 ? 'месте' : 'местах'}: раздвиньте растения на рисунке, уберите лишние копии или увеличьте клумбу (ширина и длина — в карточке композиции под планом).</p>` : '<p class="msg good">Всем растениям хватает места — кроны сомкнутся, но не будут мешать друг другу.</p>')
+      + `<table class="ts-table"><thead><tr><th>№</th><th>Растение</th><th>Шт.</th><th>Крона взрослого</th><th>Между такими же</th><th>От края клумбы</th></tr></thead><tbody>${top.legend.map((e, i) => `<tr><td><b>${i + 1}</b></td><td><span class="dot" style="background:${e.pl.flowerColor || e.pl.color}"></span>${e.pl.name}</td><td>${e.qty}</td><td>${cm(e.crown)}</td><td>${cm(e.step)}</td><td>${cm(e.edge)}</td></tr>`).join('')}</tbody></table>`
+      + '<p class="note">Между разными растениями — половина кроны одного плюс половина кроны другого. Ямы копайте по центрам кругов; первые 2–3 года промежутки можно занять однолетниками.</p>';
+  }
   const total = rows.reduce((n, r) => n + r.plants.length, 0);
   const list = rows.flatMap((r, ri) => r.plants.map((p, pi) => {
     const pl = PLANT_BY_KEY[p.key];
@@ -4063,7 +4060,7 @@ const dlgPoint = (e) => {
   const svg = $('y-dlg-pic').querySelector('svg');
   return new DOMPoint(e.clientX, e.clientY).matrixTransform(svg.getScreenCTM().inverse());
 };
-const dlgItem = () => yard.items.find((i) => i.id === dlgComp);
+const dlgItem = () => compById(dlgComp);
 $('y-dlg-pic').addEventListener('pointerdown', (e) => {
   const g = e.target.closest('[data-plant]');
   const it = dlgItem();
@@ -4087,6 +4084,9 @@ $('y-dlg-pic').addEventListener('pointermove', (e) => {
   at.u = Math.max(0, Math.min(1, dlgDrag.u0 + (pt.x - dlgDrag.x0) / ELEV_SPAN));
   // Вверх-вниз — по рядам: 13 px рисунка на ряд
   at.v = snapV(dlgDrag.v0 + (pt.y - dlgDrag.y0) / 52);
+  // Подвинули рукой — точное место по схеме больше не действует
+  delete at.mx;
+  delete at.my;
   dlgHot = `${dlgDrag.ti}:${dlgDrag.k}`;
   dlgInst = dlgDrag.c;
   openComp(dlgComp);
@@ -4474,22 +4474,46 @@ $('y-suggest').addEventListener('click', suggestComps);
 $('y-presets').addEventListener('click', (e) => {
   const b = e.target.closest('[data-preset]');
   if (!b) return;
+  // Сначала — состав композиции: посмотреть, подвигать, и только потом поставить
   const key = b.dataset.preset;
   const pr = PRESETS[key];
-  const spot = placePreset(key, yard, yardHours());
+  draftComp = { id: nextId(), t: 'comp', preset: key, x: 0, y: 0, w: pr.w, d: pr.d, h: 0, rot: 0, rows: presetRows(key) };
+  dlgHot = null;
+  dlgInst = null;
+  openComp(draftComp.id);
+});
+// Поставить композицию из предпросмотра на участок — со всеми правками
+// Расставить растения поставленной композиции на нужных расстояниях (порядок и ряды сохраняются)
+$('y-dialog').addEventListener('click', (e) => {
+  if (!e.target.closest('#y-arrange')) return;
+  const it = dlgItem();
+  if (!it || it === draftComp) return;
+  Object.assign(it, arrangeBed(it, it.rows));
+  yardChanged();
+  openComp(it.id);
+});
+$('y-dialog').addEventListener('click', (e) => {
+  if (!e.target.closest('#y-place-draft') || !draftComp) return;
+  const pr = PRESETS[draftComp.preset];
+  // Сначала расставить растения на нужных расстояниях — клумба может стать больше
+  const size = arrangeBed(draftComp, draftComp.rows);
+  const spot = placePreset(draftComp.preset, yard, yardHours(), size);
   compMsgs = [];
   if (!spot) {
-    compMsgs.push(`${pr.title}: не нашлось свободного места на стороне ${pr.side} — освободите часть участка или уменьшите постройки.`);
-    renderComps();
+    $('y-dlg-place').innerHTML = `<p class="msg bad">Чтобы растениям хватило места, клумбе нужно ${yFmt(size.w)} × ${yFmt(size.d)} м — на стороне ${pr.side} столько свободного места нет. Уберите лишние копии растений (кнопка «−» в списке), освободите часть участка или увеличьте участок.</p>`;
+    openComp(draftComp.id, { seasonOnly: true });
     return;
   }
-  const it = { id: nextId(), t: 'comp', preset: key, x: spot.x, y: spot.y, w: spot.w, d: spot.d, h: 0, rot: spot.rot, rows: presetRows(key) };
+  const it = { ...draftComp, x: spot.x, y: spot.y, w: spot.w, d: spot.d, rot: spot.rot };
+  draftComp = null;
   yard.items.push(it);
   yardSel = it.id;
   const zone = lightZone(bedHours(it), yardHours().grid.maxHours);
   if (pr.want !== zone) compMsgs.push(`${pr.title}: на стороне ${pr.side} получилось место «${LIGHT_TEXT[zone]}», а композиция рассчитана на «${LIGHT_TEXT[pr.want]}». Передвиньте её или выберите другую.`);
   yardChanged();
-  $('y-plan').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  openComp(it.id);
+  // Сразу показать схему посадки
+  $('y-dlg-top').scrollIntoView({ behavior: 'smooth', block: 'start' });
 });
 $('y-comp-clear').addEventListener('click', () => {
   yard.items = yard.items.filter((i) => !(i.t === 'comp' && i.auto));
@@ -4501,27 +4525,9 @@ $('y-comps').addEventListener('click', (e) => {
   const li = e.target.closest('[data-open]');
   if (li) openComp(li.dataset.open);
 });
-$('y-scenarios').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-scn]');
-  if (!b) return;
-  yard.scenario = yard.scenario === b.dataset.scn ? null : b.dataset.scn;
-  yardChanged(true);
-});
-$('y-scenario').addEventListener('click', (e) => {
-  if (!e.target.closest('[data-act="scn-place"]')) return;
-  const sc = SCENARIOS[yard.scenario];
-  const spot = currentScenario();
-  if (!spot) return;
-  const def = BUILDING_BY_KEY[sc.item];
-  const it = { id: nextId(), t: def.key, x: spot.x, y: spot.y, w: def.w, d: def.d, h: def.h, rot: 0 };
-  yard.items.push(it);
-  yardSel = it.id;
-  yard.scenario = null;
-  yardChanged(true);
-});
 $('y-dlg-close').addEventListener('click', () => $('y-dialog').close());
 const stopSeason = () => { if (seasonAnim) cancelAnimationFrame(seasonAnim); seasonAnim = null; };
-$('y-dialog').addEventListener('close', stopSeason);
+$('y-dialog').addEventListener('close', () => { stopSeason(); draftComp = null; });
 // Перерисовка не чаще раза за кадр: ползунок двигается плавно
 const seasonDraw = () => {
   if (seasonFrame) return;

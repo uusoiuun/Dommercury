@@ -833,3 +833,24 @@ p.dlg-layer { display: block; }
 .elev.sketch .sk-label.off { opacity: 0.45; }
 .elev.sketch .sk-label.on { fill: #8a2a4a; }
 .elev.sketch .sk-label.fruit { fill: #8a3a1a; }
+/* Предпросмотр композиции и схема посадки сверху */
+.dlg-place { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
+.dlg-place button { white-space: nowrap; }
+.top-scheme { width: 100%; height: auto; display: block; margin: 6px 0; background: #f7f1e3; border-radius: 12px; }
+.top-scheme .ts-bed { fill: #e8dcc0; stroke: #8a7a5a; stroke-width: 1.5; }
+.top-scheme .ts-grid { stroke: #b8a888; stroke-width: 0.5; stroke-dasharray: 2 3; }
+.top-scheme .ts-grid.m { stroke-width: 0.9; stroke-dasharray: none; opacity: 0.6; }
+.top-scheme .ts-crown { fill-opacity: 0.32; stroke: #5a5040; stroke-width: 0.8; }
+.top-scheme .ts-dot { fill: #fff; stroke: #3b3328; stroke-width: 1; }
+.top-scheme .ts-num { font-size: 9px; font-weight: 700; fill: #3b3328; }
+.top-scheme .ts-dist { stroke: #4a6a3a; stroke-width: 1; stroke-dasharray: 3 2; }
+.top-scheme .ts-dist.bad { stroke: #c0392b; stroke-width: 1.4; }
+.top-scheme .ts-dt { font-size: 9px; fill: #4a6a3a; paint-order: stroke; stroke: #f7f1e3; stroke-width: 3px; }
+.top-scheme .ts-dt.bad { fill: #c0392b; font-weight: 700; }
+.top-scheme .ts-dim { font-size: 11px; fill: #6a5a40; }
+.top-scheme .ts-scale { stroke: #3b3328; stroke-width: 2; }
+.ts-table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 6px 0; }
+.ts-table th, .ts-table td { border-bottom: 1px solid var(--line); padding: 4px 6px; text-align: left; }
+.ts-table th { font-weight: 600; color: var(--muted); font-size: 12px; }
+.ts-table .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+.ts-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; } .ts-head button { padding: 4px 12px; font-size: 13px; min-height: 0; }

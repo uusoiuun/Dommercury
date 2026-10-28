@@ -534,8 +534,8 @@ export const presetRows = (key) => PRESETS[key].rows.map(([tier, list]) => ({ ti
  * Место для готовой композиции: на своей стороне участка и с нужным светом.
  * Длинная сторона клумбы — вдоль ближайшей границы участка.
  */
-export function placePreset(key, yard, hours) {
-  const pr = PRESETS[key];
+export function placePreset(key, yard, hours, size = null) {
+  const pr = { ...PRESETS[key], ...(size || {}) };
   const W = yard.plot.w;
   const D = yard.plot.d;
   // Направление стороны в осях участка
@@ -682,7 +682,8 @@ export function plantSpots(rows) {
         const u = at ? at.u : u0 + (c - (p.qty - 1) / 2) * step;
         const v = at ? at.v : snapV(nRows > 1 ? ti / (nRows - 1) : 0.5);
         // z — порядок наложения на рисунке: меньше — дальше (рисуется раньше)
-        out.push({ ti, k, c, key: p.key, u: clamp01(u), v: clamp01(v), z: at?.z ?? 0 });
+        // mx, my — точное место в клумбе, м, после расстановки по нормам
+        out.push({ ti, k, c, key: p.key, u: clamp01(u), v: clamp01(v), z: at?.z ?? 0, mx: at?.mx, my: at?.my });
       }
     });
   });
@@ -692,7 +693,7 @@ export function plantSpots(rows) {
 export function fixSpots(rows) {
   const spots = plantSpots(rows);
   rows.forEach((r, ti) => r.plants.forEach((p, k) => {
-    p.at = spots.filter((sp) => sp.ti === ti && sp.k === k).map(({ u, v, z }) => ({ u, v, z }));
+    p.at = spots.filter((sp) => sp.ti === ti && sp.k === k).map(({ u, v, z, mx, my }) => (mx != null ? { u, v, z, mx, my } : { u, v, z }));
   }));
 }
 // Глубина клумбы — 5 рядов: ряд 1 — передний (v = 1), ряд 5 — самый задний (v = 0)
@@ -731,6 +732,8 @@ export function rowMove(rows, ref, c, dir) {
   const to = { back: now + 1, front: now - 1, bottom: DEPTH_ROWS, top: 1 }[dir];
   if (to < 1 || to > DEPTH_ROWS || to === now) return false;
   at.v = vOfRow(to);
+  delete at.mx;
+  delete at.my;
   // В новом ряду — поверх тех, кто уже там стоит
   const maxZ = Math.max(0, ...rows.flatMap((r) => r.plants.flatMap((p) => (p.at || []).filter((a) => a !== at && rowOfV(a.v) === to).map((a) => a.z ?? 0))));
   at.z = maxZ + 0.01;
@@ -848,12 +851,146 @@ export function bloomGaps(rows) {
   return DEKADS.map((_, d) => d).filter((d) => !pls.some((pl) => bloomLook(pl, d).flower));
 }
 
+// ---- Схема посадки: вид сверху в масштабе ----
+// Расстояние между центрами соседних растений — сумма радиусов их взрослых крон:
+// так кусты сомкнутся, но не будут глушить друг друга. До края клумбы — радиус кроны.
+/** Место растения в клумбе, м: x — вдоль клумбы от левого края, y — от переднего края вглубь. */
+const bedXY = (sp, w, d) => (sp.mx != null ? [Math.min(sp.mx, w), Math.min(sp.my, d)] : [(0.06 + sp.u * 0.88) * w, (0.12 + (1 - sp.v) * 0.76) * d]);
+const uOfX = (x, w) => Math.max(0, Math.min(1, (x / w - 0.06) / 0.88));
+const vOfY = (y, d) => Math.max(0, Math.min(1, 1 - (y / d - 0.12) / 0.76));
+
+/**
+ * Расставить растения по нормам: в каждом ряду — по порядку слева направо, соседи на расстоянии
+ * суммы радиусов крон, до края — радиус; ряды — один за другим вглубь. Если не помещается,
+ * клумба увеличивается. Возвращает новые размеры клумбы { w, d } (м, шаг 0,5).
+ */
+export function arrangeBed(item, rows) {
+  fixSpots(rows);
+  const spots = plantSpots(rows);
+  const byRow = new Map();
+  for (const sp of spots) {
+    const k = rowOfV(sp.v);
+    if (!byRow.has(k)) byRow.set(k, []);
+    byRow.get(k).push({ sp, pl: PLANT_BY_KEY[sp.key], r: edgeR(PLANT_BY_KEY[sp.key]) });
+  }
+  // Ряды от заднего (5) к переднему (1)
+  const rowList = [...byRow.entries()].sort((a, b) => b[0] - a[0]).map(([, l]) => l.sort((a, b) => a.sp.u - b.sp.u));
+  // Длина ряда: от края до первого — его радиус, между соседями — нужный промежуток, до края — радиус последнего
+  const need = (l) => l[0].r + l.slice(1).reduce((t, e, i) => t + plantGap(l[i].pl, e.pl), 0) + l[l.length - 1].r;
+  const half = (x) => Math.ceil(x * 2) / 2;
+  const w = half(Math.max(item.w, ...rowList.map(need)));
+  const depth = rowList.reduce((t, l) => t + 2 * Math.max(...l.map((e) => e.r)), 0);
+  const d = half(Math.max(item.d, depth));
+  // Свободное место по глубине — поровну между рядами
+  let y = d;
+  const spare = (d - depth) / (rowList.length + 1);
+  for (const l of rowList) {
+    const rmax = Math.max(...l.map((e) => e.r));
+    y -= spare + rmax;
+    const gap = (w - need(l)) / (l.length + 1);
+    let x = gap + l[0].r;
+    l.forEach((e, i) => {
+      if (i) x += gap + plantGap(l[i - 1].pl, e.pl);
+      const at = rows[e.sp.ti].plants[e.sp.k].at[e.sp.c];
+      at.u = uOfX(x, w);
+      at.v = vOfY(y, d);
+      at.mx = Math.round(x * 100) / 100;
+      at.my = Math.round(y * 100) / 100;
+    });
+    y -= rmax;
+  }
+  return { w, d };
+}
+
+// Под кроной дерева можно сажать кусты и цветы: до низких соседей у дерева считаем
+// только приствольный круг (до 1,5 м), между двумя деревьями — полные кроны
+const TRUNK_ZONE = 1.5;
+const isTree = (pl) => pl.group === 'tree' || (pl.size === 'mid' && pl.h >= 4);
+export const plantGap = (a, b) => (isTree(a) && isTree(b) ? a.r + b.r : (isTree(a) ? Math.min(a.r, TRUNK_ZONE) : a.r) + (isTree(b) ? Math.min(b.r, TRUNK_ZONE) : b.r));
+const edgeR = (pl) => (isTree(pl) ? Math.min(pl.r, TRUNK_ZONE) : pl.r);
+
+/** Таблица расстояний для композиции: по растению — крона, шаг между своими, до края. */
+export function spacingRows(rows) {
+  const seen = new Map();
+  for (const r of rows) for (const p of r.plants) {
+    const pl = PLANT_BY_KEY[p.key];
+    const e = seen.get(p.key) || { pl, qty: 0 };
+    e.qty += p.qty;
+    seen.set(p.key, e);
+  }
+  return [...seen.values()].map(({ pl, qty }) => ({ pl, qty, crown: pl.r * 2, step: pl.r * 2, edge: edgeR(pl) }));
+}
+
+/**
+ * Схема посадки сверху: клумба w × d м в масштабе, сетка 0,5 м, круги — кроны взрослых растений,
+ * номера — по таблице; линии — расстояние до ближайшего соседа (красная — тесно).
+ */
+export function topSchemeSvg(item, rows) {
+  const { w, d } = item;
+  const spots = plantSpots(rows);
+  const legend = spacingRows(rows);
+  const num = new Map(legend.map((e, i) => [e.pl.key, i + 1]));
+  const s = Math.min(640 / w, 420 / d, 140);
+  const L = 50;
+  const T = 30;
+  const Wp = w * s;
+  const Dp = d * s;
+  const X = (m) => L + m * s;
+  const Y = (m) => T + Dp - m * s; // y от переднего края — передний край внизу
+  const parts = [`<rect class="ts-bed" x="${L}" y="${T}" width="${Wp}" height="${Dp}" rx="6"/>`];
+  for (let m = 0.5; m < w; m += 0.5) parts.push(`<line class="ts-grid${Math.abs(m % 1) < 1e-6 ? ' m' : ''}" x1="${X(m)}" y1="${T}" x2="${X(m)}" y2="${T + Dp}"/>`);
+  for (let m = 0.5; m < d; m += 0.5) parts.push(`<line class="ts-grid${Math.abs(m % 1) < 1e-6 ? ' m' : ''}" x1="${L}" y1="${Y(m)}" x2="${L + Wp}" y2="${Y(m)}"/>`);
+  const pts = spots.map((sp) => {
+    const pl = PLANT_BY_KEY[sp.key];
+    const [mx, my] = bedXY(sp, w, d);
+    return { sp, pl, mx, my };
+  });
+  // Кроны: большие снизу, мелкие сверху
+  for (const p of [...pts].sort((a, b) => b.pl.r - a.pl.r)) {
+    parts.push(`<circle class="ts-crown" cx="${X(p.mx)}" cy="${Y(p.my)}" r="${p.pl.r * s}" fill="${p.pl.flowerColor || p.pl.color}"/>`);
+  }
+  // Ближайший сосед каждого растения: фактическое расстояние и нужное
+  const pairs = new Map();
+  let tight = 0;
+  pts.forEach((a, i) => {
+    let best = null;
+    pts.forEach((b, j) => {
+      if (i === j) return;
+      const dist = Math.hypot(a.mx - b.mx, a.my - b.my);
+      if (!best || dist < best.dist) best = { j, dist };
+    });
+    if (!best) return;
+    const k = [i, best.j].sort((x, y) => x - y).join('-');
+    if (pairs.has(k)) return;
+    const b = pts[best.j];
+    const need = plantGap(a.pl, b.pl);
+    const bad = best.dist < need * 0.85;
+    if (bad) tight++;
+    pairs.set(k, true);
+    const mxp = (X(a.mx) + X(b.mx)) / 2;
+    const myp = (Y(a.my) + Y(b.my)) / 2;
+    parts.push(`<line class="ts-dist${bad ? ' bad' : ''}" x1="${X(a.mx)}" y1="${Y(a.my)}" x2="${X(b.mx)}" y2="${Y(b.my)}"/>`,
+      `<text class="ts-dt${bad ? ' bad' : ''}" x="${mxp}" y="${myp - 3}" text-anchor="middle">${Math.round(best.dist * 100)}${bad ? `/${Math.round(need * 100)}` : ''}</text>`);
+  });
+  for (const p of pts) {
+    parts.push(`<circle class="ts-dot" cx="${X(p.mx)}" cy="${Y(p.my)}" r="7"/><text class="ts-num" x="${X(p.mx)}" y="${Y(p.my) + 3.5}" text-anchor="middle">${num.get(p.pl.key)}</text>`);
+  }
+  // Размеры клумбы и масштаб
+  parts.push(`<text class="ts-dim" x="${L + Wp / 2}" y="${T - 10}" text-anchor="middle">${Math.round(w * 100)} см — задний край</text>`,
+    `<text class="ts-dim" x="${L + Wp / 2}" y="${T + Dp + 18}" text-anchor="middle">передний край, к дорожке</text>`,
+    `<text class="ts-dim" x="${L - 10}" y="${T + Dp / 2}" text-anchor="middle" transform="rotate(-90 ${L - 10} ${T + Dp / 2})">${Math.round(d * 100)} см</text>`,
+    `<line class="ts-scale" x1="${L}" y1="${T + Dp + 34}" x2="${L + s}" y2="${T + Dp + 34}"/><text class="ts-dim" x="${L + s + 6}" y="${T + Dp + 38}">1 м · сетка 50 см</text>`);
+  const H = T + Dp + 46;
+  return { svg: `<svg class="top-scheme" viewBox="0 0 ${L * 2 + Wp} ${H}" role="img" aria-label="Схема посадки, вид сверху">${parts.join('')}</svg>`, legend, tight };
+}
+
 /** Точки посадки внутри клумбы — там же, где растения стоят на рисунке композиции. */
 export function bedLayout(item, rows) {
   const t = rad(item.rot || 0);
   return plantSpots(rows).map((sp) => {
-    const lx = (-0.5 + 0.06 + sp.u * 0.88) * item.w;
-    const ly = (0.5 - 0.12 - sp.v * 0.76) * item.d;
+    const [bx, by] = bedXY(sp, item.w, item.d);
+    const lx = bx - item.w / 2;
+    const ly = by - item.d / 2;
     return { key: sp.key, x: item.x + lx * Math.cos(t) + ly * Math.sin(t), y: item.y - lx * Math.sin(t) + ly * Math.cos(t) };
   });
 }

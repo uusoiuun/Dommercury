@@ -86,3 +86,20 @@ test('готовые композиции: солнечная — на юге, �
   assert.ok(east.x > y.plot.w / 2 && east.rot === 90);
   for (const k of Object.keys(PRESETS)) for (const r of presetRows(k)) for (const p of r.plants) assert.ok(PLANT_BY_KEY[p.key], `${k}: ${p.key}`);
 });
+
+test('Якутия: готовые и автоматические композиции — только растения зоны USDA 1', async () => {
+  const { PRESETS, PRESET_KEYS, presetRows } = await import('../js/garden.js');
+  const { forYakutia } = await import('../js/yard.js');
+  const yak = PRESET_KEYS.filter((k) => PRESETS[k].region === 'yak');
+  assert.ok(yak.length >= 4);
+  for (const k of yak) for (const r of presetRows(k)) for (const p of r.plants) assert.ok(forYakutia(PLANT_BY_KEY[p.key]), `${k}: ${p.key}`);
+  for (const [k, tpl] of Object.entries(TEMPLATES)) {
+    const rows = pickPlants(tpl, tpl.want === 'shade' ? 'shade' : 'sun', { known: false }, 'extreme', 'yak');
+    for (const r of rows) for (const p of r.plants) assert.ok(forYakutia(PLANT_BY_KEY[p.key]), `${k}: ${p.key}`);
+  }
+  // Хиты питомника — зона 1 и с ценой
+  for (const k of ['berberis', 'sorbusSib', 'sorbaria', 'sorbocot', 'syringa', 'padusMaackii']) {
+    assert.equal(PLANT_BY_KEY[k].usda, 1, k);
+    assert.ok(PLANT_BY_KEY[k].hit && PLANT_BY_KEY[k].price.length, k);
+  }
+});

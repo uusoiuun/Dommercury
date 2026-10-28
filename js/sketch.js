@@ -38,8 +38,8 @@ const HABIT = {
   stems: ['cornus', 'cornusSton', 'salix', 'salixPurp'],
   panicle: ['syringa', 'syringaVulg', 'syringaMeyer', 'sorbaria', 'hydrangeaPan'],
   bloomShrub: ['spiraea', 'spiraeaCham', 'spiraeaJap', 'spiraeaVan', 'philadelphus', 'potentilla', 'rosaAcic', 'rosaCanina', 'rosaPark', 'caragana', 'rhododendron', 'hydrangeaArb', 'amelanchier', 'ledum'],
-  berry: ['lonicera', 'ribes', 'hippophae', 'prunus', 'rubus', 'viburnum', 'cotoneaster'],
-  leafShrub: ['physocarpus', 'berberis'],
+  berry: ['lonicera', 'ribes', 'hippophae', 'prunus', 'rubus', 'viburnum', 'cotoneaster', 'sorbocot', 'berberis'],
+  leafShrub: ['physocarpus'],
   spike: ['delphinium', 'salvia', 'nepeta', 'artemisiaDrac'],
   plume: ['astilbe', 'aruncus', 'filipendula', 'phloxPan'],
   sword: ['irisSib', 'irisBarb', 'hemerocallis', 'leek'],
@@ -156,7 +156,7 @@ export function sketchPlant(pl, x, base, s, salt = 0) {
   if (habit === 'tree') {
     const cw = Math.max(40, Math.min(h * 0.75, pl.r * 2 * s * 0.6));
     const birch = pl.key === 'betula';
-    const trunk = birch ? '#f2efe6' : '#7a5a3e';
+    const trunk = birch ? '#f2efe6' : pl.key === 'padusMaackii' ? '#c07a3a' : '#7a5a3e';
     const th = Math.max(4, cw * 0.07);
     W.push(`<path d="M${f1(x - th)} ${base} Q${f1(x - th * 0.6)} ${f1(base - h * 0.3)} ${f1(x - th * 0.4)} ${f1(base - h * 0.55)} L${f1(x + th * 0.4)} ${f1(base - h * 0.55)} Q${f1(x + th * 0.6)} ${f1(base - h * 0.3)} ${f1(x + th)} ${base} Z" fill="${trunk}"/>`);
     I.push(ink(`M${f1(x - th)} ${base} Q${f1(x - th * 0.6)} ${f1(base - h * 0.3)} ${f1(x - th * 0.4)} ${f1(base - h * 0.55)} M${f1(x + th)} ${base} Q${f1(x + th * 0.6)} ${f1(base - h * 0.3)} ${f1(x + th * 0.4)} ${f1(base - h * 0.55)}`, 1.1));
@@ -171,7 +171,7 @@ export function sketchPlant(pl, x, base, s, salt = 0) {
     const crown = cloud(x, cy, cw / 2, h * 0.34, rnd, 12, 0.25);
     W.push(wash(crown, leaf, 0.55), wash(cloud(x - cw * 0.12, cy - h * 0.08, cw * 0.28, h * 0.17, rnd, 8), light(leaf, 0.35), 0.45),
       wash(cloud(x + cw * 0.15, cy + h * 0.1, cw * 0.3, h * 0.16, rnd, 8), dark(leaf, 0.25), 0.4));
-    if (['malus', 'malusDec', 'padus', 'crataegus'].includes(pl.key)) blossoms(x, cy, cw / 2, h * 0.32, 22, Math.max(2, cw / 28), col, rnd, W, I);
+    if (['malus', 'malusDec', 'malusPurp', 'padus', 'padusMaackii', 'crataegus', 'sorbusSib'].includes(pl.key)) blossoms(x, cy, cw / 2, h * 0.32, 22, Math.max(2, cw / 28), col, rnd, W, I);
     I.push(ink(crown, 1.1, sketchDash(rnd)), hatch(x, cy, cw / 2, h * 0.34, rnd));
   } else if (habit === 'spruce' || habit === 'yew') {
     const cw = habit === 'yew' ? wd(0.75) : Math.max(30, Math.min(h * 0.42, pl.r * 2 * s * 0.5));

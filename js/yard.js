@@ -199,7 +199,7 @@ export const PLANTS = [
   P('cornus', 'Дерен белый', 'shrub', 2.5, 1.2, ['sun', 'part', 'shade'], '#a8392c', { top: 1, note: 'Зимой красные побеги на белом снегу, летом зелёная листва.' }),
   P('spiraea', 'Спирея ниппонская', 'shrub', 1.5, 0.8, ['sun', 'part'], '#e8e4d6', { top: 2, note: 'Плотный шар, белые соцветия в начале лета.' }),
   P('physocarpus', 'Пузыреплодник', 'shrub', 2.5, 1.2, ['sun', 'part'], '#7a3b4a', { top: 3 }),
-  P('cotoneaster', 'Кизильник', 'shrub', 2, 1, ['sun', 'part'], '#4f6b3a', { top: 4 }),
+  P('cotoneaster', 'Кизильник черноплодный', 'shrub', 2, 1, ['sun', 'part'], '#2e2a3a', { top: 4, note: 'Чёрные ягоды и рыжая осенняя листва, хорош в живой изгороди.' }),
   P('potentilla', 'Лапчатка кустарниковая', 'shrub', 1, 0.6, ['sun'], '#e2c23a', { top: 5 }),
   P('bergenia', 'Бадан', 'perennial', 0.4, 0.4, ['part', 'shade', 'sun'], '#c9608a', { top: 6 }),
   P('sedum', 'Очиток видный', 'perennial', 0.5, 0.3, ['sun'], '#d07a9a', { top: 7, note: 'Цветёт август–октябрь: «Frosty Morn» белый, «Neon» ярко-розовый.' }),
@@ -208,13 +208,13 @@ export const PLANTS = [
   P('pinus', 'Сосна', 'tree', 12, 3, ['sun'], '#2f5a3f', { top: 10 }),
   // Деревья
   P('betula', 'Берёза', 'tree', 12, 3, ['sun'], '#7a9a4a'),
-  P('padus', 'Черёмуха', 'tree', 6, 2.5, ['sun', 'part'], '#5e8a4a', { size: 'mid' }),
-  P('crataegus', 'Боярышник', 'tree', 4, 2, ['sun', 'part'], '#6a7a3a', { size: 'mid' }),
+  P('padus', 'Черёмуха обыкновенная', 'tree', 6, 2.5, ['sun', 'part'], '#5e8a4a', { size: 'mid' }),
+  P('crataegus', 'Боярышник даурский', 'tree', 4, 2, ['sun', 'part'], '#c03a2a', { size: 'mid', note: 'Белые щитки в июне, красные ягоды осенью; колючий — для изгороди.' }),
   // Кустарники
   P('juniper', 'Можжевельник казацкий', 'shrub', 1, 1.2, ['sun', 'part'], '#6f8a7a', { note: 'Стелющийся, серо-зелёная хвоя — фон для цветов.' }),
   P('syringa', 'Сирень венгерская', 'shrub', 3, 1.5, ['sun', 'part'], '#9a7ab8'),
-  P('caragana', 'Акация жёлтая (карагана)', 'shrub', 3, 1.5, ['sun'], '#d8c040'),
-  P('rosaAcic', 'Роза иглистая', 'shrub', 1.2, 0.7, ['sun'], '#d06a8a'),
+  P('caragana', 'Карагана древовидная (акация жёлтая)', 'shrub', 3, 1.5, ['sun'], '#d8c040'),
+  P('rosaAcic', 'Шиповник иглистый (роза иглистая)', 'shrub', 1.2, 0.7, ['sun'], '#d06a8a'),
   P('rosaCanina', 'Шиповник', 'shrub', 1.5, 0.8, ['sun'], '#c4504a'),
   P('sorbaria', 'Рябинник рябинолистный', 'shrub', 2, 1.2, ['sun', 'part', 'shade'], '#8aa86a'),
   P('salix', 'Тальник (ива кустарниковая)', 'shrub', 3, 1.5, ['sun', 'part'], '#8ab070'),
@@ -223,7 +223,7 @@ export const PLANTS = [
   P('lonicera', 'Жимолость', 'fruit', 1.5, 0.8, ['sun', 'part'], '#4a5fa0', { note: 'Одна из самых стойких ягод.' }),
   P('malus', 'Яблоня ягодная', 'fruit', 5, 2, ['sun'], '#c0504a', { size: 'mid', note: 'Очень зимостойкая, без укрытия.' }),
   P('ribes', 'Смородина', 'fruit', 1.5, 0.8, ['sun', 'part'], '#3a3050'),
-  P('hippophae', 'Облепиха', 'fruit', 3, 1.5, ['sun'], '#e08a2a', { size: 'mid', note: 'Корни у поверхности — не перекапывайте рядом.' }),
+  P('hippophae', 'Облепиха (женское растение)', 'fruit', 3, 1.5, ['sun'], '#e08a2a', { size: 'mid', note: 'Для ягод нужно мужское растение рядом — одно на 5–8 женских. Корни у поверхности — не перекапывайте рядом.' }),
   P('prunus', 'Вишня песчаная', 'fruit', 1.2, 0.7, ['sun'], '#7a2a3a', { note: 'Иногда подмерзает — место потеплее.' }),
   // Многолетники
   P('trollius', 'Купальница азиатская', 'perennial', 0.6, 0.3, ['sun', 'part'], '#f0a020'),
@@ -264,7 +264,7 @@ export const PLANTS = [
   P('syringaVulg', 'Сирень обыкновенная', 'shrub', 4, 2, ['sun'], '#b48ad0', { size: 'mid' }),
   P('syringaMeyer', 'Сирень Мейера', 'shrub', 1.5, 0.8, ['sun'], '#c49ad8'),
   P('amelanchier', 'Ирга', 'shrub', 4, 2, ['sun', 'part'], '#4a5a8a', { size: 'mid', note: 'Белые цветы весной, ягоды летом, рыжая листва осенью.' }),
-  P('berberis', 'Барбарис (обыкновенный, оттавский)', 'shrub', 1.5, 0.8, ['sun', 'part'], '#8a2a3a'),
+  P('berberis', 'Барбарис амурский', 'shrub', 2, 1, ['sun', 'part'], '#c8302a', { note: 'Жёлтые кисти весной, ярко-красные ягоды и багряная листва осенью.' }),
   P('viburnum', 'Калина обыкновенная', 'shrub', 3, 1.5, ['sun', 'part', 'shade'], '#d03a2a'),
   P('salixPurp', 'Ива пурпурная', 'shrub', 2.5, 1.2, ['sun', 'part'], '#9ab08a'),
   P('hydrangeaPan', 'Гортензия метельчатая', 'shrub', 2, 1, ['sun', 'part'], '#f4f1e6', { note: 'Белые метёлки с конца лета.' }),
@@ -290,6 +290,15 @@ export const PLANTS = [
   P('leek', 'Лук-порей', 'herb', 0.6, 0.15, ['sun'], '#c0d0a0', { annual: true }),
   P('ocimum', 'Базилик', 'herb', 0.4, 0.2, ['sun'], '#7a3a5a', { annual: true }),
   P('borago', 'Бораго (огуречная трава)', 'herb', 0.6, 0.3, ['sun'], '#6a8ad8', { annual: true }),
+  // Хиты якутских питомников
+  P('sorbusSib', 'Рябина сибирская', 'tree', 6, 2, ['sun', 'part'], '#d8402a', { size: 'mid', note: 'Белые щитки в июне, гроздья оранжево-красных ягод до зимы.' }),
+  P('sorbocot', 'Рябинокизильник Позднякова', 'shrub', 2.5, 1.2, ['sun', 'part'], '#a02a3a', { note: 'Якутский природный гибрид рябины и кизильника: съедобные тёмно-красные ягоды.' }),
+  P('populusBer', 'Тополь берлинский', 'tree', 18, 4, ['sun'], '#6a8a4a', { note: 'Быстро растёт — ветрозащита и тень за 5–7 лет. Мужские растения не пылят пухом.' }),
+  P('populusSuav', 'Тополь душистый', 'tree', 15, 4, ['sun', 'part'], '#5f8a52', { note: 'Весной смолистые душистые почки; быстро даёт тень.' }),
+  P('padusMaackii', 'Черёмуха Маака', 'tree', 8, 2.5, ['sun', 'part'], '#f2efe6', { size: 'mid', note: 'Золотисто-медная блестящая кора — украшение зимнего сада.' }),
+  P('rosaBegg', 'Шиповник Беггера', 'shrub', 2, 1, ['sun'], '#f4f0e6', { note: 'Белые душистые цветы, мелкие красные плоды.' }),
+  P('rosaRugosa', 'Шиповник морщинистый', 'shrub', 1.5, 0.8, ['sun'], '#c8407a', { note: 'Крупные малиновые цветы всё лето и крупные плоды.' }),
+  P('malusPurp', 'Яблоня пурпурная', 'tree', 5, 2, ['sun'], '#a03060', { size: 'mid', note: 'Пурпурные цветы и листва, мелкие тёмные яблочки.' }),
 ];
 
 // Почва, влага и морозостойкость.
@@ -332,6 +341,28 @@ for (const p of PLANTS) {
   p.water = water.split(' ');
   p.hardy = hardy;
 }
+// Хиты и цены якутского питомника, ₽ за саженец по высоте
+const NURSERY = {
+  berberis: { hit: true, price: [['до 50 см', 1000], ['50–100 см', 1500]] },
+  crataegus: { price: [['до 50 см', 800], ['50–120 см', 950], ['выше 120 см', 1100]] },
+  caragana: { price: [['до 50 см', 650], ['50–100 см', 800]] },
+  cotoneaster: { price: [['до 50 см', 650], ['50–100 см', 1200]] },
+  hippophae: { price: [['до 50 см', 700], ['50–100 см', 900]] },
+  sorbusSib: { hit: true, price: [['до 50 см', 1000], ['50–100 см', 1500]] },
+  sorbaria: { hit: true, price: [['до 50 см', 600], ['50–100 см', 850], ['выше 100 см', 1200]] },
+  sorbocot: { hit: true, price: [['до 50 см', 1500]] },
+  syringa: { hit: true, price: [['до 50 см', 1000]] },
+  populusBer: { price: [['до 50 см', 750], ['100–150 см', 950], ['выше 150 см', 1100]] },
+  populusSuav: { price: [['до 50 см', 750], ['100–150 см', 950], ['выше 150 см', 1100]] },
+  padusMaackii: { hit: true, price: [['до 50 см', 1000], ['50–100 см', 1500], ['выше 100 см', 2000]] },
+  padus: { price: [['до 50 см', 900], ['50–100 см', 1100], ['выше 100 см', 1500]] },
+  rosaBegg: { price: [['до 50 см', 700], ['50–100 см', 850], ['выше 100 см', 1100]] },
+  rosaRugosa: { price: [['до 50 см', 700], ['50–100 см', 850], ['выше 100 см', 1100]] },
+  rosaAcic: { price: [['до 50 см', 650], ['50–100 см', 800], ['выше 100 см', 1000]] },
+  malusPurp: { price: [['до 50 см', 1200], ['50–100 см', 1350], ['выше 100 см', 1800]] },
+  malus: { price: [['до 50 см', 900], ['50–100 см', 1100], ['выше 100 см', 1500]] },
+};
+
 // Зона морозостойкости USDA (самая холодная, где растение зимует без укрытия).
 // Якутск — зона 1 (зимой до −50 °C). Растениям, которые растут в Якутии в природе,
 // ставим 1, даже если в западных справочниках у вида зона выше.
@@ -348,8 +379,21 @@ const USDA = {
   amelanchier: 2, berberis: 3, viburnum: 2, salixPurp: 4, hydrangeaPan: 3, hydrangeaArb: 3, rosaPark: 3, taxus: 4,
   rhododendron: 4, picea: 1, malusDec: 3, rubus: 2, nepeta: 3, armeria: 4, aruncus: 3, irisBarb: 3, vinca: 4,
   alliumSch: 1, melissa: 4, mentha: 3, origanum: 4, salvia: 5, artemisiaDrac: 2, leek: 0, ocimum: 0, borago: 0,
+  // Проверены в Якутии питомником: зона 1
+  berberis: 1, crataegus: 1, caragana: 1, cotoneaster: 1, hippophae: 1, syringa: 1,
+  sorbusSib: 1, sorbocot: 1, populusBer: 1, populusSuav: 1, padusMaackii: 1, rosaBegg: 1, rosaRugosa: 1, malusPurp: 1,
 };
-for (const p of PLANTS) p.usda = USDA[p.key] ?? 3;
+for (const p of PLANTS) {
+  p.usda = USDA[p.key] ?? 3;
+  Object.assign(p, NURSERY[p.key] || {});
+  // Зимостойкость в советах по почве и климату — по той же зоне
+  if (p.usda === 1) p.hardy = 'very';
+  else if (p.usda === 2) p.hardy = 'good';
+  else if (p.usda >= 3) p.hardy = 'risky';
+}
+/** Каталог для Якутии — только зона 1 (и однолетники); остальное — малоуходные для тёплых регионов. */
+export const forYakutia = (pl) => pl.usda <= 1;
+export const priceFrom = (pl) => (pl.price ? Math.min(...pl.price.map(([, v]) => v)) : null);
 /** Метка морозостойкости: снежинка синяя — зона 1, для Якутии; красная — зона 2 и выше. */
 export function frostOf(pl) {
   if (pl.usda === 0) return { cls: 'annual', text: 'однолетник — зимовать не нужно' };

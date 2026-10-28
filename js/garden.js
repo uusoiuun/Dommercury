@@ -2,7 +2,7 @@
 // сценарии отдыха и картинка композиции «в профиль».
 import { sketchPlant, sketchDefs } from './sketch.js';
 import {
-  PLANT_BY_KEY, BUILDING_BY_KEY, rectPoly, housePieces, houseOutline, convexOverlap, inPoly, sunHours, circlePoly, frostOf,
+  PLANT_BY_KEY, BUILDING_BY_KEY, rectPoly, housePieces, houseOutline, convexOverlap, inPoly, sunHours, circlePoly, frostOf, forYakutia,
 } from './yard.js';
 
 const rad = (d) => (d * Math.PI) / 180;
@@ -106,6 +106,12 @@ export const TEMPLATES = {
   sunBorder: {
     short: 'Солнечный', title: 'Солнечный миксбордер', want: 'sun', w: 7, d: 2.5,
     about: 'Пышное цветение всё лето: кустарники сзади, многолетники в середине, низкие и почвопокровные спереди.',
+    tiersYak: [
+      ['Задний ряд — кустарники', ['syringa', 'sorbocot', 'berberis', 'rosaRugosa', 'potentilla', 'caragana', 'sorbaria'], 2, 1],
+      ['Средний ряд — акценты', ['trollius', 'achillea', 'filipendula', 'rosaAcic'], 2, 3],
+      ['Передний ряд', ['pulsatilla', 'adonis', 'orostachys', 'alliumSch'], 3, 5],
+      ['Злаки для лёгкости', ['bromus'], 1, 3],
+    ],
     tiers: [
       ['Задний ряд — кустарники', ['spiraea', 'physocarpus', 'philadelphus', 'potentilla', 'syringaMeyer', 'rosaPark', 'caragana', 'spiraeaCham'], 2, 1],
       ['Средний ряд — акценты', ['phloxPan', 'hemerocallis', 'echinacea', 'irisSib', 'paeonia', 'delphinium', 'rudbeckia', 'nepeta'], 3, 3],
@@ -116,6 +122,11 @@ export const TEMPLATES = {
   shadeBorder: {
     short: 'Теневой', title: 'Теневой миксбордер', want: 'shade', w: 6, d: 2.5,
     about: 'Для северной стороны и тени деревьев: крупные листья, белые и кремовые соцветия светятся в полумраке. Тень обычно влажнее — растениям это нравится.',
+    tiersYak: [
+      ['Задний ряд — кустарники', ['cornus', 'sorbaria', 'padus'], 2, 1],
+      ['Средний ряд', ['spiraeaCham', 'filipendula', 'trollius'], 2, 3],
+      ['Передний ряд', ['ledum', 'trollius'], 1, 3],
+    ],
     tiers: [
       ['Задний ряд — кустарники', ['viburnum', 'cornus', 'sorbaria', 'spiraeaCham', 'hydrangeaArb', 'cornusSton'], 2, 1],
       ['Средний ряд', ['aruncus', 'astilbe', 'hosta', 'filipendula', 'trollius'], 3, 3],
@@ -126,6 +137,11 @@ export const TEMPLATES = {
   rockery: {
     short: 'Рокарий', title: 'Рокарий', want: 'sun', dry: true, w: 4, d: 3,
     about: 'Каменистая горка на самом солнечном и сухом месте: камни, гравий, суккуленты и злаки. Почти без полива.',
+    tiersYak: [
+      ['Каркас', ['potentilla', 'pinus', 'cotoneaster'], 1, 1],
+      ['Средний ярус', ['pulsatilla', 'adonis', 'bromus'], 2, 3],
+      ['Между камнями', ['orostachys', 'achillea'], 2, 5],
+    ],
     tiers: [
       ['Каркас', ['juniper', 'potentilla', 'pinus'], 1, 1],
       ['Средний ярус', ['stipa', 'pulsatilla', 'irisBarb', 'festuca', 'adonis'], 2, 3],
@@ -135,6 +151,11 @@ export const TEMPLATES = {
   entrance: {
     short: 'У входа', title: 'Входная зона', want: 'any', at: 'door', w: 3.5, d: 1.5,
     about: 'Небольшая аккуратная клумба у входа: красива с весны до осени, не мешает проходу, не колется.',
+    tiersYak: [
+      ['Акцент', ['berberis', 'potentilla', 'cornus', 'sorbaria'], 1, 1],
+      ['Середина', ['trollius', 'achillea'], 2, 3],
+      ['Край дорожки', ['pulsatilla', 'orostachys', 'alliumSch'], 1, 5],
+    ],
     tiers: [
       ['Акцент', ['hydrangeaPan', 'spiraeaJap', 'potentilla', 'cornus', 'hydrangeaArb'], 1, 1],
       ['Середина', ['hemerocallis', 'hosta', 'heuchera', 'phloxPan', 'astilbe'], 2, 3],
@@ -144,6 +165,11 @@ export const TEMPLATES = {
   parade: {
     short: 'Парадная', title: 'Парадная зона у фасада', want: 'any', at: 'facade', w: 6, d: 1.8,
     about: 'Вдоль фасада — строгая и спокойная посадка: вечнозелёный каркас и повторяющиеся группы, чтобы дом выглядел нарядно круглый год.',
+    tiersYak: [
+      ['Каркас', ['berberis', 'spiraeaCham', 'cornus', 'cotoneaster', 'syringa'], 2, 1],
+      ['Цветение', ['trollius', 'achillea', 'filipendula'], 2, 3],
+      ['Бордюр', ['orostachys', 'pulsatilla', 'adonis'], 1, 5],
+    ],
     tiers: [
       ['Каркас', ['juniper', 'berberis', 'spiraea', 'cornus', 'taxus', 'spiraeaCham'], 2, 1],
       ['Цветение', ['hemerocallis', 'irisSib', 'astilbe', 'phloxPan', 'hosta'], 2, 3],
@@ -153,6 +179,11 @@ export const TEMPLATES = {
   herbs: {
     short: 'Пряные травы', title: 'Грядка пряных трав', want: 'sun', near: 10, w: 3, d: 1.5,
     about: 'Ароматная грядка ближе к кухне или террасе: зелень к столу всё лето.',
+    tiersYak: [
+      ['Задний ряд', ['leek', 'borago'], 2, 1],
+      ['Середина', ['alliumSch'], 1, 3],
+      ['Передний край', ['ocimum'], 1, 3],
+    ],
     tiers: [
       ['Задний ряд', ['artemisiaDrac', 'borago', 'leek'], 2, 1],
       ['Середина', ['melissa', 'mentha', 'salvia', 'origanum'], 3, 2],
@@ -162,6 +193,9 @@ export const TEMPLATES = {
   fire: {
     short: 'Костровище', title: 'Костровище', want: 'sun', evening: true, fire: true, w: 6, d: 6,
     about: 'Круг из гравия с очагом посередине, вокруг — низкие негорючие растения. Не ближе 5 м к постройкам и 4 м к деревьям.',
+    tiersYak: [
+      ['Вокруг гравийного круга', ['orostachys', 'achillea', 'pulsatilla'], 3, 5],
+    ],
     tiers: [
       ['Вокруг гравийного круга', ['thymus', 'sedum', 'sempervivum', 'festuca', 'orostachys'], 3, 5],
     ],
@@ -178,9 +212,11 @@ function suits(pl, zone, soil, climate, strict = true) {
 }
 
 /** Растения композиции под свет места. */
-export function pickPlants(tpl, zone, soil, climate) {
+export function pickPlants(tpl, zone, soil, climate, region = 'yak') {
   const used = new Set();
-  return tpl.tiers.map(([tier, keys, take, qty]) => {
+  // Для Якутии — только растения зоны USDA 1
+  const tiers = region === 'yak' && tpl.tiersYak ? tpl.tiersYak : tpl.tiers;
+  return tiers.map(([tier, keys, take, qty]) => {
     let list = keys.filter((k) => !used.has(k) && suits(PLANT_BY_KEY[k], zone, soil, climate));
     // Если по почве и зимостойкости ничего не нашлось — берём хотя бы по свету
     if (!list.length) list = keys.filter((k) => !used.has(k) && suits(PLANT_BY_KEY[k], zone, soil, climate, false));
@@ -323,7 +359,63 @@ function polyGap(a, b) {
 // ---- Готовые композиции: нажали — и миксбордер встаёт на свою сторону участка ----
 // side — где ставить (стороны света), want — свет, rows — ряды от заднего к переднему: [ряд, [[ключ, штук]]]
 
+// region: yak — для Якутии, только зона USDA 1; warm — малоуходные для тёплых регионов
 export const PRESETS = {
+  yakHits: {
+    region: 'yak', short: 'Хиты Якутии', title: 'Хиты Якутии: сирень, барбарис, рябинник', side: 'Ю', want: 'sun', w: 8, d: 3,
+    about: 'Самые надёжные растения якутских питомников: цветение с июня, яркие ягоды и листва осенью. Всё — зона USDA 1, без укрытия.',
+    rows: [
+      ['Задний ряд', [['syringa', 1], ['sorbocot', 1], ['sorbusSib', 1]]],
+      ['Средний ряд', [['berberis', 3], ['sorbaria', 1], ['rosaRugosa', 2]]],
+      ['Передний ряд', [['potentilla', 3], ['achillea', 5]]],
+      ['Край', [['orostachys', 5]]],
+    ],
+  },
+  yakBerry: {
+    region: 'yak', short: 'Ягодный', title: 'Ягодный уголок', side: 'ЮВ', want: 'sun', w: 7, d: 3,
+    about: 'Красиво и съедобно: черёмуха Маака и яблоня ягодная сзади, жимолость, облепиха и шиповник в середине, шнитт-лук и купальница спереди.',
+    rows: [
+      ['Задний ряд', [['malus', 1], ['padusMaackii', 1]]],
+      ['Средний ряд', [['lonicera', 3], ['hippophae', 2], ['rosaAcic', 2]]],
+      ['Передний ряд', [['alliumSch', 5], ['trollius', 3]]],
+    ],
+  },
+  yakShade: {
+    region: 'yak', short: 'Северный угол', title: 'Северный тенистый угол', side: 'С', want: 'part', w: 6, d: 2.5,
+    about: 'Для северной стороны и тени: черёмуха, дерен и рябинник не боятся тени, лабазник и купальница любят влагу, багульник — кислую почву.',
+    rows: [
+      ['Задний ряд', [['padus', 1], ['cornus', 2]]],
+      ['Средний ряд', [['sorbaria', 1], ['spiraeaCham', 3], ['filipendula', 3]]],
+      ['Передний ряд', [['ledum', 3], ['trollius', 3]]],
+    ],
+  },
+  yakWind: {
+    region: 'yak', short: 'Изгородь от ветра', title: 'Живая изгородь от ветра', side: 'С', want: 'part', w: 10, d: 3,
+    about: 'Плотная полоса с наветренной стороны: тополь быстро даёт высоту, карагана и боярышник — густоту, шиповник Беггера и кизильник — нижний ярус.',
+    rows: [
+      ['Задний ряд', [['populusBer', 1], ['caragana', 3]]],
+      ['Средний ряд', [['crataegus', 2], ['rosaBegg', 2]]],
+      ['Передний ряд', [['cotoneaster', 3]]],
+    ],
+  },
+  yakMeadow: {
+    region: 'yak', short: 'Местные цветы', title: 'Цветник из местных многолетников', side: 'ЮЗ', want: 'sun', w: 5, d: 2.5,
+    about: 'Цветы якутских лугов и склонов: прострел и адонис в мае, купальница в июне, тысячелистник и лабазник всё лето, шиповник морщинистый — фоном.',
+    rows: [
+      ['Задний ряд', [['rosaRugosa', 1], ['filipendula', 3]]],
+      ['Средний ряд', [['trollius', 5], ['achillea', 5], ['bromus', 3]]],
+      ['Передний ряд', [['adonis', 5], ['pulsatilla', 5]]],
+      ['Край', [['orostachys', 5]]],
+    ],
+  },
+  yakEntrance: {
+    region: 'yak', short: 'У входа', title: 'Клумба у входа', side: 'Ю', want: 'sun', w: 3.5, d: 1.8,
+    about: 'Аккуратно с весны до осени: барбарис амурский и лапчатка, весной — прострел, летом — шнитт-лук.',
+    rows: [
+      ['Задний ряд', [['berberis', 1], ['potentilla', 2]]],
+      ['Передний ряд', [['pulsatilla', 5], ['alliumSch', 5]]],
+    ],
+  },
   sunSedum: {
     short: 'Солнечный с очитком', title: 'Солнечный миксбордер с очитком', side: 'Ю', want: 'sun', w: 7, d: 2.5,
     about: 'Для самой солнечной и сухой стороны: очиток, эхинацея, рудбекия и котовник цветут с июля до заморозков, почти без полива.',
@@ -417,6 +509,7 @@ export const PRESETS = {
     ],
   },
 };
+for (const pr of Object.values(PRESETS)) pr.region ||= 'warm';
 export const PRESET_KEYS = Object.keys(PRESETS);
 const SIDE_AZ = { С: 0, СВ: 45, В: 90, ЮВ: 135, Ю: 180, ЮЗ: 225, З: 270, СЗ: 315 };
 
@@ -488,8 +581,9 @@ export function windSides(plotRot, winds) {
  */
 export function windbreak(yard, winds, soil, climate) {
   const sides = windSides(yard.plot.rot, winds);
-  const treeKeys = ['larix', 'picea', 'pinus', 'betula'].filter((k) => suits(PLANT_BY_KEY[k], null, soil, climate));
-  const shrubKeys = ['caragana', 'amelanchier', 'salix', 'cotoneaster', 'sorbaria', 'spiraeaCham'].filter((k) => suits(PLANT_BY_KEY[k], null, soil, climate));
+  const fits = (k) => suits(PLANT_BY_KEY[k], null, soil, climate) && (yard.region === 'warm' || forYakutia(PLANT_BY_KEY[k]));
+  const treeKeys = ['larix', 'picea', 'pinus', 'betula', 'populusBer'].filter(fits);
+  const shrubKeys = ['caragana', 'amelanchier', 'salix', 'cotoneaster', 'sorbaria', 'spiraeaCham', 'berberis', 'rosaBegg'].filter(fits);
   const W = yard.plot.w;
   const D = yard.plot.d;
   const blocked = [...housePieces(yard.house), ...yard.items.map((i) => rectPoly(i))];

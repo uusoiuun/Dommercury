@@ -763,10 +763,12 @@ export const snapV = (v) => vOfRow(rowOfV(Math.max(0, Math.min(1, v))));
 // Сначала задние ряды, внутри ряда — по порядку наложения, затем слева направо
 const byLayer = (a, b) => a.v - b.v || a.z - b.z || a.u - b.u;
 // Масштаб рисунка: невысокие растения крупнее, чем в масштабе, — иначе цветы теряются рядом с кустом
-const scaleOf = (rows) => {
+// Масштаб рисунка — натуральный: один метр одинаков для всех растений и по высоте, и по ширине клумбы.
+// Самое высокое растение помещается в рисунок, ширина клумбы w (м) — в его ширину.
+const scaleOf = (rows, w = null) => {
   const maxH = Math.max(1, ...rows.flatMap((r) => r.plants.map((p) => plantOf(p).h)));
-  const hPx = (pl) => 200 * (pl.h / maxH) ** 0.45;
-  return { hPx, sOf: (pl) => hPx(pl) / pl.h };
+  const s = Math.min(230 / maxH, w ? ELEV_SPAN / (0.88 * w) : Infinity);
+  return { hPx: (pl) => pl.h * s, sOf: () => s };
 };
 // Полуширина растения на рисунке, px
 const halfW = (pl, sc, k = 1) => k * Math.min(95, Math.max(14, pl.r * sc.sOf(pl) * 0.8, Math.max(16, sc.hPx(pl)) * 0.3));
@@ -804,7 +806,7 @@ export function elevationSvg(rows, title = '', opt = {}) {
   const { W, H, pad } = ELEV;
   const list = rows.flatMap((r) => r.plants.map((p) => plantOf(p)));
   if (!list.length) return '';
-  const sc = scaleOf(rows);
+  const sc = scaleOf(rows, opt.w);
   const { hPx, sOf } = sc;
   const { id, defs } = sketchDefs();
   const ground = H - 58;

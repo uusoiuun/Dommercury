@@ -3693,7 +3693,7 @@ function renderYardControls() {
     $('y-presets').dataset.region = yard.region;
     $('y-presets').innerHTML = PRESET_KEYS.filter((k) => PRESETS[k].region === yard.region).map((k) => {
       const pr = PRESETS[k];
-      return `<button type="button" class="preset" data-preset="${k}"><span class="preset-pic">${elevationSvg(presetRows(k), pr.title, { thumb: true })}</span>`
+      return `<button type="button" class="preset" data-preset="${k}"><span class="preset-pic">${elevationSvg(presetRows(k), pr.title, { thumb: true, w: pr.w })}</span>`
         + `<span class="preset-side">${pr.side} · ${LIGHT_TEXT[pr.want]}</span><b>${pr.title}</b><span class="preset-add">Открыть состав →</span></button>`;
     }).join('');
   }
@@ -4019,7 +4019,7 @@ function openComp(id, opt = {}) {
         + `<button type="button" class="secondary" data-z="top"${row <= 1 ? ' disabled' : ''}>⤓ В передний ряд</button></span></div>`;
     })()
     : `<p class="note dlg-layer">Нажмите на растение на рисунке, чтобы выбрать его: тогда его можно двигать, дублировать и переставлять по рядам — всего ${DEPTH_ROWS} рядов, 1-й — передний.</p>`;
-  $('y-dlg-pic').innerHTML = bar + elevationSvg(rows, title, { sel: dlgHot && { ref: dlgHot, c: dlgInst }, guides: true, day: dlgDay });
+  $('y-dlg-pic').innerHTML = bar + elevationSvg(rows, title, { sel: dlgHot && { ref: dlgHot, c: dlgInst }, guides: true, day: dlgDay, w: it.w });
   $('y-dlg-chart').innerHTML = `<h4 class="sub">Календарь цветения</h4>${bloomChartSvg(rows, dlgDay)}<p class="note">Цветная полоса — цветение, полоса со штрихом — ягоды и плоды. Сроки — для якутского лета${yard.region === 'warm' ? ' (во вкладке тёплых регионов — для средней полосы)' : ''}, в разные годы сдвигаются на 1–2 недели.</p>`;
   dlgMsg = '';
   // Пока двигают ползунок сезона, список растений не перестраиваем — так анимация плавнее

@@ -573,7 +573,8 @@ export function plantSpots(rows) {
         const at = p.at?.[c];
         const u = at ? at.u : u0 + (c - (p.qty - 1) / 2) * step;
         const v = at ? at.v : nRows > 1 ? ti / (nRows - 1) : 0.5;
-        out.push({ ti, k, c, key: p.key, u: clamp01(u), v: clamp01(v) });
+        // z — порядок наложения на рисунке: меньше — дальше (рисуется раньше)
+        out.push({ ti, k, c, key: p.key, u: clamp01(u), v: clamp01(v), z: at?.z ?? clamp01(v) });
       }
     });
   });
@@ -583,8 +584,53 @@ export function plantSpots(rows) {
 export function fixSpots(rows) {
   const spots = plantSpots(rows);
   rows.forEach((r, ti) => r.plants.forEach((p, k) => {
-    p.at = spots.filter((sp) => sp.ti === ti && sp.k === k).map(({ u, v }) => ({ u, v }));
+    p.at = spots.filter((sp) => sp.ti === ti && sp.k === k).map(({ u, v, z }) => ({ u, v, z }));
   }));
+}
+const byLayer = (a, b) => a.z - b.z || a.v - b.v || a.u - b.u;
+// Масштаб рисунка: невысокие растения крупнее, чем в масштабе, — иначе цветы теряются рядом с кустом
+const scaleOf = (rows) => {
+  const maxH = Math.max(1, ...rows.flatMap((r) => r.plants.map((p) => PLANT_BY_KEY[p.key].h)));
+  const hPx = (pl) => 200 * (pl.h / maxH) ** 0.6;
+  return { hPx, sOf: (pl) => hPx(pl) / pl.h };
+};
+// Полуширина растения на рисунке, px
+const halfW = (pl, sc) => Math.min(95, Math.max(14, pl.r * sc.sOf(pl) * 0.8, Math.max(16, sc.hPx(pl)) * 0.3));
+
+/**
+ * Передвинуть растение (копию c растения ref = 'ряд:номер') по слоям рисунка:
+ * back — за ближайшее растение, которое его заслоняет сзади; bottom — в самый конец;
+ * front — перед ближайшим соседом спереди; top — на передний план.
+ * Возвращает false, если двигать дальше некуда.
+ */
+export function layerMove(rows, ref, c, dir) {
+  fixSpots(rows);
+  const sc = scaleOf(rows);
+  const order = plantSpots(rows).sort(byLayer);
+  order.forEach((sp, i) => { sp.z = (i + 0.5) / order.length; });
+  const i = order.findIndex((sp) => `${sp.ti}:${sp.k}` === ref && sp.c === c);
+  if (i < 0) return false;
+  const me = order[i];
+  const x = (sp) => ELEV.pad + sp.u * ELEV_SPAN;
+  const overlaps = (sp) => Math.abs(x(sp) - x(me)) < halfW(PLANT_BY_KEY[sp.key], sc) + halfW(PLANT_BY_KEY[me.key], sc);
+  let z = me.z;
+  if (dir === 'bottom') z = i === 0 ? null : order[0].z - 0.5 / order.length;
+  else if (dir === 'top') z = i === order.length - 1 ? null : order[order.length - 1].z + 0.5 / order.length;
+  else if (dir === 'back') {
+    let j = i - 1;
+    while (j >= 0 && !overlaps(order[j])) j--;
+    if (j < 0) z = i === 0 ? null : order[0].z - 0.5 / order.length;
+    else z = j > 0 ? (order[j - 1].z + order[j].z) / 2 : order[j].z - 0.5 / order.length;
+  } else {
+    let j = i + 1;
+    while (j < order.length && !overlaps(order[j])) j++;
+    if (j >= order.length) z = i === order.length - 1 ? null : order[order.length - 1].z + 0.5 / order.length;
+    else z = j < order.length - 1 ? (order[j].z + order[j + 1].z) / 2 : order[j].z + 0.5 / order.length;
+  }
+  for (const sp of order) rows[sp.ti].plants[sp.k].at[sp.c].z = sp.z;
+  if (z == null) return false;
+  rows[me.ti].plants[me.k].at[me.c].z = z;
+  return true;
 }
 
 /** Картинка композиции: растения в профиль с подписями, как рисунок от руки. */
@@ -592,10 +638,8 @@ export function elevationSvg(rows, title = '', opt = {}) {
   const { W, H, pad } = ELEV;
   const list = rows.flatMap((r) => r.plants.map((p) => PLANT_BY_KEY[p.key]));
   if (!list.length) return '';
-  const maxH = Math.max(1, ...list.map((pl) => pl.h));
-  // Невысокие растения крупнее, чем в масштабе, — иначе цветы теряются рядом с кустом или деревом
-  const hPx = (pl) => 200 * (pl.h / maxH) ** 0.6;
-  const sOf = (pl) => hPx(pl) / pl.h;
+  const sc = scaleOf(rows);
+  const { hPx, sOf } = sc;
   const { id, defs } = sketchDefs();
   const ground = H - 58;
   const parts = [defs, `<rect x="0" y="0" width="${W}" height="${H}" fill="#f7f1e3"/>`, `<rect x="0" y="0" width="${W}" height="${H}" filter="url(#${id}-paper)"/>`];
@@ -603,10 +647,10 @@ export function elevationSvg(rows, title = '', opt = {}) {
   parts.push(`<g filter="url(#${id}-wc)"><path d="M30 ${ground + 14} Q${W * 0.3} ${ground + 4} ${W / 2} ${ground + 10} T${W - 30} ${ground + 8} L${W - 40} ${ground + 30} Q${W / 2} ${ground + 40} 40 ${ground + 30} Z" fill="#c8b48a" fill-opacity="0.45"/></g>`,
     `<g filter="url(#${id}-ink)"><path class="sk-ink" d="M24 ${ground + 12} Q${W * 0.28} ${ground + 3} ${W / 2} ${ground + 9} T${W - 24} ${ground + 7}" stroke-width="1.2"/>`
     + `<path class="sk-hatch" d="${Array.from({ length: 34 }, (_, k) => `M${50 + k * 19} ${ground + 18 + (k % 3) * 4} l9 -3`).join(' ')}"/></g>`);
-  // Задние растения рисуем первыми и выше, передние — последними и ниже
-  // Выбранное растение — поверх остальных, чтобы его было легко взять
+  // Задние растения рисуем первыми, передние — последними; порядок можно менять кнопками
   const isSel = (sp) => !!opt.sel && opt.sel.ref === `${sp.ti}:${sp.k}` && opt.sel.c === sp.c;
-  const spots = plantSpots(rows).sort((a, b) => isSel(a) - isSel(b) || a.v - b.v || a.u - b.u);
+  const spots = plantSpots(rows).sort(byLayer);
+  let selHit = '';
   const groups = new Map();
   for (const sp of spots) {
     const pl = PLANT_BY_KEY[sp.key];
@@ -616,7 +660,9 @@ export function elevationSvg(rows, title = '', opt = {}) {
     const pic = sketchPlant(pl, x, base, sOf(pl), sp.c);
     // Невидимая область нажатия по силуэту — чтобы попасть и в тонкие прутья, и в редкий злак
     const hh = Math.max(16, hPx(pl));
-    const hit = `<ellipse class="sk-hit" cx="${x}" cy="${base - hh / 2}" rx="${Math.min(95, Math.max(14, pl.r * sOf(pl) * 0.8, hh * 0.3))}" ry="${hh / 2 + 4}"/>`;
+    const hit = `<ellipse class="sk-hit" cx="${x}" cy="${base - hh / 2}" rx="${halfW(pl, sc)}" ry="${hh / 2 + 4}"/>`;
+    // Выбранное растение можно взять, даже если оно за другими: его область нажатия — поверх всех
+    if (sel) selHit = `<g data-plant="${sp.ti}:${sp.k}" data-c="${sp.c}">${hit}</g>`;
     parts.push(`<g class="sk-plant${sel}" data-plant="${sp.ti}:${sp.k}" data-c="${sp.c}"><title>${pl.name}</title>${hit}<g filter="url(#${id}-wc)">${pic.wash}</g><g filter="url(#${id}-ink)">${pic.ink}</g></g>`);
     const g = groups.get(`${sp.ti}:${sp.k}`) || { xs: [], top: Infinity, pl, qty: 0 };
     g.xs.push(x);
@@ -624,6 +670,7 @@ export function elevationSvg(rows, title = '', opt = {}) {
     g.qty++;
     groups.set(`${sp.ti}:${sp.k}`, g);
   }
+  if (selHit) parts.push(selHit);
   const labels = [...groups.values()].map((g) => ({ x: g.xs.reduce((a, b) => a + b, 0) / g.xs.length, top: g.top, name: g.pl.name, qty: g.qty }));
   // Подписи от руки: каждая — в первую строку, где не наезжает на соседнюю
   const ends = [];

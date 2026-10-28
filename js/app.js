@@ -28,7 +28,7 @@ import {
 import {
   SOIL_PH, SOIL_TEXTURE, SOIL_WATER, CLIMATE, climateGuess, HARDY_TEXT, soilFit, SOIL_TESTS, TEMPLATES, TEMPLATE_KEYS,
   pickPlants, placeTemplate, doorPlace, WIND_DIRS, windbreak, SCENARIOS, scenarioSpot, elevationSvg, bedLayout,
-  PRESETS, PRESET_KEYS, presetRows, placePreset, fixSpots, ELEV_SPAN,
+  PRESETS, PRESET_KEYS, presetRows, placePreset, fixSpots, ELEV_SPAN, layerMove,
 } from './garden.js';
 
 const L = window.L;
@@ -3953,6 +3953,7 @@ function renderMemo(checks) {
 let dlgComp = null; // композиция, открытая в окне «Состав»
 let dlgHot = null; // растение, на которое нажали на рисунке: 'ряд:номер'
 let dlgInst = null; // какая из его копий выбрана
+let dlgMsg = ''; // подсказка после нажатия кнопки слоя
 function openComp(id) {
   const it = yard.items.find((i) => i.id === id);
   if (!it) return;
@@ -3963,7 +3964,18 @@ function openComp(id) {
   const zone = compZone(it);
   $('y-dlg-title').textContent = title;
   $('y-dlg-about').textContent = `${tpl.about} Место: ${LIGHT_TEXT[zone]}, ${yFmt(it.w)} × ${yFmt(it.d)} м.`.trim();
-  $('y-dlg-pic').innerHTML = elevationSvg(rows, title, { sel: dlgHot && { ref: dlgHot, c: dlgInst } });
+  // Панель выбранного растения: слои — назад, вперёд, в самый конец, на передний план
+  const [hr, hk] = (dlgHot || '').split(':').map(Number);
+  const hp = dlgHot && dlgInst != null ? rows[hr]?.plants[hk] : null;
+  const bar = hp
+    ? `<div class="dlg-layer"><span>Выбрано: <b>${PLANT_BY_KEY[hp.key].name}</b>${hp.qty > 1 ? ` (${dlgInst + 1} из ${hp.qty})` : ''}${dlgMsg ? ` — ${dlgMsg}` : ''}</span>`
+      + '<span class="row wrap"><button type="button" class="secondary" data-z="back" title="За ближайшее растение сзади">↓ На задний план</button>'
+      + '<button type="button" class="secondary" data-z="bottom" title="Позади всех">⤓ В самый конец</button>'
+      + '<button type="button" class="secondary" data-z="front" title="Перед ближайшим растением спереди">↑ Вперёд</button>'
+      + '<button type="button" class="secondary" data-z="top" title="Впереди всех">⤒ На передний план</button></span></div>'
+    : '<p class="note dlg-layer">Нажмите на растение на рисунке, чтобы выбрать его: тогда его можно двигать, дублировать и переставлять на задний или передний план.</p>';
+  $('y-dlg-pic').innerHTML = bar + elevationSvg(rows, title, { sel: dlgHot && { ref: dlgHot, c: dlgInst } });
+  dlgMsg = '';
   const total = rows.reduce((n, r) => n + r.plants.length, 0);
   const list = rows.flatMap((r, ri) => r.plants.map((p, pi) => {
     const pl = PLANT_BY_KEY[p.key];
@@ -4011,6 +4023,8 @@ $('y-dlg-pic').addEventListener('pointermove', (e) => {
   // Вдоль — по ширине рисунка; вглубь — по высоте: на 60 px вверх — к заднему краю
   at.u = Math.max(0, Math.min(1, dlgDrag.u0 + (pt.x - dlgDrag.x0) / ELEV_SPAN));
   at.v = Math.max(0, Math.min(1, dlgDrag.v0 + (pt.y - dlgDrag.y0) / 60));
+  // Заметно потянули вверх-вниз — слой следует за глубиной; чуть дрогнула рука — слой не меняем
+  if (Math.abs(pt.y - dlgDrag.y0) > 10) at.z = at.v;
   dlgHot = `${dlgDrag.ti}:${dlgDrag.k}`;
   dlgInst = dlgDrag.c;
   openComp(dlgComp);
@@ -4024,6 +4038,15 @@ $('y-dlg-pic').addEventListener('pointerup', () => {
   openComp(dlgComp);
   if (moved) yardChanged();
   else $('y-dlg-list').querySelector(`[data-ref="${dlgHot}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+});
+$('y-dlg-pic').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-z]');
+  const it = dlgItem();
+  if (!b || !it || !dlgHot || dlgInst == null) return;
+  const moved = layerMove(it.rows, dlgHot, dlgInst, b.dataset.z);
+  if (!moved) dlgMsg = ['back', 'bottom'].includes(b.dataset.z) ? 'дальше назад некуда' : 'дальше вперёд некуда';
+  openComp(dlgComp);
+  yardChanged();
 });
 $('y-dlg-list').addEventListener('click', (e) => {
   const it = dlgItem();
@@ -4043,7 +4066,7 @@ $('y-dlg-list').addEventListener('click', (e) => {
     const du = Math.max(0.07, Math.min(0.2, (pl.r * 1.4) / Math.max(it.w, 1)));
     const src = p.at[c];
     const u = src.u + du <= 1 ? src.u + du : Math.max(0, src.u - du);
-    p.at.push({ u, v: src.v });
+    p.at.push({ u, v: src.v, z: src.z });
     p.qty += 1;
     dlgHot = ref;
     dlgInst = p.qty - 1;

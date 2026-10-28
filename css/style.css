@@ -791,3 +791,6 @@ table.est td.note { font-size: 12px; margin: 0; }
 #y-dlg-pic .sk-plant { cursor: grab; }
 #y-dlg-pic .sk-plant.sel { filter: drop-shadow(0 0 2px #b4552d) drop-shadow(0 0 4px rgba(180, 85, 45, 0.6)); }
 .elev.sketch .sk-hit { fill: transparent; pointer-events: all; }
+.dlg-layer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px; margin: 8px 0 4px; font-size: 13px; }
+.dlg-layer button { padding: 4px 10px; font-size: 12px; min-height: 0; }
+p.dlg-layer { display: block; }

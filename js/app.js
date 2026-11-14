@@ -4030,10 +4030,11 @@ function openComp(id, opt = {}) {
     const top = topSchemeSvg(it, rows);
     const cm = (m) => `${Math.round(m * 100)} см`;
     $('y-dlg-top').innerHTML = `<div class="ts-head"><h4 class="sub">Схема посадки — вид сверху, в масштабе · ${yFmt(it.w)} × ${yFmt(it.d)} м</h4><button type="button" class="secondary" id="y-arrange">Расставить по нормам</button></div>`
+      + (top.dense < 1 ? `<p class="note"><b>Посадка куртинами:</b> одинаковые растения сажают группами теснее обычного — ${Math.round(top.dense * 100)} % от нормы, чтобы они быстрее сомкнулись в сплошное пятно. Круг — место одного растения в группе.</p>` : '')
       + '<p class="note">Круг — крона взрослого растения, цифра — номер в таблице. Линия — расстояние до ближайшего соседа в сантиметрах; красная — тесно: через «/» указано, сколько нужно. Двигайте растения на рисунке выше — схема перестроится.</p>'
       + top.svg
       + (top.tight ? `<p class="msg mixed">Тесно в ${top.tight} ${top.tight === 1 ? 'месте' : 'местах'}: раздвиньте растения на рисунке, уберите лишние копии или увеличьте клумбу (ширина и длина — в карточке композиции под планом).</p>` : '<p class="msg good">Всем растениям хватает места — кроны сомкнутся, но не будут мешать друг другу.</p>')
-      + `<table class="ts-table"><thead><tr><th>№</th><th>Растение</th><th>Шт.</th><th>Крона взрослого</th><th>Между такими же</th><th>От края клумбы</th></tr></thead><tbody>${top.legend.map((e, i) => `<tr><td><b>${i + 1}</b></td><td><span class="dot" style="background:${e.pl.flowerColor || e.pl.color}"></span>${e.pl.name}</td><td>${e.qty}</td><td>${cm(e.crown)}</td><td>${cm(e.step)}</td><td>${cm(e.edge)}</td></tr>`).join('')}</tbody></table>`
+      + `<table class="ts-table"><thead><tr><th>№</th><th>Растение</th><th>Шт.</th><th>Крона взрослого</th><th>${top.dense < 1 ? 'Шаг в куртине' : 'Между такими же'}</th><th>От края клумбы</th></tr></thead><tbody>${top.legend.map((e, i) => `<tr><td><b>${i + 1}</b></td><td><span class="dot" style="background:${e.pl.flowerColor || e.pl.color}"></span>${e.pl.name}</td><td>${e.qty}</td><td>${cm(e.crown)}</td><td>${cm(e.step)}</td><td>${cm(e.edge)}</td></tr>`).join('')}</tbody></table>`
       + '<p class="note">Между разными растениями — половина кроны одного плюс половина кроны другого. Ямы копайте по центрам кругов; первые 2–3 года промежутки можно занять однолетниками.</p>';
   }
   const total = rows.reduce((n, r) => n + r.plants.length, 0);

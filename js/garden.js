@@ -477,22 +477,24 @@ export const PRESETS = {
       ]],
     ],
   },
-  // Маленький рокарий 2 × 1 м: растения якутских питомников для сухого места, камни и гравий
+  // Маленький рокарий 2 × 1 м: растения куртинами по 5–7 штук, камни и гравий
   yakMeadow: {
-    region: 'yak', short: 'Рокарий 2 × 1 м', title: 'Рокарий 2 × 1 м из местных растений', side: 'ЮЗ', want: 'sun', w: 2, d: 1, gravel: true,
-    about: 'Небольшой рокарий на гравии: валун и плоский камень (можно искусственные), сзади сардаана — лилия пенсильванская, лук декоративный и вздутоплодник сибирский, спереди подушки флокса сибирского, вероника седая и тимьян. Цветёт по очереди: флокс в конце мая, лук и вздутоплодник в июне, сардаана и тимьян в июле, вероника в июле–августе. Всё для сухого солнечного места с дренажом.',
+    region: 'yak', short: 'Рокарий 2 × 1 м', title: 'Рокарий 2 × 1 м из местных растений', side: 'ЮЗ', want: 'sun', w: 2, d: 1, gravel: true, dense: 0.5,
+    about: 'Небольшой рокарий на гравии, растения посажены куртинами по 5–7 штук: сзади сардаана — лилия пенсильванская, лук декоративный и вздутоплодник сибирский, в середине валун и плоский камень (можно искусственные), спереди подушки флокса сибирского, вероника седая и ковёр тимьяна. Цветёт по очереди: флокс в конце мая, лук и вздутоплодник в июне, сардаана и тимьян в июле, вероника в июле–августе. Внутри куртины растения сажают теснее — так они быстрее смыкаются в пятно. Всё для сухого солнечного места с дренажом.',
     rows: [
       ['Задний ряд', [
-        ['liliumPens', 1, [[0.10, 4]]],
-        ['stoneBig', 1, [[0.42, 4]], { h: 0.4, r: 0.25 }],
-        ['alliumDec', 1, [[0.70, 4]]],
-        ['phlojodicarpus', 1, [[0.92, 4]]],
+        ['liliumPens', 5, [[0.05, 5], [0.12, 5], [0.19, 5], [0.08, 4], [0.16, 4]]],
+        ['alliumDec', 5, [[0.62, 5], [0.69, 5], [0.76, 5], [0.65, 4], [0.73, 4]]],
+        ['phlojodicarpus', 5, [[0.84, 5], [0.92, 5], [0.98, 5], [0.88, 4], [0.96, 4]]],
+      ]],
+      ['Камни', [
+        ['stoneBig', 1, [[0.46, 4]], { h: 0.4, r: 0.2 }],
+        ['stoneSmall', 1, [[0.56, 2]], { h: 0.2, r: 0.15 }],
       ]],
       ['Передний ряд', [
-        ['phloxSib', 1, [[0.08, 2]]],
-        ['veronicaInc', 1, [[0.32, 2]]],
-        ['stoneSmall', 1, [[0.58, 2]], { h: 0.2, r: 0.15 }],
-        ['thymus', 1, [[0.88, 2]], { r: 0.2 }],
+        ['veronicaInc', 5, [[0.26, 3], [0.33, 3], [0.40, 3], [0.29, 2], [0.37, 2]]],
+        ['phloxSib', 7, [[0.03, 2], [0.10, 2], [0.17, 2], [0.06, 1], [0.13, 1], [0.20, 1], [0.10, 3]]],
+        ['thymus', 7, [[0.70, 2], [0.78, 2], [0.86, 2], [0.94, 2], [0.74, 1], [0.82, 1], [0.90, 1]], { r: 0.2 }],
       ]],
     ],
   },
@@ -1024,7 +1026,7 @@ export const plantGap = (a, b) => (isTree(a) && isTree(b) ? a.r + b.r : (isTree(
 const edgeR = (pl) => (isTree(pl) ? Math.min(pl.r, TRUNK_ZONE) : pl.r);
 
 /** Таблица расстояний для композиции: по растению — крона, шаг между своими, до края. */
-export function spacingRows(rows) {
+export function spacingRows(rows, dense = 1) {
   const seen = new Map();
   for (const r of rows) for (const p of r.plants) {
     const pl = plantOf(p);
@@ -1032,7 +1034,9 @@ export function spacingRows(rows) {
     e.qty += p.qty;
     seen.set(p.key, e);
   }
-  return [...seen.values()].map(({ pl, qty }) => ({ pl, qty, crown: pl.r * 2, step: pl.r * 2, edge: edgeR(pl) }));
+  // При посадке куртинами (dense < 1) шаг и отступ от края меньше кроны взрослого растения
+  const round5 = (v) => Math.round(v * 20) / 20;
+  return [...seen.values()].map(({ pl, qty }) => ({ pl, qty, crown: pl.r * 2, step: round5(pl.r * 2 * dense), edge: round5(edgeR(pl) * dense) }));
 }
 
 /**
@@ -1041,8 +1045,9 @@ export function spacingRows(rows) {
  */
 export function topSchemeSvg(item, rows) {
   const { w, d } = item;
+  const dense = item.dense || PRESETS[item.preset]?.dense || 1;
   const spots = plantSpots(rows);
-  const legend = spacingRows(rows);
+  const legend = spacingRows(rows, dense);
   const num = new Map(legend.map((e, i) => [e.pl.key, i + 1]));
   const s = Math.min(640 / w, 420 / d, 140);
   const L = 50;
@@ -1061,7 +1066,8 @@ export function topSchemeSvg(item, rows) {
   });
   // Кроны: большие снизу, мелкие сверху
   for (const p of [...pts].sort((a, b) => b.pl.r - a.pl.r)) {
-    parts.push(`<circle class="ts-crown" cx="${X(p.mx)}" cy="${Y(p.my)}" r="${p.pl.r * s}" fill="${p.pl.flowerColor || p.pl.color}"/>`);
+    // Куртина: круг — место одного растения в группе, а не крона одиночного взрослого куста
+    parts.push(`<circle class="ts-crown" cx="${X(p.mx)}" cy="${Y(p.my)}" r="${p.pl.r * dense * s}" fill="${p.pl.flowerColor || p.pl.color}"/>`);
   }
   // Ближайший сосед каждого растения: фактическое расстояние и нужное
   const pairs = new Map();
@@ -1095,7 +1101,7 @@ export function topSchemeSvg(item, rows) {
     `<text class="ts-dim" x="${L - 10}" y="${T + Dp / 2}" text-anchor="middle" transform="rotate(-90 ${L - 10} ${T + Dp / 2})">${Math.round(d * 100)} см</text>`,
     `<line class="ts-scale" x1="${L}" y1="${T + Dp + 34}" x2="${L + s}" y2="${T + Dp + 34}"/><text class="ts-dim" x="${L + s + 6}" y="${T + Dp + 38}">1 м · сетка 50 см</text>`);
   const H = T + Dp + 46;
-  return { svg: `<svg class="top-scheme" viewBox="0 0 ${L * 2 + Wp} ${H}" role="img" aria-label="Схема посадки, вид сверху">${parts.join('')}</svg>`, legend, tight };
+  return { dense, svg: `<svg class="top-scheme" viewBox="0 0 ${L * 2 + Wp} ${H}" role="img" aria-label="Схема посадки, вид сверху">${parts.join('')}</svg>`, legend, tight };
 }
 
 /** Точки посадки внутри клумбы — там же, где растения стоят на рисунке композиции. */

@@ -318,6 +318,10 @@ export const PLANTS = [
   P('polygonatum', 'Купена душистая', 'perennial', 0.5, 0.25, ['part', 'shade'], '#f2f2e6', { note: 'Дугой изогнутые стебли с белыми колокольчиками в июне.' }),
   P('convallaria', 'Ландыш', 'ground', 0.2, 0.2, ['part', 'shade'], '#f6f6ee', { note: 'Душистые белые колокольчики в июне, разрастается ковром.' }),
   P('aconogonon', 'Таран растопыренный', 'perennial', 1.2, 0.6, ['sun'], '#f2eedc', { note: 'Большой куст с облаком белых метёлок в июле.' }),
+  // Цветы для бесплатной версии участка: без названий видов, в каталоге не показываются
+  P('flowerPink', 'Цветы розовые', 'perennial', 0.5, 0.35, ['sun', 'part'], '#e07aa0', { hidden: true }),
+  P('flowerYellow', 'Цветы жёлтые', 'perennial', 0.5, 0.35, ['sun', 'part'], '#f0c838', { hidden: true }),
+  P('flowerWhite', 'Цветы белые', 'perennial', 0.5, 0.35, ['sun', 'part', 'shade'], '#f6f2e6', { hidden: true }),
   P('aquilegia', 'Аквилегия (водосбор)', 'perennial', 0.6, 0.3, ['sun', 'part', 'shade'], '#7a6ac8', { note: 'Изящные поникающие цветки в июне; сама подсевается.' }),
 ];
 
@@ -361,7 +365,7 @@ const SOIL = {
   phloxSib: ['NK', 'dry', 'very'], veronicaInc: ['NK', 'dry', 'very'], phlojodicarpus: ['NK', 'dry', 'very'], alliumDec: ['NK', 'dry normal', 'very'],
   liliumPens: ['ANK', 'dry normal', 'very'], fritillaria: ['AN', 'normal wet', 'very'], mertensia: ['AN', 'normal wet', 'very'], polemonium: ['ANK', 'normal wet', 'very'],
   polygonatum: ['AN', 'normal', 'very'], convallaria: ['AN', 'normal', 'very'], aconogonon: ['NK', 'dry normal', 'very'],
-  lantern: ['ANK', 'dry normal wet', 'very'], stoneBig: ['ANK', 'dry normal wet', 'very'], cranes: ['ANK', 'dry normal wet', 'very'], calamagrostis: ['ANK', 'normal wet', 'very'], stoneSmall: ['ANK', 'dry normal wet', 'very'],
+  lantern: ['ANK', 'dry normal wet', 'very'], flowerPink: ['ANK', 'dry normal wet', 'very'], flowerYellow: ['ANK', 'dry normal wet', 'very'], flowerWhite: ['ANK', 'dry normal wet', 'very'], stoneBig: ['ANK', 'dry normal wet', 'very'], cranes: ['ANK', 'dry normal wet', 'very'], calamagrostis: ['ANK', 'normal wet', 'very'], stoneSmall: ['ANK', 'dry normal wet', 'very'],
 };
 for (const p of PLANTS) {
   const [ph, water, hardy] = SOIL[p.key] || ['ANK', 'normal', 'good'];
@@ -400,6 +404,9 @@ for (const k of ['phloxSib', 'veronicaInc', 'phlojodicarpus', 'alliumDec', 'lili
 USDA.cranes = 0;
 USDA.calamagrostis = 1;
 USDA.lantern = 0;
+USDA.flowerPink = 1;
+USDA.flowerYellow = 1;
+USDA.flowerWhite = 1;
 USDA.stoneBig = 0;
 USDA.stoneSmall = 0;
 for (const p of PLANTS) {
@@ -463,7 +470,7 @@ const BLOOM = {
   malusDec: { b: [1, 2], r: [10, 14], rc: '#a02a3a' }, rubus: { b: [3, 5], fc: WHITE, r: [8, 10], rc: '#b0203a' }, nepeta: { b: [4, 11] }, armeria: { b: [4, 10] },
   aruncus: { b: [5, 7] }, vinca: { b: [0, 2] }, melissa: { b: [7, 10], fc: '#f4f0e8' }, mentha: { b: [7, 10], fc: '#c8a8d8' }, origanum: { b: [7, 11] },
   salvia: { b: [4, 7], fc: '#9a88c8' }, artemisiaDrac: { b: [9, 11], fc: '#d8d0a0' }, ribes: { b: [2, 3], fc: '#d8d0a0', r: [7, 9], rc: '#1a1420' },
-  rubusRem: { b: [5, 8], fc: WHITE, r: [9, 13], rc: '#c0203a' }, lantern: null, stoneBig: null, stoneSmall: null, cranes: null, calamagrostis: { b: [6, 12], fc: '#c8a860' },
+  rubusRem: { b: [5, 8], fc: WHITE, r: [9, 13], rc: '#c0203a' }, lantern: null, flowerPink: { b: [3, 11] }, flowerYellow: { b: [3, 11] }, flowerWhite: { b: [3, 11] }, stoneBig: null, stoneSmall: null, cranes: null, calamagrostis: { b: [6, 12], fc: '#c8a860' },
   phloxSib: { b: [2, 4] }, alliumDec: { b: [4, 5] }, phlojodicarpus: { b: [4, 6], fc: '#f6f2e6' }, liliumPens: { b: [6, 8] }, veronicaInc: { b: [7, 10] },
   fritillaria: { b: [2, 3] }, mertensia: { b: [2, 4] }, polemonium: { b: [4, 6] }, polygonatum: { b: [3, 4] }, convallaria: { b: [3, 4] }, aconogonon: { b: [6, 8] },
   prunus: { b: [2, 2], fc: WHITE, r: [9, 10], rc: '#3a1a2a' }, echinacea: { b: [7, 13] }, rudbeckia: { b: [8, 14] },

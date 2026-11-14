@@ -3723,9 +3723,22 @@ function renderRegionTabs() {
   }
 }
 
+// Бесплатная версия участка: только участок, постройки, тени и несколько деревьев и цветов
+const FREE_PLANTS = ['pinus', 'picea', 'flowerPink', 'flowerYellow', 'flowerWhite'];
+const FREE_LABEL = { pinus: 'Сосна', picea: 'Ель', flowerPink: 'Цветы розовые', flowerYellow: 'Цветы жёлтые', flowerWhite: 'Цветы белые' };
+function renderFreeMode() {
+  const free = yard.mode === 'free';
+  $('tab-garden').classList.toggle('free', free);
+  $('y-free-plants').innerHTML = FREE_PLANTS.map((k) => `<button type="button" class="chip plant-chip" data-plant="${k}" aria-pressed="${yardTool === k}"><span class="dot" style="background:${PLANT_BY_KEY[k].color}"></span>${FREE_LABEL[k]}</button>`).join('');
+  $('y-free-bar').innerHTML = free
+    ? '<div class="free-note"><span><b>Бесплатная версия.</b> Участок, постройки, тени от солнца в любое время, деревья и цветы.</span><button type="button" class="btn ghost" data-mode="full">Открыть полную версию</button></div>'
+    : '';
+}
+
 function renderPlantPalette() {
+  renderFreeMode();
   renderRegionTabs();
-  const ok = (p) => (lightFilter === 'all' || p.light.includes(lightFilter)) && inRegion(p);
+  const ok = (p) => !p.hidden && (lightFilter === 'all' || p.light.includes(lightFilter)) && inRegion(p);
   const yak = yard.region !== 'warm';
   // Для Якутии сначала хиты питомника, для тёплых регионов — «посадил и забыл»
   const groups = yak ? [['hit', '🌟 Хиты якутских питомников'], ...PLANT_GROUPS.filter(([g]) => g !== 'top')] : PLANT_GROUPS.map(([g, t]) => (g === 'top' ? [g, 'Малоуходные «посадил и забыл»'] : [g, t]));
@@ -4608,6 +4621,21 @@ $('y-light-filter').addEventListener('click', (e) => {
   renderYardControls();
 });
 
+$('y-free-plants').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-plant]');
+  if (!b) return;
+  yardTool = yardTool === b.dataset.plant ? null : b.dataset.plant;
+  yardSel = null;
+  renderPlantPalette();
+  renderYardPlan();
+  if (yardTool) $('y-plan').scrollIntoView({ behavior: 'smooth', block: 'center' });
+});
+$('y-free-bar').addEventListener('click', (e) => {
+  if (!e.target.closest('[data-mode]')) return;
+  yard.mode = 'full';
+  yardChanged(true);
+});
+
 $('y-plants').addEventListener('click', (e) => {
   const b = e.target.closest('[data-plant]');
   if (!b) return;
@@ -4744,7 +4772,8 @@ $('y-plan').addEventListener('pointerup', (e) => {
     const solid = [houseOutline(yard.house), ...yard.items.filter((i) => !BUILDING_BY_KEY[i.t].flat).map((i) => rectPoly(i))];
     if (solid.some((poly) => inPoly(poly, [x, y]))) return;
     const pl = PLANT_BY_KEY[yardTool];
-    const n = yard.group || 1;
+    // Цветы бесплатной версии сажаем кустиком из пяти
+    const n = pl.hidden ? 5 : yard.group || 1;
     for (const [px, py] of phyllotaxis(n, Math.max(0.4, pl.r * 1.7), x, y)) {
       if (px < 0 || py < 0 || px > yard.plot.w || py > yard.plot.d) continue;
       yard.plants.push({ id: nextId(), t: yardTool, x: Math.round(px * 10) / 10, y: Math.round(py * 10) / 10 });
@@ -4834,6 +4863,8 @@ $('quiz').addEventListener('click', (e) => {
 function startFromQuiz() {
   const c = state.client;
   c.done = true;
+  yard.mode = 'free';
+  yard.golden = false;
   if (c.material && c.material !== 'unsure') state.project.material = c.material;
   // Баня на участке — если строят дом с баней или баню
   if ((c.build === 'housebath' || c.build === 'bath') && !yard.items.some((i) => i.t === 'bath')) {

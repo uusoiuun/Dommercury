@@ -914,3 +914,10 @@ p.dlg-layer { display: block; }
 
 .letter.credo { margin-top: 22px; font-size: 22px; color: var(--accent); }
 .exp li { align-items: baseline; }
+
+/* Бесплатная версия участка: лишние карточки скрыты */
+.y-free-card { display: none; order: 2; }
+#tab-garden.free .y-free-card { display: block; }
+#tab-garden.free .soil-card, #tab-garden.free .y-o9, #tab-garden.free .y-o3b, #tab-garden.free .y-o5, #tab-garden.free .y-o6, #tab-garden.free #y-golden, #tab-garden.free [data-view="hours"] { display: none; }
+.free-note { margin-top: 12px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; padding: 12px 16px; border: 1px solid var(--line); border-radius: 16px; font-size: 17px; max-width: 900px; }
+.free-note .btn { padding: 9px 18px; font-size: 15px; }

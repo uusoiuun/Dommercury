@@ -32,6 +32,7 @@
         <a role="tab" href="#design" data-tab="design"><span class="tab-ico">⌂</span><span class="tab-long">Проектирование дома</span><span class="tab-short">Проект</span></a>
         <a role="tab" href="#estimate" data-tab="estimate"><span class="tab-ico">₽</span><span class="tab-long">Смета</span><span class="tab-short">Смета</span></a>
         <a role="tab" href="#garden" data-tab="garden"><span class="tab-ico">❦</span><span class="tab-long">Конструктор ландшафтного озеленения</span><span class="tab-short">Озеленение</span></a>
+        <a role="tab" href="#work" data-tab="work"><span class="tab-ico">✦</span><span class="tab-long">Личная работа</span><span class="tab-short">Лично</span></a>
       </nav>
     </div>
   </header>
@@ -62,19 +63,8 @@
       </section>
     </div>
 
-    <section class="offer" aria-labelledby="offer-title">
-      <div class="captions serif"><span>(почему это важно)</span><span>(01)</span><span>(дом — один раз)</span></div>
-      <h2 class="section-title" id="offer-title">Дом — место, где собирается семья.<br><i class="t-it">Его строят один раз</i></h2>
-      <div class="offer-grid">
-        <div class="offer-cell"><span class="offer-num">от 10&nbsp;млн&nbsp;₽</span><p>стоит строительство частного дома сегодня — коробка, инженерия, отделка и участок.</p></div>
-        <div class="offer-cell accent"><span class="offer-num">≈ 100&nbsp;тыс.&nbsp;₽</span><p>один раз — грамотный расчёт и проект: ориентация по сторонам света, планировка, фундамент под ваш грунт, смета и сад.</p></div>
-        <div class="offer-cell"><span class="offer-num">в разы дороже</span><p>обходится переделка: перенести стену, вход или санузел, поднять дом с поплывшего фундамента, пересадить сад.</p></div>
-      </div>
-      <p class="section-lead">Около одного процента бюджета стройки — чтобы дом был тёплым, удобным и стоял в согласии с местом, а не исправлялся годами.</p>
-    </section>
-
     <section class="author" id="author" aria-labelledby="author-title">
-      <div class="captions serif"><span>(об авторе)</span><span>(02)</span><span>(письмо)</span></div>
+      <div class="captions serif"><span>(об авторе)</span><span>(01)</span><span>(письмо)</span></div>
       <div class="author-grid">
         <figure class="author-photo">
           <img src="img/author.jpg" srcset="img/author-sm.jpg 412w, img/author.jpg 825w" sizes="(max-width: 860px) 360px, 40vw" alt="Портрет автора проекта" loading="lazy" onerror="this.remove()">
@@ -452,7 +442,7 @@
         <p class="note" id="y-place"></p>
       </section>
 
-      <section class="card y-o0 soil-card">
+      <section class="card y-o0 soil-card lockable" data-need="1">
         <h2><span class="num">2</span>Почва</h2>
         <p class="note">От почвы зависит, что приживётся. Отметьте, что знаете.</p>
         <p class="chip-group">Кислотность</p>
@@ -502,7 +492,7 @@
 
 
 
-      <section class="card y-o9 memo">
+      <section class="card y-o9 memo lockable" data-need="1">
         <h2>Памятка</h2>
         <div id="y-memo"></div>
         <details>
@@ -559,7 +549,7 @@
         <div class="chips" id="y-free-plants"></div>
       </section>
 
-      <section class="card y-o3b">
+      <section class="card y-o3b lockable" data-need="1">
         <h2>Готовые композиции</h2>
         <div class="seg y-region" role="tablist"></div>
         <p class="note">Нажмите — откроется состав композиции: растения можно подвинуть, продублировать и переставить по рядам. Кнопка «Поставить на участок» поставит её на свою сторону: солнечные — на юг, теневые — на север, — и покажет схему посадки сверху с расстояниями.</p>
@@ -574,7 +564,7 @@
         <div id="y-comps"></div>
       </section>
 
-      <section class="card y-o5">
+      <section class="card y-o5 lockable" data-need="1">
         <h2>Растения</h2>
         <div class="seg y-region" role="tablist"></div>
         <p class="note">Выберите растение и нажмите на план, чтобы посадить. Сайт проверит свет на этом месте за выбранный день и отступы от границы и дома.</p>
@@ -592,7 +582,7 @@
         <div id="y-plant-list"></div>
       </section>
 
-      <section class="card y-o6">
+      <section class="card y-o6 lockable" data-need="1">
         <h2>Гармония и пропорции</h2>
         <p class="note">Золотое сечение (≈ 1 : 1,618) и числа Фибоначчи (1, 2, 3, 5, 8, 13…) — подсказки для живой, не «циркульной» композиции. Точность не обязательна: важны баланс и естественность.</p>
         <div id="y-harmony"></div>
@@ -602,7 +592,65 @@
 
     </div>
     </main>
+    <section class="packs-wrap" id="y-packs" aria-labelledby="y-packs-title">
+      <div class="captions serif"><span>(дальше)</span><span>(пакеты)</span><span>(на выбор)</span></div>
+      <h2 class="section-title" id="y-packs-title">Если вы хотите дальше</h2>
+      <p class="section-lead">В бесплатной версии — участок, постройки, тени и пара деревьев. Остальное открывается пакетом.</p>
+      <div class="packs-slot"></div>
+    </section>
   </section>
+
+  <section class="tab-page work" id="tab-work" data-page="work" role="tabpanel" hidden>
+    <div class="work-hero">
+      <div class="captions serif"><span>(личная работа)</span><span>(пакет 3)</span><span>(до стройки)</span></div>
+      <h1 class="section-title">Личная работа со мной —<br><i class="t-it">до того, как залит фундамент</i></h1>
+      <p class="section-lead">Я приезжаю на участок, снимаю замеры и делаю комплексное решение вашего дома по фэн-шуй: от планировки и звёзд до цвета стен.</p>
+    </div>
+
+    <section class="offer" aria-labelledby="offer-title">
+      <h2 class="offer-title" id="offer-title">Дом — место, где соединяется семья.<br><i class="t-it">Его нужно построить грамотно</i></h2>
+      <div class="offer-grid">
+        <div class="offer-cell"><span class="offer-num">от 10&nbsp;млн&nbsp;₽</span><p>стоит строительство дома сегодня — коробка, инженерия, отделка и участок. Строят его один раз и на всю жизнь.</p></div>
+        <div class="offer-cell accent"><span class="offer-num">122&nbsp;999&nbsp;₽</span><p>один раз — личная работа до стройки: выезд, замеры, расчёт по фэн-шуй, планировка, звёзды и цвета.</p></div>
+        <div class="offer-cell"><span class="offer-num">в разы дороже</span><p>обходится переделка: перенести стену, вход или спальню, перекрасить, перестроить, когда дом уже стоит.</p></div>
+      </div>
+      <p class="offer-lead">Около одного процента бюджета стройки — чтобы в доме было хорошо всей семье, а не исправлять его годами.</p>
+    </section>
+
+    <div class="work-grid">
+      <div class="work-col">
+        <h2 class="work-h">Что входит</h2>
+        <ul class="work-list">
+          <li><b>Личный выезд</b><span>приезжаю на участок, смотрю место, окружение и стороны света</span></li>
+          <li><b>Замеры</b><span>лично снимаю замеры участка и дома</span></li>
+          <li><b>Личная консультация по фэн-шуй</b><span>разбираем ваш дом и вашу семью, отвечаю на все вопросы</span></li>
+          <li><b>Цвета и оттенки</b><span>рекомендации дизайнера: палитра для фасада и комнат</span></li>
+        </ul>
+      </div>
+      <div class="work-col product">
+        <h2 class="work-h">Что вы получаете</h2>
+        <p class="work-p">Комплексное решение своего дома по фэн-шуй — всё расписано:</p>
+        <ol class="work-steps">
+          <li>Планировочное решение</li>
+          <li>Звёзды дома</li>
+          <li>Объяснение по звёздам — что где и почему</li>
+          <li>Рекомендации дизайнера с учётом фэн-шуй</li>
+        </ol>
+        <div class="work-price"><span class="offer-num">122&nbsp;999&nbsp;₽</span><button type="button" class="btn" data-buy="3">Записаться на личную работу</button></div>
+        <p class="pack-msg" data-msg="3" hidden></p>
+      </div>
+    </div>
+
+    <section class="packs-wrap" aria-labelledby="w-packs-title">
+      <h2 class="section-title" id="w-packs-title">Все пакеты</h2>
+      <div class="packs-slot"></div>
+    </section>
+  </section>
+
+  <dialog id="packs-dlg" class="y-dialog packs-dlg">
+    <div class="dlg-head"><h3 id="packs-dlg-title">Этот раздел — в пакете</h3><button type="button" class="secondary" id="packs-dlg-close" aria-label="Закрыть">✕</button></div>
+    <div class="packs-slot"></div>
+  </dialog>
 
   <dialog id="y-dialog" class="y-dialog">
     <div class="dlg-head"><h3 id="y-dlg-title"></h3><button type="button" class="secondary" id="y-dlg-close" aria-label="Закрыть">✕</button></div>

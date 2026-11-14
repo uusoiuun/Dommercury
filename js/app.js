@@ -3723,16 +3723,94 @@ function renderRegionTabs() {
   }
 }
 
-// Бесплатная версия участка: только участок, постройки, тени и несколько деревьев и цветов
-const FREE_PLANTS = ['pinus', 'picea', 'flowerPink', 'flowerYellow', 'flowerWhite'];
-const FREE_LABEL = { pinus: 'Сосна', picea: 'Ель', flowerPink: 'Цветы розовые', flowerYellow: 'Цветы жёлтые', flowerWhite: 'Цветы белые' };
+// ---- Доступ: бесплатная версия и три пакета ----
+// 0 — бесплатно, 1 — гид 2 999 ₽, 2 — всё открыто 14 999 ₽, 3 — личная работа 122 999 ₽
+const PACKS = [
+  { n: 1, title: 'Гид', price: '2 999', lead: 'Самостоятельно, с подсказками', items: ['Ландшафтный гид — полный конструктор сада: растения, композиции, почва', 'Общие советы по фэн-шуй', 'Общие советы по звёздам', 'Общие советы по дизайну'] },
+  { n: 2, title: 'Всё открыто', price: '14 999', lead: 'Весь сайт без ограничений', items: ['Всё из пакета 1', 'Расчёт дома по фэн-шуй, планировка, проектирование и смета', 'Скачать и распечатать проект, смету и план участка'] },
+  { n: 3, title: 'Личная работа', price: '122 999', lead: 'Консультация и выезд', items: ['Личный выезд и замеры', 'Личная консультация по фэн-шуй', 'Цвета и оттенки от дизайнера', 'Комплексное решение дома: планировка, звёзды с объяснением, рекомендации дизайнера'], more: true },
+];
+const TAB_NEED = { calc: 1, plan: 2, design: 2, estimate: 2 };
+const TAB_NAME = { calc: 'Расчёт дома по фэн-шуй', plan: 'Планировочное решение', design: 'Проектирование дома', estimate: 'Смета', garden: 'Полный конструктор сада' };
+// После оплаты платёжная страница возвращает на сайт с ?pack=1|2|3
+{
+  const q = new URLSearchParams(location.search).get('pack');
+  if (q !== null && /^[0-3]$/.test(q)) {
+    state.access = Number(q);
+    history.replaceState(null, '', location.pathname + location.hash);
+  }
+}
+const access = () => Number(state.access) || 0;
+const nameRub = (p) => p.replace(' ', ' ');
+
+function packsHtml(need = 0) {
+  return `<div class="packs">${PACKS.map((p) => {
+    const have = access() >= p.n;
+    const fits = need && p.n >= need && p.n === Math.max(need, 1);
+    return `<article class="pack${p.n === 3 ? ' dark' : ''}${fits ? ' fits' : ''}">
+      <span class="pack-n">Пакет ${p.n}</span>
+      <h3 class="pack-title">${p.title}</h3>
+      <p class="pack-lead">${p.lead}</p>
+      <span class="pack-price">${nameRub(p.price)}&nbsp;₽</span>
+      <ul class="pack-list">${p.items.map((t) => `<li>${t}</li>`).join('')}</ul>
+      <div class="pack-cta">${have ? '<span class="pack-have">Открыт</span>' : `<button type="button" class="btn${p.n === 3 ? '' : ' ghost'}" data-buy="${p.n}">Выбрать</button>`}${p.more ? '<a class="link" href="#work">Подробнее</a>' : ''}</div>
+      <p class="pack-msg" data-msg="${p.n}" hidden></p>
+    </article>`;
+  }).join('')}</div>`;
+}
+
+function renderAccess() {
+  for (const slot of document.querySelectorAll('.packs-slot:not(#packs-dlg .packs-slot)')) slot.innerHTML = packsHtml();
+  for (const a of document.querySelectorAll('.tabs a')) {
+    const locked = access() < (TAB_NEED[a.dataset.tab] || 0);
+    a.classList.toggle('locked', locked);
+    if (locked) a.title = `Открывается в пакете ${TAB_NEED[a.dataset.tab]}`; else a.removeAttribute('title');
+  }
+  for (const card of document.querySelectorAll('.lockable')) {
+    const locked = access() < Number(card.dataset.need);
+    card.classList.toggle('locked', locked);
+    // Внутрь закрытой карточки не попасть ни мышью, ни клавиатурой; сама карточка ловит нажатие
+    for (const ch of card.children) ch.toggleAttribute('inert', locked);
+  }
+  $('y-packs').hidden = access() >= 2;
+}
+
+function openPacks(what, need) {
+  $('packs-dlg-title').textContent = `${what} — в пакете ${need}`;
+  $('packs-dlg').querySelector('.packs-slot').innerHTML = packsHtml(need);
+  $('packs-dlg').showModal();
+}
+$('packs-dlg-close').addEventListener('click', () => $('packs-dlg').close());
+$('packs-dlg').addEventListener('click', (e) => {
+  if (e.target === $('packs-dlg') || e.target.closest('a[href="#work"]')) $('packs-dlg').close();
+});
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-buy]');
+  if (!b) return;
+  const msg = b.closest('.pack, .work-col')?.querySelector('[data-msg]');
+  if (msg) {
+    msg.hidden = false;
+    msg.textContent = 'Оплата на сайте скоро заработает. После оплаты пакет откроется сразу.';
+  }
+});
+// Закрытые карточки: нажатие показывает пакеты
+for (const card of document.querySelectorAll('.lockable')) {
+  card.addEventListener('click', () => {
+    if (card.classList.contains('locked')) openPacks(TAB_NAME.garden, Number(card.dataset.need));
+  });
+}
+// Деревья бесплатной версии — без названий
+const FREE_PLANTS = ['pinus', 'picea'];
+const FREE_LABEL = { pinus: 'Дерево высокое', picea: 'Дерево пышное' };
+const freeName = (key) => (access() < 1 && FREE_LABEL[key] ? FREE_LABEL[key] : PLANT_BY_KEY[key].name);
 function renderFreeMode() {
-  const free = yard.mode === 'free';
+  const free = access() < 1;
   $('tab-garden').classList.toggle('free', free);
   $('y-free-plants').innerHTML = FREE_PLANTS.map((k) => `<button type="button" class="chip plant-chip" data-plant="${k}" aria-pressed="${yardTool === k}"><span class="dot" style="background:${PLANT_BY_KEY[k].color}"></span>${FREE_LABEL[k]}</button>`).join('');
   $('y-free-bar').innerHTML = free
-    ? '<div class="free-note"><span><b>Бесплатная версия.</b> Участок, постройки, тени от солнца в любое время, деревья и цветы.</span><button type="button" class="btn ghost" data-mode="full">Открыть полную версию</button></div>'
+    ? '<div class="free-note"><span><b>Бесплатная версия.</b> Участок, постройки, тени от солнца в любое время и пара деревьев. Серые разделы открываются пакетом.</span><a class="btn ghost" href="#y-packs">Смотреть пакеты</a></div>'
     : '';
+  renderAccess();
 }
 
 function renderPlantPalette() {
@@ -4266,7 +4344,7 @@ function renderYardEditor(checks) {
   const o = yardSel && objById(yardSel);
   if (!o) {
     $('y-edit').innerHTML = yardTool
-      ? `<p class="msg mixed">Сажаем: <strong>${PLANT_BY_KEY[yardTool].name}</strong> Нажмите на план. <button type="button" class="link" data-act="tool-off">Готово</button></p>`
+      ? `<p class="msg mixed">Сажаем: <strong>${freeName(yardTool)}</strong> Нажмите на план. <button type="button" class="link" data-act="tool-off">Готово</button></p>`
       : '';
     return;
   }
@@ -4277,7 +4355,7 @@ function renderYardEditor(checks) {
   if (o.t && PLANT_BY_KEY[o.t]) {
     const pl = PLANT_BY_KEY[o.t];
     const c = checks.get(o.id);
-    $('y-edit').innerHTML = `<div class="editor"><strong>${yard.plants.indexOf(o) + 1}. ${pl.name} ${frostHtml(pl)}</strong><span class="frost-text ${frostOf(pl).cls}">${frostOf(pl).text}</span>`
+    $('y-edit').innerHTML = `<div class="editor"><strong>${yard.plants.indexOf(o) + 1}. ${freeName(o.t)} ${access() < 1 ? '' : frostHtml(pl)}</strong><span class="frost-text ${frostOf(pl).cls}">${frostOf(pl).text}</span>`
       + `<span class="note">Высота ${yFmt(pl.h)} м · свет: ${pl.light.map((l) => LIGHT_TEXT[l]).join(', ')}${pl.note ? ` · ${pl.note}` : ''}</span>`
       + `<div class="msg ${c.level === 'good' ? 'good' : c.level === 'bad' ? 'bad' : 'mixed'}">${c.notes.join('<br>')}</div>`
       + '<div class="row"><button type="button" class="secondary" data-act="dup">＋ Дублировать</button><button type="button" class="secondary" data-act="del">Убрать</button></div></div>';
@@ -4631,9 +4709,9 @@ $('y-free-plants').addEventListener('click', (e) => {
   if (yardTool) $('y-plan').scrollIntoView({ behavior: 'smooth', block: 'center' });
 });
 $('y-free-bar').addEventListener('click', (e) => {
-  if (!e.target.closest('[data-mode]')) return;
-  yard.mode = 'full';
-  yardChanged(true);
+  if (!e.target.closest('a[href="#y-packs"]')) return;
+  e.preventDefault();
+  $('y-packs').scrollIntoView({ behavior: 'smooth' });
 });
 
 $('y-plants').addEventListener('click', (e) => {
@@ -4787,11 +4865,20 @@ $('y-plan').addEventListener('pointerup', (e) => {
 
 // ---- Вкладки ----
 
-const TABS = ['home', 'calc', 'plan', 'design', 'estimate', 'garden'];
+const TABS = ['home', 'calc', 'plan', 'design', 'estimate', 'garden', 'work'];
+let lastTab = 'home';
 
 function showTab() {
   const id = location.hash.slice(1);
-  const tab = TABS.includes(id) ? id : 'home';
+  let tab = TABS.includes(id) ? id : 'home';
+  if (id === 'y-packs') { tab = 'garden'; }
+  // Закрытый раздел: остаёмся где были и показываем пакеты
+  if (access() < (TAB_NEED[tab] || 0)) {
+    history.replaceState(null, '', `#${lastTab}`);
+    openPacks(TAB_NAME[tab], TAB_NEED[tab]);
+    return;
+  }
+  lastTab = tab;
   for (const page of document.querySelectorAll('.tab-page')) page.hidden = page.dataset.page !== tab;
   for (const a of document.querySelectorAll('.tabs a')) a.setAttribute('aria-selected', String(a.dataset.tab === tab));
   // Карта, созданная в скрытой вкладке, не знает своего размера
@@ -4804,6 +4891,7 @@ function showTab() {
 }
 
 window.addEventListener('hashchange', showTab);
+renderAccess();
 
 // ---- Анкета на главной ----
 const BUILDS = [['house', 'Жилой дом'], ['dacha', 'Дачный дом'], ['housebath', 'Дом и баня'], ['bath', 'Баня'], ['unsure', 'Пока выбираю']];
@@ -4863,7 +4951,6 @@ $('quiz').addEventListener('click', (e) => {
 function startFromQuiz() {
   const c = state.client;
   c.done = true;
-  yard.mode = 'free';
   yard.golden = false;
   if (c.material && c.material !== 'unsure') state.project.material = c.material;
   // Баня на участке — если строят дом с баней или баню

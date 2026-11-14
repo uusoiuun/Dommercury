@@ -172,7 +172,8 @@ export function sketchPlant(pl, x, base, s, salt = 0, look = null) {
   if (spring) leaf = mix(leaf, '#e4ead0', spring * 0.75);
   if (autumn) leaf = mix(leaf, AUTUMN[pl.key] || '#d4b040', autumn * (['tree', 'shrub', 'fruit'].includes(pl.group) ? 0.85 : 0.45));
   const h = Math.max(16, pl.h * s);
-  const habit = habitOf(pl);
+  // Молодая сосна (до 6 м) — пушистый конус с ветками до земли, как у ели, а не голый ствол с кроной
+  const habit = habitOf(pl) === 'pine' && pl.h < 6 ? 'spruce' : habitOf(pl);
   // Ширина — по кроне, но не шире разумного относительно высоты: низкие растения в укрупнённом
   // масштабе иначе расползаются на полкартинки
   const wd = (k, rel = 1.6) => Math.max(18, Math.min(pl.r * 2 * s * k, Math.max(h * rel, 40), 190));
@@ -289,15 +290,16 @@ export function sketchPlant(pl, x, base, s, salt = 0, look = null) {
     berries(x, cy + h * 0.04, cw / 2.2, h * 0.28, 20, Math.max(1.8, cw / 34));
     I.push(ink(crown, 1.1, sketchDash(rnd)), hatch(x, cy, cw / 2, h * 0.34, rnd));
   } else if (habit === 'spruce' || habit === 'yew') {
-    const cw = habit === 'yew' ? wd(0.75) : Math.max(30, Math.min(h * 0.42, pl.r * 2 * s * 0.5));
-    const green = habit === 'yew' ? '#3f5a45' : pl.key === 'larix' ? mix(mix('#7f9a5a', '#c8d8a0', spring * 0.6), '#e0b030', autumn * 0.9) : '#3f5f4a';
+    const young = pl.key === 'pinus';
+    const cw = habit === 'yew' ? wd(0.75) : young ? Math.max(34, Math.min(h * 0.62, pl.r * 2 * s * 0.95)) : Math.max(30, Math.min(h * 0.42, pl.r * 2 * s * 0.5));
+    const green = habit === 'yew' ? '#3f5a45' : pl.key === 'pinus' ? '#4f7a4a' : pl.key === 'larix' ? mix(mix('#7f9a5a', '#c8d8a0', spring * 0.6), '#e0b030', autumn * 0.9) : '#3f5f4a';
     I.push(ink(`M${f1(x)} ${base} L${f1(x)} ${f1(base - h)}`, 1.2));
     const tiers = habit === 'yew' ? 5 : 8;
     const shape = [];
     for (let k = 0; k < tiers; k++) {
       const t = k / tiers;
       const y0 = base - h * (0.08 + t * 0.86);
-      const half = (cw / 2) * (habit === 'yew' ? Math.sin(Math.PI * (0.15 + t * 0.8)) : 1 - t * 0.92);
+      const half = (cw / 2) * (habit === 'yew' ? Math.sin(Math.PI * (0.15 + t * 0.8)) : young ? 1 - t * t * 0.85 : 1 - t * 0.92);
       const d = `M${f1(x - half)} ${f1(y0 + 3)} Q${f1(x - half * 0.4)} ${f1(y0 - h * 0.05)} ${f1(x)} ${f1(y0 - h * 0.11)} Q${f1(x + half * 0.4)} ${f1(y0 - h * 0.05)} ${f1(x + half)} ${f1(y0 + 3)} Q${f1(x)} ${f1(y0 - 2)} ${f1(x - half)} ${f1(y0 + 3)} Z`;
       shape.push(d);
       I.push(ink(`M${f1(x - half)} ${f1(y0 + 3)} Q${f1(x - half * 0.4)} ${f1(y0 - h * 0.05)} ${f1(x)} ${f1(y0 - h * 0.11)} Q${f1(x + half * 0.4)} ${f1(y0 - h * 0.05)} ${f1(x + half)} ${f1(y0 + 3)}`, 0.9));
@@ -307,6 +309,17 @@ export function sketchPlant(pl, x, base, s, salt = 0, look = null) {
       I.push(`<path class="sk-hatch" d="${ticks.join(' ')}"/>`);
     }
     W.push(...shape.map((d) => wash(d, green, 0.6)));
+    // У молодой сосны — светлые «свечки» новых побегов на макушке и концах верхних веток
+    if (young) {
+      const cand = [];
+      for (let k = 0; k < 5; k++) {
+        const u = (k - 2) / 2;
+        const bx = x + u * cw * 0.22;
+        const by = base - h * (0.86 - Math.abs(u) * 0.12);
+        cand.push(`M${f1(bx)} ${f1(by)} l${f1(u * 2)} ${f1(-h * 0.1)}`);
+      }
+      W.push(`<path d="${cand.join(' ')}" stroke="#b8d07a" stroke-width="3" stroke-linecap="round" fill="none"/>`);
+    }
   } else if (habit === 'pine') {
     const cw = Math.max(40, Math.min(h * 0.6, pl.r * 2 * s * 0.6));
     I.push(ink(`M${f1(x - 3)} ${base} C${f1(x - 2)} ${f1(base - h * 0.4)} ${f1(x + 4)} ${f1(base - h * 0.6)} ${f1(x + 2)} ${f1(base - h * 0.85)} M${f1(x + 3)} ${base} C${f1(x + 4)} ${f1(base - h * 0.4)} ${f1(x + 8)} ${f1(base - h * 0.6)} ${f1(x + 6)} ${f1(base - h * 0.85)}`, 1.1));

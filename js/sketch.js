@@ -55,6 +55,8 @@ const HABIT = {
   carpet: ['phloxSub', 'thymus', 'sagina', 'trifolium', 'vinca', 'phloxSib'],
   lantern: ['lantern'],
   stone: ['stoneBig', 'stoneSmall'],
+  crane: ['cranes'],
+  fountain2: ['calamagrostis'],
 };
 // Осенний цвет листвы
 const AUTUMN = {
@@ -175,7 +177,51 @@ export function sketchPlant(pl, x, base, s, salt = 0, look = null) {
   // масштабе иначе расползаются на полкартинки
   const wd = (k, rel = 1.6) => Math.max(18, Math.min(pl.r * 2 * s * k, Math.max(h * rel, 40), 190));
 
-  if (habit === 'stone') {
+  if (habit === 'crane') {
+    // Журавль: тёмная бронза, вытянутое туловище-капля с сине-зелёной патиной, длинные ноги и шея, круглая подставка.
+    // Чётная копия тянется вверх, нечётная склонила голову
+    const H = Math.max(50, h);
+    const up = salt % 2 === 0;
+    const dir = up ? -1 : 1; // хвост влево у первого, вправо у второго
+    const bronze = '#3e342a';
+    const patina = '#7fa9a2';
+    const y = (k) => base - H * k;
+    W.push(`<ellipse cx="${f1(x)}" cy="${f1(base - 1)}" rx="${f1(H * 0.09)}" ry="${f1(H * 0.02)}" fill="#1e1c1a"/>`);
+    // Ноги: от подставки до низа туловища
+    const hip = y(0.5);
+    W.push(`<path d="M${f1(x - H * 0.025)} ${f1(base - 2)} L${f1(x - H * 0.012)} ${f1(hip)} M${f1(x + H * 0.02)} ${f1(base - 2)} L${f1(x + H * 0.008)} ${f1(hip)}" stroke="${bronze}" stroke-width="1.6" fill="none" stroke-linecap="round"/>`);
+    // Туловище: узкая капля, хвост в сторону dir
+    const by = y(0.58);
+    const L = H * 0.26;
+    const T = H * 0.07;
+    const body = up
+      ? `M${f1(x + dir * L)} ${f1(by + T * 0.6)} Q${f1(x + dir * L * 0.4)} ${f1(by - T * 1.1)} ${f1(x - dir * L * 0.18)} ${f1(by - T * 0.9)} Q${f1(x - dir * L * 0.32)} ${f1(by + T * 0.4)} ${f1(x - dir * L * 0.05)} ${f1(by + T * 1.1)} Q${f1(x + dir * L * 0.45)} ${f1(by + T * 1.2)} ${f1(x + dir * L)} ${f1(by + T * 0.6)} Z`
+      : `M${f1(x + dir * L * 0.35)} ${f1(by + T * 2.2)} Q${f1(x + dir * L * 0.45)} ${f1(by - T * 0.6)} ${f1(x - dir * L * 0.05)} ${f1(by - T * 1.3)} Q${f1(x - dir * L * 0.3)} ${f1(by - T * 0.4)} ${f1(x - dir * L * 0.1)} ${f1(by + T * 0.9)} Q${f1(x + dir * L * 0.1)} ${f1(by + T * 2)} ${f1(x + dir * L * 0.35)} ${f1(by + T * 2.2)} Z`;
+    W.push(`<path d="${body}" fill="${patina}"/>`);
+    for (let k = 0; k < 7; k++) W.push(dot(x + dir * (rnd() - 0.3) * L * 0.6, by + (rnd() - 0.3) * T * 1.6, 0.8 + rnd() * 1.2, '#eef4ee', 0.55));
+    I.push(ink(body, 0.8));
+    // Шея и клюв
+    const nx = x - dir * L * 0.12;
+    const ny = by - T * 0.9;
+    const neck = up
+      ? `M${f1(nx)} ${f1(ny)} C${f1(nx - dir * H * 0.06)} ${f1(y(0.78))} ${f1(nx - dir * H * 0.01)} ${f1(y(0.93))} ${f1(nx + dir * H * 0.02)} ${f1(y(0.98))}`
+      : `M${f1(nx)} ${f1(ny)} C${f1(nx - dir * H * 0.03)} ${f1(y(0.92))} ${f1(nx - dir * H * 0.2)} ${f1(y(0.95))} ${f1(nx - dir * H * 0.17)} ${f1(y(0.8))}`;
+    W.push(`<path d="${neck}" stroke="${bronze}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`);
+    const tip = up ? [nx + dir * H * 0.02, y(0.98)] : [nx - dir * H * 0.17, y(0.8)];
+    W.push(`<path d="M${f1(tip[0])} ${f1(tip[1])} l${f1(up ? dir * 2 : 0)} ${f1(up ? -H * 0.06 : H * 0.06)}" stroke="${bronze}" stroke-width="1.3" fill="none" stroke-linecap="round"/>`);
+  } else if (habit === 'fountain2') {
+    // Вейник: прямые вертикальные стебли с узкими метёлками
+    const w = Math.max(16, Math.min(pl.r * 2 * s * 0.7, h * 0.4));
+    const blades = [];
+    for (let k = 0; k < 14; k++) {
+      const u = k / 13 - 0.5;
+      const top = base - h * (0.82 + rnd() * 0.18);
+      blades.push(`M${f1(x + u * 6)} ${base} L${f1(x + u * w)} ${f1(top)}`);
+    }
+    W.push(...blades.map((d) => `<path d="${d}" stroke="${look?.day > 115 ? '#c8b060' : '#8aa860'}" stroke-width="1.8" fill="none" stroke-linecap="round" opacity="0.85"/>`));
+    I.push(ink(blades.filter((_, k) => k % 2 === 0).join(' '), 0.45));
+    if (fl) for (let k = 0; k < 8; k++) { const u = k / 7 - 0.5; W.push(`<path d="M${f1(x + u * w)} ${f1(base - h * 0.96)} l0 ${f1(h * 0.22)}" stroke="${col}" stroke-width="3.2" stroke-linecap="round" opacity="0.8"/>`); }
+  } else if (habit === 'stone') {
     // Камень: неровный округлый силуэт, тень штрихом, трещинка, пятна мха
     const H = Math.max(10, h);
     const w = Math.max(H * 1.5, pl.r * 2 * s * 0.9);

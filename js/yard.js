@@ -303,6 +303,8 @@ export const PLANTS = [
   // Садовый декор для композиций (в каталоге растений не показывается)
   P('stoneBig', 'Декоративный валун', 'decor', 0.7, 0.55, ['sun', 'part', 'shade'], '#9c968a', { note: 'Можно природный камень или искусственный — лёгкий, из стеклофибробетона: не проседает в мерзлоте и легко ставится.' }),
   P('stoneSmall', 'Декоративный камень', 'decor', 0.3, 0.3, ['sun', 'part', 'shade'], '#a8a196', { note: 'Плоские и округлые камни вокруг растений; подойдут и искусственные.' }),
+  P('cranes', 'Скульптура «Журавль»', 'decor', 1.2, 0.3, ['sun', 'part', 'shade'], '#6a9a90', { note: 'Бронзовый журавль с патиной: высокий тонкий акцент. Ставят парой — один тянется вверх, другой склонил голову.' }),
+  P('calamagrostis', 'Вейник', 'grass', 1.3, 0.35, ['sun', 'part'], '#d8c060', { note: 'Местный злак: стройные вертикальные метёлки с июля, золотые к осени, красивы под снегом.' }),
   P('lantern', 'Японский каменный фонарь', 'decor', 1.1, 0.35, ['sun', 'part', 'shade'], '#a8a49a', { note: 'Каменный фонарь-торо: акцент в тенистом саду, зимой красиво стоит в снегу.' }),
   // Многолетники якутских питомников
   P('phloxSib', 'Флокс сибирский', 'ground', 0.15, 0.2, ['sun'], '#e8a0c0', { note: 'Низкие подушки розовых цветов в конце мая — для камней и сухих склонов.' }),
@@ -359,7 +361,7 @@ const SOIL = {
   phloxSib: ['NK', 'dry', 'very'], veronicaInc: ['NK', 'dry', 'very'], phlojodicarpus: ['NK', 'dry', 'very'], alliumDec: ['NK', 'dry normal', 'very'],
   liliumPens: ['ANK', 'dry normal', 'very'], fritillaria: ['AN', 'normal wet', 'very'], mertensia: ['AN', 'normal wet', 'very'], polemonium: ['ANK', 'normal wet', 'very'],
   polygonatum: ['AN', 'normal', 'very'], convallaria: ['AN', 'normal', 'very'], aconogonon: ['NK', 'dry normal', 'very'],
-  lantern: ['ANK', 'dry normal wet', 'very'], stoneBig: ['ANK', 'dry normal wet', 'very'], stoneSmall: ['ANK', 'dry normal wet', 'very'],
+  lantern: ['ANK', 'dry normal wet', 'very'], stoneBig: ['ANK', 'dry normal wet', 'very'], cranes: ['ANK', 'dry normal wet', 'very'], calamagrostis: ['ANK', 'normal wet', 'very'], stoneSmall: ['ANK', 'dry normal wet', 'very'],
 };
 for (const p of PLANTS) {
   const [ph, water, hardy] = SOIL[p.key] || ['ANK', 'normal', 'good'];
@@ -395,6 +397,8 @@ const USDA = {
 const YAKUTSK_PROVEN = ['thymus', 'paeonia', 'sedum', 'hosta', 'irisSib', 'irisBarb', 'phloxPan', 'chrysanthemum', 'astilbe', 'hemerocallis', 'delphinium', 'aquilegia', 'ribes', 'rubusRem', 'aruncus', 'heuchera'];
 for (const k of YAKUTSK_PROVEN) USDA[k] = 1;
 for (const k of ['phloxSib', 'veronicaInc', 'phlojodicarpus', 'alliumDec', 'liliumPens', 'fritillaria', 'mertensia', 'polemonium', 'polygonatum', 'convallaria', 'aconogonon']) USDA[k] = 1;
+USDA.cranes = 0;
+USDA.calamagrostis = 1;
 USDA.lantern = 0;
 USDA.stoneBig = 0;
 USDA.stoneSmall = 0;
@@ -459,7 +463,7 @@ const BLOOM = {
   malusDec: { b: [1, 2], r: [10, 14], rc: '#a02a3a' }, rubus: { b: [3, 5], fc: WHITE, r: [8, 10], rc: '#b0203a' }, nepeta: { b: [4, 11] }, armeria: { b: [4, 10] },
   aruncus: { b: [5, 7] }, vinca: { b: [0, 2] }, melissa: { b: [7, 10], fc: '#f4f0e8' }, mentha: { b: [7, 10], fc: '#c8a8d8' }, origanum: { b: [7, 11] },
   salvia: { b: [4, 7], fc: '#9a88c8' }, artemisiaDrac: { b: [9, 11], fc: '#d8d0a0' }, ribes: { b: [2, 3], fc: '#d8d0a0', r: [7, 9], rc: '#1a1420' },
-  rubusRem: { b: [5, 8], fc: WHITE, r: [9, 13], rc: '#c0203a' }, lantern: null, stoneBig: null, stoneSmall: null,
+  rubusRem: { b: [5, 8], fc: WHITE, r: [9, 13], rc: '#c0203a' }, lantern: null, stoneBig: null, stoneSmall: null, cranes: null, calamagrostis: { b: [6, 12], fc: '#c8a860' },
   phloxSib: { b: [2, 4] }, alliumDec: { b: [4, 5] }, phlojodicarpus: { b: [4, 6], fc: '#f6f2e6' }, liliumPens: { b: [6, 8] }, veronicaInc: { b: [7, 10] },
   fritillaria: { b: [2, 3] }, mertensia: { b: [2, 4] }, polemonium: { b: [4, 6] }, polygonatum: { b: [3, 4] }, convallaria: { b: [3, 4] }, aconogonon: { b: [6, 8] },
   prunus: { b: [2, 2], fc: WHITE, r: [9, 10], rc: '#3a1a2a' }, echinacea: { b: [7, 13] }, rudbeckia: { b: [8, 14] },

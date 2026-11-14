@@ -245,7 +245,7 @@ export const PLANTS = [
   P('chrysanthemum', 'Хризантема (златоцвет)', 'perennial', 0.5, 0.3, ['sun'], '#f4e04a'),
   // Почвопокровные
   P('phloxSub', 'Флокс шиловидный', 'ground', 0.15, 0.3, ['sun'], '#f2c4d4', { note: '«White Delight» — белый, «Candy Stripe» — бело-розовый. Ковёр цветов в мае–июне.' }),
-  P('thymus', 'Тимьян ползучий', 'ground', 0.1, 0.3, ['sun'], '#e8e0f0', { note: '«Albiflorus» — белые цветы, ароматный ковёр. Июнь–июль.' }),
+  P('thymus', 'Тимьян ползучий (чабрец)', 'ground', 0.1, 0.3, ['sun'], '#b48ac8', { note: 'Ароматный ковёр сиреневых цветов; местные сибирские виды зимуют без укрытия.' }),
   P('sempervivum', 'Молодило', 'ground', 0.1, 0.15, ['sun'], '#8a6a5a', { note: 'Зелёные и красноватые розетки — фон для цветов.' }),
   P('sagina', 'Мшанка шиловидная', 'ground', 0.05, 0.3, ['sun', 'part'], '#7ab060', { note: 'Густой зелёный ковёр, подчёркивает белые тона.' }),
   P('orostachys', 'Горноколосник колючий', 'ground', 0.1, 0.15, ['sun'], '#a0b090'),
@@ -304,6 +304,18 @@ export const PLANTS = [
   P('stoneBig', 'Декоративный валун', 'decor', 0.7, 0.55, ['sun', 'part', 'shade'], '#9c968a', { note: 'Можно природный камень или искусственный — лёгкий, из стеклофибробетона: не проседает в мерзлоте и легко ставится.' }),
   P('stoneSmall', 'Декоративный камень', 'decor', 0.3, 0.3, ['sun', 'part', 'shade'], '#a8a196', { note: 'Плоские и округлые камни вокруг растений; подойдут и искусственные.' }),
   P('lantern', 'Японский каменный фонарь', 'decor', 1.1, 0.35, ['sun', 'part', 'shade'], '#a8a49a', { note: 'Каменный фонарь-торо: акцент в тенистом саду, зимой красиво стоит в снегу.' }),
+  // Многолетники якутских питомников
+  P('phloxSib', 'Флокс сибирский', 'ground', 0.15, 0.2, ['sun'], '#e8a0c0', { note: 'Низкие подушки розовых цветов в конце мая — для камней и сухих склонов.' }),
+  P('veronicaInc', 'Вероника седая', 'perennial', 0.3, 0.2, ['sun'], '#5a6ad0', { note: 'Серебристая листва и синие колоски в июле–августе; любит сухое.' }),
+  P('phlojodicarpus', 'Вздутоплодник сибирский', 'perennial', 0.3, 0.2, ['sun'], '#f2eedc', { note: 'Редкий степной зонтичник Якутии: белые зонтики, сизая листва, сухие каменистые места.' }),
+  P('alliumDec', 'Лук декоративный', 'perennial', 0.6, 0.15, ['sun'], '#9a5ac0', { note: 'Шары фиолетовых соцветий в июне на высоких стеблях.' }),
+  P('liliumPens', 'Лилия пенсильванская (сардаана)', 'perennial', 0.6, 0.15, ['sun', 'part'], '#e05020', { note: 'Символ Якутии: огненно-красные цветы в июле.' }),
+  P('fritillaria', 'Рябчик камчатский', 'perennial', 0.4, 0.12, ['part', 'shade'], '#4a2a3a', { note: 'Тёмные колокольчики весной, летом уходит на покой.' }),
+  P('mertensia', 'Мертензия сибирская', 'perennial', 0.5, 0.25, ['part', 'shade'], '#6a9ad8', { note: 'Голубые поникающие колокольчики в мае–июне, любит влажную тень.' }),
+  P('polemonium', 'Синюха голубая', 'perennial', 0.7, 0.25, ['sun', 'part'], '#6a7ad8', { note: 'Голубые метёлки в июне, ажурная листва.' }),
+  P('polygonatum', 'Купена душистая', 'perennial', 0.5, 0.25, ['part', 'shade'], '#f2f2e6', { note: 'Дугой изогнутые стебли с белыми колокольчиками в июне.' }),
+  P('convallaria', 'Ландыш', 'ground', 0.2, 0.2, ['part', 'shade'], '#f6f6ee', { note: 'Душистые белые колокольчики в июне, разрастается ковром.' }),
+  P('aconogonon', 'Таран растопыренный', 'perennial', 1.2, 0.6, ['sun'], '#f2eedc', { note: 'Большой куст с облаком белых метёлок в июле.' }),
   P('aquilegia', 'Аквилегия (водосбор)', 'perennial', 0.6, 0.3, ['sun', 'part', 'shade'], '#7a6ac8', { note: 'Изящные поникающие цветки в июне; сама подсевается.' }),
 ];
 
@@ -344,6 +356,9 @@ const SOIL = {
   sorbusSib: ['ANK', 'dry normal', 'very'], sorbocot: ['AN', 'normal', 'very'], rosaBegg: ['NK', 'dry normal', 'very'], rosaRugosa: ['ANK', 'dry normal', 'very'],
   padusMaackii: ['ANK', 'normal wet', 'very'], malusPurp: ['NK', 'normal', 'very'], populusBer: ['ANK', 'normal wet', 'very'], populusSuav: ['ANK', 'normal wet', 'very'],
   rubusRem: ['AN', 'normal', 'very'], aquilegia: ['NK', 'dry normal', 'very'],
+  phloxSib: ['NK', 'dry', 'very'], veronicaInc: ['NK', 'dry', 'very'], phlojodicarpus: ['NK', 'dry', 'very'], alliumDec: ['NK', 'dry normal', 'very'],
+  liliumPens: ['ANK', 'dry normal', 'very'], fritillaria: ['AN', 'normal wet', 'very'], mertensia: ['AN', 'normal wet', 'very'], polemonium: ['ANK', 'normal wet', 'very'],
+  polygonatum: ['AN', 'normal', 'very'], convallaria: ['AN', 'normal', 'very'], aconogonon: ['NK', 'dry normal', 'very'],
   lantern: ['ANK', 'dry normal wet', 'very'], stoneBig: ['ANK', 'dry normal wet', 'very'], stoneSmall: ['ANK', 'dry normal wet', 'very'],
 };
 for (const p of PLANTS) {
@@ -377,8 +392,9 @@ const USDA = {
 };
 // Многолетники, которые по опыту якутских садоводов хорошо растут в Якутске:
 // снег укрывает их корни, поэтому они зимуют, хотя по справочникам зона у вида выше
-const YAKUTSK_PROVEN = ['paeonia', 'sedum', 'hosta', 'irisSib', 'irisBarb', 'phloxPan', 'chrysanthemum', 'astilbe', 'hemerocallis', 'delphinium', 'aquilegia', 'ribes', 'rubusRem', 'aruncus', 'heuchera'];
+const YAKUTSK_PROVEN = ['thymus', 'paeonia', 'sedum', 'hosta', 'irisSib', 'irisBarb', 'phloxPan', 'chrysanthemum', 'astilbe', 'hemerocallis', 'delphinium', 'aquilegia', 'ribes', 'rubusRem', 'aruncus', 'heuchera'];
 for (const k of YAKUTSK_PROVEN) USDA[k] = 1;
+for (const k of ['phloxSib', 'veronicaInc', 'phlojodicarpus', 'alliumDec', 'liliumPens', 'fritillaria', 'mertensia', 'polemonium', 'polygonatum', 'convallaria', 'aconogonon']) USDA[k] = 1;
 USDA.lantern = 0;
 USDA.stoneBig = 0;
 USDA.stoneSmall = 0;
@@ -444,6 +460,8 @@ const BLOOM = {
   aruncus: { b: [5, 7] }, vinca: { b: [0, 2] }, melissa: { b: [7, 10], fc: '#f4f0e8' }, mentha: { b: [7, 10], fc: '#c8a8d8' }, origanum: { b: [7, 11] },
   salvia: { b: [4, 7], fc: '#9a88c8' }, artemisiaDrac: { b: [9, 11], fc: '#d8d0a0' }, ribes: { b: [2, 3], fc: '#d8d0a0', r: [7, 9], rc: '#1a1420' },
   rubusRem: { b: [5, 8], fc: WHITE, r: [9, 13], rc: '#c0203a' }, lantern: null, stoneBig: null, stoneSmall: null,
+  phloxSib: { b: [2, 4] }, alliumDec: { b: [4, 5] }, phlojodicarpus: { b: [4, 6], fc: '#f6f2e6' }, liliumPens: { b: [6, 8] }, veronicaInc: { b: [7, 10] },
+  fritillaria: { b: [2, 3] }, mertensia: { b: [2, 4] }, polemonium: { b: [4, 6] }, polygonatum: { b: [3, 4] }, convallaria: { b: [3, 4] }, aconogonon: { b: [6, 8] },
   prunus: { b: [2, 2], fc: WHITE, r: [9, 10], rc: '#3a1a2a' }, echinacea: { b: [7, 13] }, rudbeckia: { b: [8, 14] },
 };
 for (const p of PLANTS) {

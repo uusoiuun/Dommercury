@@ -1,3 +1,4 @@
+import { wheelSvg, fanSvg, SCHEMES, HUES, RINGS, isWarm, schemeHues, color as cwColor } from './colorwheel.js';
 import { declination, decimalYear, MODEL_NAME } from './wmm.js';
 import {
   PALACES, STARS, starMeaning, norm360, mountainAt, boundaryWarning, flyingStars, starTiming,
@@ -3726,7 +3727,7 @@ function renderRegionTabs() {
 // ---- Доступ: бесплатная версия и три пакета ----
 // 0 — бесплатно, 1 — гид 2 999 ₽, 2 — всё открыто 14 999 ₽, 3 — личная работа 122 999 ₽
 const PACKS = [
-  { n: 1, title: 'Гид', price: '2 999', lead: 'Самостоятельно, с подсказками', items: ['Ландшафтный гид — полный конструктор сада: растения, композиции, почва', 'Общие советы по фэн-шуй', 'Общие советы по звёздам', 'Общие советы по дизайну'] },
+  { n: 1, title: 'Гид', price: '2 999', lead: 'Самостоятельно, с подсказками', items: ['Гайд по озеленению и полный конструктор сада: растения, композиции, почва', 'Общие советы по фэн-шуй', 'Общие советы по звёздам', 'Общие советы по дизайну и круг Иттена'] },
   { n: 2, title: 'Всё открыто', price: '14 999', lead: 'Весь сайт без ограничений', items: ['Всё из пакета 1', 'Расчёт дома по фэн-шуй, планировка, проектирование и смета', 'Скачать и распечатать проект, смету и план участка'] },
   { n: 3, title: 'Личная работа', price: '122 999', lead: 'Консультация и выезд', items: ['Личный выезд и замеры', 'Личная консультация по фэн-шуй', 'Цвета и оттенки от дизайнера', 'Комплексное решение дома: планировка, звёзды с объяснением, рекомендации дизайнера'], more: true },
 ];
@@ -3773,7 +3774,44 @@ function renderAccess() {
     for (const ch of card.children) ch.toggleAttribute('inert', locked);
   }
   $('y-packs').hidden = access() >= 2;
+  // Гид: в бесплатной версии — по одному совету в разделе
+  for (const el of document.querySelectorAll('.g-tip[data-need], .cw[data-need]')) {
+    const locked = access() < Number(el.dataset.need);
+    el.classList.toggle('locked', locked);
+    el.toggleAttribute('inert', locked);
+  }
+  for (const el of document.querySelectorAll('.g-lock-note')) el.hidden = access() >= Number(el.dataset.need);
 }
+
+// ---- Гид: круг Иттена ----
+const cw = { base: 10, ring: 3, scheme: 'complement' };
+function renderWheel() {
+  $('cw-wheel').innerHTML = wheelSvg(cw.base, cw.ring, cw.scheme);
+  $('cw-schemes').innerHTML = Object.entries(SCHEMES).map(([k, v]) => `<button type="button" class="chip" data-scheme="${k}" aria-pressed="${cw.scheme === k}">${v.name}</button>`).join('');
+  $('cw-about').textContent = SCHEMES[cw.scheme].about;
+  $('cw-swatches').innerHTML = schemeHues(cw.base, cw.scheme).map((h, k) => `<span class="cw-sw"><i style="background:${cwColor(h, cw.ring)}"></i>${k === 0 ? '<b>основной</b> ' : ''}${HUES[h][0].toLowerCase()}<small>${isWarm(h) ? 'тёплый' : 'холодный'}, ${RINGS[cw.ring][0]}</small></span>`).join('');
+  $('cw-fan').innerHTML = fanSvg(cw.base);
+}
+$('cw-wheel').addEventListener('click', (e) => {
+  const c = e.target.closest('[data-hue]');
+  if (!c) return;
+  cw.base = Number(c.dataset.hue);
+  cw.ring = Number(c.dataset.ring);
+  renderWheel();
+});
+$('cw-schemes').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-scheme]');
+  if (!b) return;
+  cw.scheme = b.dataset.scheme;
+  renderWheel();
+});
+$('tab-guide').addEventListener('click', (e) => {
+  const g = e.target.closest('[data-g]');
+  if (g) { e.preventDefault(); $(`guide-${g.dataset.g}`).scrollIntoView({ behavior: 'smooth' }); return; }
+  const o = e.target.closest('[data-open-packs]');
+  if (o) { e.preventDefault(); openPacks('Весь гид', 1); }
+});
+renderWheel();
 
 function openPacks(what, need) {
   $('packs-dlg-title').textContent = `${what} — в пакете ${need}`;
@@ -4865,7 +4903,7 @@ $('y-plan').addEventListener('pointerup', (e) => {
 
 // ---- Вкладки ----
 
-const TABS = ['home', 'calc', 'plan', 'design', 'estimate', 'garden', 'work'];
+const TABS = ['home', 'guide', 'calc', 'plan', 'design', 'estimate', 'garden', 'work'];
 let lastTab = 'home';
 
 function showTab() {

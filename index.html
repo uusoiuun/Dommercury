@@ -45,20 +45,57 @@
         <p class="mono hero-lead">эстетика · вкус · уют — по сторонам света</p>
         <p class="hero-desc">Частный дом в вашем городе: ориентация на участке, расчёт по фэн-шуй и сад, который подходит вашему климату — от средней полосы до вечной мерзлоты.</p>
         <div class="hero-cta">
-          <a class="btn" href="#calc">Рассчитать дом</a>
-          <a class="btn ghost" href="#garden">Ландшафт и озеленение</a>
+          <a class="btn ghost" href="#calc">Сразу к расчёту дома</a>
         </div>
       </div>
-      <figure class="hero-photo">
-        <img src="img/hero.jpg" srcset="img/hero-sm.jpg 636w, img/hero.jpg 1272w" sizes="(max-width: 900px) 100vw, 45vw" alt="Девушка в саду среди деревьев и камней, за ней — пагода и небо" fetchpriority="high">
-        <figcaption>
-          <span class="mono">2026</span>
-          <span class="mono">дом меркурий · дизайн-код</span>
-        </figcaption>
-      </figure>
+      <section class="quiz" id="quiz" aria-label="Анкета: начнём с вашего участка">
+        <div class="quiz-top">
+          <span class="mono">знакомство</span>
+          <span class="mono quiz-count" id="quiz-count">1 / 3</span>
+        </div>
+        <div class="quiz-bar" aria-hidden="true"><span id="quiz-bar"></span></div>
+        <div class="quiz-body" id="quiz-body"></div>
+        <div class="quiz-nav">
+          <button type="button" class="link" id="quiz-back">← назад</button>
+          <button type="button" class="btn" id="quiz-next">Дальше</button>
+        </div>
+      </section>
     </div>
 
-    <div class="captions serif"><span>(о проекте)</span><span>(01)</span><span>(четыре шага)</span></div>
+    <section class="offer" aria-labelledby="offer-title">
+      <div class="captions serif"><span>(почему это важно)</span><span>(01)</span><span>(дом — один раз)</span></div>
+      <h2 class="section-title" id="offer-title">Дом — место, где собирается семья.<br><i class="t-it">Его строят один раз</i></h2>
+      <div class="offer-grid">
+        <div class="offer-cell"><span class="offer-num">от 10&nbsp;млн&nbsp;₽</span><p>стоит строительство частного дома сегодня — коробка, инженерия, отделка и участок.</p></div>
+        <div class="offer-cell accent"><span class="offer-num">≈ 100&nbsp;тыс.&nbsp;₽</span><p>один раз — грамотный расчёт и проект: ориентация по сторонам света, планировка, фундамент под ваш грунт, смета и сад.</p></div>
+        <div class="offer-cell"><span class="offer-num">в разы дороже</span><p>обходится переделка: перенести стену, вход или санузел, поднять дом с поплывшего фундамента, пересадить сад.</p></div>
+      </div>
+      <p class="section-lead">Около одного процента бюджета стройки — чтобы дом был тёплым, удобным и стоял в согласии с местом, а не исправлялся годами.</p>
+    </section>
+
+    <section class="author" id="author" aria-labelledby="author-title">
+      <div class="captions serif"><span>(об авторе)</span><span>(02)</span><span>(письмо)</span></div>
+      <div class="author-grid">
+        <figure class="author-photo">
+          <img src="img/author.jpg" alt="Портрет автора проекта" onerror="this.remove()">
+          <span class="author-ph" aria-hidden="true">фото<br>автора</span>
+        </figure>
+        <div class="author-text">
+          <h2 id="author-title">Здравствуйте!</h2>
+          <p class="letter">Я делаю «Дом Меркурий» для тех, кто строит свой дом — особенно на Севере, где ошибка в проекте стоит дороже, чем где-либо. Дом — это место, где собирается семья: здесь растут дети, отдыхают родители, встречают гостей. Поэтому его нужно не просто построить, а построить грамотно — с правильной ориентацией по сторонам света, удобной планировкой, тёплыми стенами и фундаментом, который выдержит мерзлоту.</p>
+          <p class="letter">На этом сайте можно самим, шаг за шагом, пройти весь путь: поставить дом на участок, рассчитать его по фэн-шуй, разложить комнаты, подобрать стены и фундамент, посчитать смету и посадить сад из растений, которые переживают якутскую зиму. А если нужен готовый проект — напишите мне.</p>
+          <p class="letter sign"><i>С заботой о вашем доме,</i><br><span id="author-name">[имя автора]</span></p>
+          <h3 class="author-sub">Опыт работы</h3>
+          <ul class="exp">
+            <li><b>[годы]</b><span>[чем занимаетесь, сколько лет в проектировании или строительстве]</span></li>
+            <li><b>[число]</b><span>[сколько домов, проектов или участков сделано]</span></li>
+            <li><b>[обучение]</b><span>[образование, курсы по фэн-шуй, ландшафту]</span></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <div class="captions serif"><span>(о проекте)</span><span>(03)</span><span>(четыре шага)</span></div>
     <h2 class="section-title">Дом, который стоит<br>в согласии с местом</h2>
     <p class="section-lead">Мы начинаем с участка и стороны света, рассчитываем дом по фэн-шуй, раскладываем комнаты и мебель, проектируем дом — и продолжаем его садом по солнцу, тени и почве.</p>
 
@@ -86,7 +123,7 @@
     </div>
 
     <section class="code">
-      <div class="captions serif"><span>(дизайн-код)</span><span>(02)</span><span>(аспекты)</span></div>
+      <div class="captions serif"><span>(дизайн-код)</span><span>(04)</span><span>(аспекты)</span></div>
       <h2 class="section-title">Семь аспектов,<br>из которых строится дом</h2>
       <ol class="code-list">
         <li><span class="mono">01</span><b>Инженерия</b><p>Строгое соблюдение технологий на каждом этапе и продуманная эргономика: удобные проходы, высоты и расстояния — всё под рукой.</p></li>
@@ -383,7 +420,12 @@
     <div class="intro">
       <h1>Конструктор ландшафтного озеленения</h1>
       <p>Поставьте дом и постройки на участок, выберите день и время — и посмотрите, как солнце обходит дом и куда падают тени. Затем подберите растения по свету: каждому месту — своё.</p>
+      <div id="y-welcome"></div>
     </div>
+    <figure class="garden-photo">
+      <img src="img/hero.jpg" srcset="img/hero-sm.jpg 636w, img/hero.jpg 1272w" sizes="(max-width: 900px) 100vw, 1400px" alt="Сад с камнями и деревьями у пагоды" loading="lazy">
+      <figcaption class="serif">сад продолжает дом</figcaption>
+    </figure>
     <main class="layout garden-layout">
     <aside class="panel">
       <section class="card y-oplot">
@@ -486,7 +528,11 @@
           </div>
           <button type="button" id="y-play" class="secondary play" aria-label="Запустить день">▶</button>
         </div>
-        <input type="range" id="y-time" min="0" max="1430" step="10" aria-label="Время суток">
+        <input type="range" id="y-time" min="0" max="1439" step="1" aria-label="Время суток">
+        <div class="row wrap y-exact">
+          <label>Точное время <input type="time" id="y-time-exact" step="60"></label>
+          <label>Любой день <input type="date" id="y-date-exact"></label>
+        </div>
         <div class="chips" id="y-dates"></div>
         <div class="row wrap y-views">
           <span class="note">Показать:</span>

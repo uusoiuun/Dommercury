@@ -75,6 +75,8 @@ const defaults = {
   // Сдвинутые участки стен одной комнаты {этаж: {'v<ряд><линия>' | 'h<столбец><линия>': м}} и убранные двери ['этаж:пара']
   seg: {},
   doorOff: [],
+  // Анкета на главной: имя, что строят, из чего
+  client: { name: '', build: null, material: null, step: 0, done: false },
   // Проёмы в стенах, добавленные вручную: {id, f, a: {row, col}, b: {row, col}, pos (0–1 вдоль стены), w (м)}
   openings: [],
   autoFurn: true,
@@ -3881,6 +3883,8 @@ function renderYardPlan(keepEditor = false) {
   $('y-clock').innerHTML = drawClock(yard.time);
   $('y-time-out').textContent = hhmm(yard.time);
   if (document.activeElement !== $('y-time')) $('y-time').value = Math.round(yard.time * 60);
+  if (document.activeElement !== $('y-time-exact')) $('y-time-exact').value = hhmm(yard.time).padStart(5, '0');
+  if (document.activeElement !== $('y-date-exact')) $('y-date-exact').value = `${YEAR}-${yard.date}`;
   const dayText = day.polar === 'day' ? 'полярный день' : day.polar === 'night' ? 'полярная ночь' : `восход ${hhmm(day.rise ?? 0)} · закат ${hhmm(day.set ?? 24)} · день ${yFmt(Math.round(day.length * 10) / 10)} ч`;
   $('y-sun-out').textContent = sun.alt > 0
     ? `солнце ${Math.round(sun.alt)}° над горизонтом · азимут ${Math.round(sun.az)}° · ${dayText}`
@@ -4416,6 +4420,19 @@ $('y-dates').addEventListener('click', (e) => {
   yardChanged(true);
 });
 
+$('y-time-exact').addEventListener('input', (e) => {
+  const [h, m] = (e.target.value || '').split(':').map(Number);
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return;
+  yard.time = h + m / 60;
+  yardChanged();
+});
+$('y-date-exact').addEventListener('change', (e) => {
+  const v = e.target.value;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return;
+  yard.date = v.slice(5);
+  yardChanged(true);
+});
+
 $('y-view').addEventListener('click', (e) => {
   const b = e.target.closest('[data-view]');
   if (!b) return;
@@ -4750,7 +4767,7 @@ function showTab() {
   for (const a of document.querySelectorAll('.tabs a')) a.setAttribute('aria-selected', String(a.dataset.tab === tab));
   // Карта, созданная в скрытой вкладке, не знает своего размера
   if (tab === 'calc') map.invalidateSize();
-  if (tab === 'garden') renderYard();
+  if (tab === 'garden') { renderYard(); renderWelcome(); }
   if (tab === 'design') renderDesign();
   if (tab === 'estimate') renderEstimate();
   else if (playTimer) $('y-play').click();
@@ -4759,8 +4776,85 @@ function showTab() {
 
 window.addEventListener('hashchange', showTab);
 
+// ---- Анкета на главной ----
+const BUILDS = [['house', 'Жилой дом'], ['dacha', 'Дачный дом'], ['housebath', 'Дом и баня'], ['bath', 'Баня'], ['unsure', 'Пока выбираю']];
+const MATS = [['brus', 'Брус'], ['log', 'Бревно'], ['frame', 'Каркас'], ['sip', 'СИП-панели'], ['block', 'Газобетон'], ['brick', 'Кирпич'], ['unsure', 'Ещё не решили']];
+state.client = { name: '', build: null, material: null, step: 0, done: false, ...(state.client || {}) };
+const greet = () => (state.client.name.trim() ? `${state.client.name.trim()}, ` : '');
+
+function renderQuiz() {
+  const c = state.client;
+  const step = Math.min(c.step, 3);
+  const chips = (list, val, key) => `<div class="quiz-chips">${list.map(([k, t]) => `<button type="button" class="quiz-chip" data-${key}="${k}" aria-pressed="${val === k}">${t}</button>`).join('')}</div>`;
+  const views = [
+    `<h2 class="quiz-q">Как вас зовут?</h2><label class="quiz-name"><span class="sr">Имя</span><input type="text" id="quiz-name" autocomplete="given-name" placeholder="Ваше имя" value="${escapeHtml(c.name)}"></label><p class="quiz-hint">Чтобы обращаться к вам по имени.</p>`,
+    `<h2 class="quiz-q">${greet()}что строите?</h2>${chips(BUILDS, c.build, 'build')}`,
+    `<h2 class="quiz-q">Из какого материала?</h2>${chips(MATS, c.material, 'mat')}<p class="quiz-hint">Можно поменять потом во вкладке «Проект».</p>`,
+    `<h2 class="quiz-q">${greet()}давайте приступим к оформлению вашего участка</h2>
+      <p class="quiz-sum">${[BUILDS.find(([k]) => k === c.build)?.[1], MATS.find(([k]) => k === c.material)?.[1]?.toLowerCase()].filter(Boolean).join(' · ')}</p>
+      <p class="quiz-hint">Поставите дом${c.build === 'housebath' || c.build === 'bath' ? ' и баню' : ''}, сарай и балаган, поменяете размеры и посмотрите, куда падают тени в любое время дня.</p>
+      <button type="button" class="btn quiz-start" id="quiz-start">Начинаем</button>`,
+  ];
+  $('quiz-body').innerHTML = views[step];
+  $('quiz-count').textContent = step < 3 ? `${step + 1} / 3` : 'готово';
+  $('quiz-bar').style.width = `${((step + (step === 3 ? 0 : 0)) / 3) * 100}%`;
+  $('quiz-back').hidden = step === 0;
+  $('quiz-next').hidden = step === 3;
+  const ready = step === 0 ? true : step === 1 ? !!c.build : !!c.material;
+  $('quiz-next').disabled = !ready;
+  $('quiz-next').textContent = step === 0 && !c.name.trim() ? 'Пропустить' : 'Дальше';
+}
+
+$('quiz').addEventListener('input', (e) => {
+  if (e.target.id !== 'quiz-name') return;
+  state.client.name = e.target.value.slice(0, 40);
+  $('quiz-next').textContent = state.client.name.trim() ? 'Дальше' : 'Пропустить';
+  save();
+});
+$('quiz').addEventListener('keydown', (e) => {
+  if (e.target.id === 'quiz-name' && e.key === 'Enter') $('quiz-next').click();
+});
+$('quiz').addEventListener('click', (e) => {
+  const c = state.client;
+  const b = e.target.closest('[data-build], [data-mat]');
+  if (b) {
+    if (b.dataset.build) c.build = b.dataset.build;
+    if (b.dataset.mat) c.material = b.dataset.mat;
+    // Выбрали вариант — сразу следующий вопрос
+    c.step = Math.min(3, c.step + 1);
+    save();
+    renderQuiz();
+    return;
+  }
+  if (e.target.id === 'quiz-next') { c.step = Math.min(3, c.step + 1); save(); renderQuiz(); if (c.step === 3) $('quiz-start').focus(); }
+  if (e.target.id === 'quiz-back') { c.step = Math.max(0, c.step - 1); save(); renderQuiz(); }
+  if (e.target.id === 'quiz-start') startFromQuiz();
+});
+
+function startFromQuiz() {
+  const c = state.client;
+  c.done = true;
+  if (c.material && c.material !== 'unsure') state.project.material = c.material;
+  // Баня на участке — если строят дом с баней или баню
+  if ((c.build === 'housebath' || c.build === 'bath') && !yard.items.some((i) => i.t === 'bath')) {
+    location.hash = '#garden';
+    $('y-buildings').querySelector('[data-add="bath"]')?.click();
+  }
+  save();
+  location.hash = '#garden';
+}
+
+function renderWelcome() {
+  const c = state.client;
+  const name = escapeHtml(c.name.trim());
+  $('y-welcome').innerHTML = c.done
+    ? `<div class="welcome"><b>${name ? `${name}, это ваш участок.` : 'Это ваш участок.'}</b> Тяните дом и постройки мышью или пальцем, меняйте размеры в карточках, двигайте время — тени перестроятся. Баня, сарай, балаган и другие — в карточке «Постройки и зоны».</div>`
+    : '';
+}
+
 renderShapeControls(1);
 renderShapeControls(2);
 renderYard();
+renderQuiz();
 showTab();
 render();

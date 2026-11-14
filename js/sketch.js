@@ -178,37 +178,51 @@ export function sketchPlant(pl, x, base, s, salt = 0, look = null) {
   const wd = (k, rel = 1.6) => Math.max(18, Math.min(pl.r * 2 * s * k, Math.max(h * rel, 40), 190));
 
   if (habit === 'crane') {
-    // Журавль: тёмная бронза, вытянутое туловище-капля с сине-зелёной патиной, длинные ноги и шея, круглая подставка.
-    // Чётная копия тянется вверх, нечётная склонила голову
+    // Журавль — бронза с зеленовато-серой патиной на каменной подставке.
+    // Чётная копия стоит вытянувшись, клюв вверх; нечётная — с изогнутой S-шеей, туловище горизонтально
     const H = Math.max(50, h);
     const up = salt % 2 === 0;
-    const dir = up ? -1 : 1; // хвост влево у первого, вправо у второго
-    const bronze = '#3e342a';
-    const patina = '#7fa9a2';
+    const metal = '#86a097';
+    const dark = '#4d5f58';
     const y = (k) => base - H * k;
-    W.push(`<ellipse cx="${f1(x)}" cy="${f1(base - 1)}" rx="${f1(H * 0.09)}" ry="${f1(H * 0.02)}" fill="#1e1c1a"/>`);
-    // Ноги: от подставки до низа туловища
-    const hip = y(0.5);
-    W.push(`<path d="M${f1(x - H * 0.025)} ${f1(base - 2)} L${f1(x - H * 0.012)} ${f1(hip)} M${f1(x + H * 0.02)} ${f1(base - 2)} L${f1(x + H * 0.008)} ${f1(hip)}" stroke="${bronze}" stroke-width="1.6" fill="none" stroke-linecap="round"/>`);
-    // Туловище: узкая капля, хвост в сторону dir
-    const by = y(0.58);
-    const L = H * 0.26;
-    const T = H * 0.07;
-    const body = up
-      ? `M${f1(x + dir * L)} ${f1(by + T * 0.6)} Q${f1(x + dir * L * 0.4)} ${f1(by - T * 1.1)} ${f1(x - dir * L * 0.18)} ${f1(by - T * 0.9)} Q${f1(x - dir * L * 0.32)} ${f1(by + T * 0.4)} ${f1(x - dir * L * 0.05)} ${f1(by + T * 1.1)} Q${f1(x + dir * L * 0.45)} ${f1(by + T * 1.2)} ${f1(x + dir * L)} ${f1(by + T * 0.6)} Z`
-      : `M${f1(x + dir * L * 0.35)} ${f1(by + T * 2.2)} Q${f1(x + dir * L * 0.45)} ${f1(by - T * 0.6)} ${f1(x - dir * L * 0.05)} ${f1(by - T * 1.3)} Q${f1(x - dir * L * 0.3)} ${f1(by - T * 0.4)} ${f1(x - dir * L * 0.1)} ${f1(by + T * 0.9)} Q${f1(x + dir * L * 0.1)} ${f1(by + T * 2)} ${f1(x + dir * L * 0.35)} ${f1(by + T * 2.2)} Z`;
-    W.push(`<path d="${body}" fill="${patina}"/>`);
-    for (let k = 0; k < 7; k++) W.push(dot(x + dir * (rnd() - 0.3) * L * 0.6, by + (rnd() - 0.3) * T * 1.6, 0.8 + rnd() * 1.2, '#eef4ee', 0.55));
-    I.push(ink(body, 0.8));
-    // Шея и клюв
-    const nx = x - dir * L * 0.12;
-    const ny = by - T * 0.9;
-    const neck = up
-      ? `M${f1(nx)} ${f1(ny)} C${f1(nx - dir * H * 0.06)} ${f1(y(0.78))} ${f1(nx - dir * H * 0.01)} ${f1(y(0.93))} ${f1(nx + dir * H * 0.02)} ${f1(y(0.98))}`
-      : `M${f1(nx)} ${f1(ny)} C${f1(nx - dir * H * 0.03)} ${f1(y(0.92))} ${f1(nx - dir * H * 0.2)} ${f1(y(0.95))} ${f1(nx - dir * H * 0.17)} ${f1(y(0.8))}`;
-    W.push(`<path d="${neck}" stroke="${bronze}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`);
-    const tip = up ? [nx + dir * H * 0.02, y(0.98)] : [nx - dir * H * 0.17, y(0.8)];
-    W.push(`<path d="M${f1(tip[0])} ${f1(tip[1])} l${f1(up ? dir * 2 : 0)} ${f1(up ? -H * 0.06 : H * 0.06)}" stroke="${bronze}" stroke-width="1.3" fill="none" stroke-linecap="round"/>`);
+    const Pp = (pts) => pts.map(([px, py], i) => `${i ? 'L' : 'M'}${f1(px)} ${f1(py)}`).join(' ');
+    // Каменная подставка: неровный холмик
+    const bw = H * 0.17;
+    const rock = `M${f1(x - bw)} ${f1(base)} Q${f1(x - bw * 0.9)} ${f1(y(0.05))} ${f1(x - bw * 0.4)} ${f1(y(0.055))} Q${f1(x)} ${f1(y(0.07))} ${f1(x + bw * 0.5)} ${f1(y(0.05))} Q${f1(x + bw)} ${f1(y(0.045))} ${f1(x + bw)} ${f1(base)} Z`;
+    W.push(wash(rock, metal, 0.85));
+    I.push(ink(rock, 0.8), hatch(x, y(0.025), bw * 0.8, H * 0.025, rnd, 1.4, -1));
+    if (up) {
+      // Ноги с суставами
+      const legs = `M${f1(x - H * 0.03)} ${f1(y(0.055))} L${f1(x - H * 0.04)} ${f1(y(0.3))} L${f1(x - H * 0.035)} ${f1(y(0.47))} M${f1(x + H * 0.03)} ${f1(y(0.055))} L${f1(x + H * 0.02)} ${f1(y(0.3))} L${f1(x + H * 0.005)} ${f1(y(0.47))}`;
+      W.push(`<path d="${legs}" stroke="${metal}" stroke-width="${f1(Math.max(1.6, H * 0.012))}" fill="none" stroke-linecap="round"/>`);
+      I.push(ink(legs, 0.6));
+      // Туловище: почти вертикальная капля, хвост вниз-влево
+      const body = `M${f1(x - H * 0.1)} ${f1(y(0.4))} Q${f1(x - H * 0.13)} ${f1(y(0.58))} ${f1(x - H * 0.06)} ${f1(y(0.68))} Q${f1(x + H * 0.02)} ${f1(y(0.74))} ${f1(x + H * 0.05)} ${f1(y(0.66))} Q${f1(x + H * 0.06)} ${f1(y(0.52))} ${f1(x)} ${f1(y(0.44))} Q${f1(x - H * 0.05)} ${f1(y(0.4))} ${f1(x - H * 0.1)} ${f1(y(0.4))} Z`;
+      // Шея и голова, клюв вверх-вправо
+      const neck = `M${f1(x + H * 0.0)} ${f1(y(0.7))} Q${f1(x + H * 0.05)} ${f1(y(0.82))} ${f1(x + H * 0.03)} ${f1(y(0.92))} L${f1(x + H * 0.045)} ${f1(y(0.96))} L${f1(x + H * 0.06)} ${f1(y(0.92))} Q${f1(x + H * 0.075)} ${f1(y(0.8))} ${f1(x + H * 0.045)} ${f1(y(0.68))} Z`;
+      const beak = Pp([[x + H * 0.06, y(0.955)], [x + H * 0.16, y(1)], [x + H * 0.06, y(0.935)]]) + ' Z';
+      for (const d of [body, neck, beak]) W.push(wash(d, metal, 0.9));
+      I.push(ink([body, neck, beak].join(' '), 0.8), hatch(x - H * 0.04, y(0.56), H * 0.06, H * 0.13, rnd, 1.6));
+      // Крыло: перья штрихом
+      const feathers = [];
+      for (let k = 0; k < 6; k++) feathers.push(`M${f1(x - H * 0.02)} ${f1(y(0.66 - k * 0.035))} q${f1(-H * 0.05)} ${f1(H * 0.02)} ${f1(-H * 0.08)} ${f1(H * 0.06)}`);
+      I.push(`<path class="sk-hatch" d="${feathers.join(' ')}"/>`, dot(x + H * 0.045, y(0.94), 1, '#2a302c'));
+    } else {
+      const legs = `M${f1(x - H * 0.02)} ${f1(y(0.06))} L${f1(x - H * 0.01)} ${f1(y(0.25))} L${f1(x + H * 0.0)} ${f1(y(0.42))} M${f1(x + H * 0.04)} ${f1(y(0.06))} Q${f1(x + H * 0.0)} ${f1(y(0.14))} ${f1(x + H * 0.06)} ${f1(y(0.25))} L${f1(x + H * 0.05)} ${f1(y(0.42))}`;
+      W.push(`<path d="${legs}" stroke="${metal}" stroke-width="${f1(Math.max(1.6, H * 0.012))}" fill="none" stroke-linecap="round"/>`);
+      I.push(ink(legs, 0.6));
+      // Туловище горизонтальное, хвост вправо
+      const body = `M${f1(x - H * 0.08)} ${f1(y(0.55))} Q${f1(x - H * 0.06)} ${f1(y(0.66))} ${f1(x + H * 0.06)} ${f1(y(0.64))} Q${f1(x + H * 0.18)} ${f1(y(0.6))} ${f1(x + H * 0.24)} ${f1(y(0.44))} Q${f1(x + H * 0.12)} ${f1(y(0.4))} ${f1(x)} ${f1(y(0.42))} Q${f1(x - H * 0.09)} ${f1(y(0.45))} ${f1(x - H * 0.08)} ${f1(y(0.55))} Z`;
+      // S-шея: вверх от груди, изгиб назад и снова вперёд; голова с клювом вверх-влево
+      const neck = `M${f1(x - H * 0.07)} ${f1(y(0.56))} C${f1(x - H * 0.1)} ${f1(y(0.66))} ${f1(x - H * 0.02)} ${f1(y(0.72))} ${f1(x - H * 0.01)} ${f1(y(0.8))} C${f1(x)} ${f1(y(0.86))} ${f1(x - H * 0.04)} ${f1(y(0.87))} ${f1(x - H * 0.05)} ${f1(y(0.86))} L${f1(x - H * 0.03)} ${f1(y(0.9))} C${f1(x + H * 0.03)} ${f1(y(0.9))} ${f1(x + H * 0.04)} ${f1(y(0.8))} ${f1(x + H * 0.02)} ${f1(y(0.73))} C${f1(x)} ${f1(y(0.67))} ${f1(x - H * 0.04)} ${f1(y(0.62))} ${f1(x - H * 0.03)} ${f1(y(0.56))} Z`;
+      const beak = Pp([[x - H * 0.04, y(0.895)], [x - H * 0.17, y(0.96)], [x - H * 0.05, y(0.87)]]) + ' Z';
+      for (const d of [body, neck, beak]) W.push(wash(d, metal, 0.9));
+      I.push(ink([body, neck, beak].join(' '), 0.8), hatch(x + H * 0.08, y(0.52), H * 0.1, H * 0.06, rnd, 1.6));
+      const feathers = [];
+      for (let k = 0; k < 6; k++) feathers.push(`M${f1(x + H * (0.0 + k * 0.035))} ${f1(y(0.6))} q${f1(H * 0.03)} ${f1(H * 0.04)} ${f1(H * 0.08)} ${f1(H * 0.07)}`);
+      I.push(`<path class="sk-hatch" d="${feathers.join(' ')}"/>`, dot(x - H * 0.035, y(0.885), 1, '#2a302c'));
+    }
+    I.push(`<path d="M0 0" stroke="${dark}"/>`);
   } else if (habit === 'fountain2') {
     // Вейник: прямые вертикальные стебли с узкими метёлками
     const w = Math.max(16, Math.min(pl.r * 2 * s * 0.7, h * 0.4));

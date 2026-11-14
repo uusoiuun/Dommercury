@@ -54,6 +54,7 @@ const HABIT = {
   rosette: ['sempervivum', 'orostachys'],
   carpet: ['phloxSub', 'thymus', 'sagina', 'trifolium', 'vinca'],
   lantern: ['lantern'],
+  stone: ['stoneBig', 'stoneSmall'],
 };
 // Осенний цвет листвы
 const AUTUMN = {
@@ -174,7 +175,23 @@ export function sketchPlant(pl, x, base, s, salt = 0, look = null) {
   // масштабе иначе расползаются на полкартинки
   const wd = (k, rel = 1.6) => Math.max(18, Math.min(pl.r * 2 * s * k, Math.max(h * rel, 40), 190));
 
-  if (habit === 'lantern') {
+  if (habit === 'stone') {
+    // Камень: неровный округлый силуэт, тень штрихом, трещинка, пятна мха
+    const H = Math.max(10, h);
+    const w = Math.max(H * 1.5, pl.r * 2 * s * 0.9);
+    const n = 9;
+    const pts = [];
+    for (let k = 0; k <= n; k++) {
+      const a = Math.PI + (k / n) * Math.PI;
+      const rr = 0.82 + rnd() * 0.22;
+      pts.push([x + Math.cos(a) * (w / 2) * rr, base + Math.sin(a) * H * rr * (0.9 + 0.2 * Math.abs(Math.cos(a)))]);
+    }
+    const d = `M${f1(x - w / 2)} ${base} ${pts.map(([px, py]) => `L${f1(px)} ${f1(Math.min(base, py))}`).join(' ')} L${f1(x + w / 2)} ${base} Z`;
+    W.push(wash(d, pl.color, 0.8), wash(cloud(x - w * 0.15, base - H * 0.6, w * 0.18, H * 0.18, rnd, 6), light(pl.color, 0.35), 0.6));
+    for (let k = 0; k < 4; k++) W.push(dot(x - w * 0.35 + rnd() * w * 0.7, base - rnd() * H * 0.3, 1.4 + rnd() * 1.6, '#7a9a5a'));
+    I.push(ink(d, 1, sketchDash(rnd)), hatch(x + w * 0.12, base - H * 0.45, w * 0.3, H * 0.4, rnd, 0.8),
+      ink(`M${f1(x - w * 0.05)} ${f1(base - H * 0.75)} l${f1(w * 0.06)} ${f1(H * 0.2)} l${f1(-w * 0.03)} ${f1(H * 0.18)}`, 0.6));
+  } else if (habit === 'lantern') {
     // Японский каменный фонарь (торо): основание, столб, площадка, камера с окошком, крыша с загнутыми углами, навершие
     const H = Math.max(30, h);
     const stone = '#a8a49a';

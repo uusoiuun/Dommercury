@@ -301,6 +301,8 @@ export const PLANTS = [
   P('malusPurp', 'Яблоня пурпурная', 'tree', 5, 2, ['sun'], '#a03060', { size: 'mid', note: 'Пурпурные цветы и листва, мелкие тёмные яблочки.' }),
   P('rubusRem', 'Малина ремонтантная', 'fruit', 1.5, 0.6, ['sun'], '#c0203a', { note: 'Осенью побеги срезают под корень — зимуют только корни под снегом. Ягоды с августа до морозов.' }),
   // Садовый декор для композиций (в каталоге растений не показывается)
+  P('stoneBig', 'Декоративный валун', 'decor', 0.7, 0.55, ['sun', 'part', 'shade'], '#9c968a', { note: 'Можно природный камень или искусственный — лёгкий, из стеклофибробетона: не проседает в мерзлоте и легко ставится.' }),
+  P('stoneSmall', 'Декоративный камень', 'decor', 0.3, 0.3, ['sun', 'part', 'shade'], '#a8a196', { note: 'Плоские и округлые камни вокруг растений; подойдут и искусственные.' }),
   P('lantern', 'Японский каменный фонарь', 'decor', 1.1, 0.35, ['sun', 'part', 'shade'], '#a8a49a', { note: 'Каменный фонарь-торо: акцент в тенистом саду, зимой красиво стоит в снегу.' }),
   P('aquilegia', 'Аквилегия (водосбор)', 'perennial', 0.6, 0.3, ['sun', 'part', 'shade'], '#7a6ac8', { note: 'Изящные поникающие цветки в июне; сама подсевается.' }),
 ];
@@ -337,7 +339,7 @@ const SOIL = {
   irisBarb: ['NK', 'dry', 'good'], vinca: ['NK', 'normal', 'risky'],
   alliumSch: ['NK', 'normal', 'very'], melissa: ['N', 'normal', 'good'], mentha: ['ANK', 'normal wet', 'very'], origanum: ['NK', 'dry', 'very'],
   salvia: ['NK', 'dry', 'risky'], artemisiaDrac: ['NK', 'dry normal', 'very'], leek: ['NK', 'normal', 'very'], ocimum: ['N', 'normal', 'very'],
-  borago: ['NK', 'normal', 'very'], lantern: ['ANK', 'dry normal wet', 'very'],
+  borago: ['NK', 'normal', 'very'], lantern: ['ANK', 'dry normal wet', 'very'], stoneBig: ['ANK', 'dry normal wet', 'very'], stoneSmall: ['ANK', 'dry normal wet', 'very'],
 };
 for (const p of PLANTS) {
   const [ph, water, hardy] = SOIL[p.key] || ['ANK', 'normal', 'good'];
@@ -373,6 +375,8 @@ const USDA = {
 const YAKUTSK_PROVEN = ['paeonia', 'sedum', 'hosta', 'irisSib', 'irisBarb', 'phloxPan', 'chrysanthemum', 'astilbe', 'hemerocallis', 'delphinium', 'aquilegia', 'ribes', 'rubusRem', 'aruncus', 'heuchera'];
 for (const k of YAKUTSK_PROVEN) USDA[k] = 1;
 USDA.lantern = 0;
+USDA.stoneBig = 0;
+USDA.stoneSmall = 0;
 for (const p of PLANTS) {
   p.usda = USDA[p.key] ?? 3;
   if (p.group === 'decor') p.hardy = 'very';
@@ -434,7 +438,7 @@ const BLOOM = {
   malusDec: { b: [1, 2], r: [10, 14], rc: '#a02a3a' }, rubus: { b: [3, 5], fc: WHITE, r: [8, 10], rc: '#b0203a' }, nepeta: { b: [4, 11] }, armeria: { b: [4, 10] },
   aruncus: { b: [5, 7] }, vinca: { b: [0, 2] }, melissa: { b: [7, 10], fc: '#f4f0e8' }, mentha: { b: [7, 10], fc: '#c8a8d8' }, origanum: { b: [7, 11] },
   salvia: { b: [4, 7], fc: '#9a88c8' }, artemisiaDrac: { b: [9, 11], fc: '#d8d0a0' }, ribes: { b: [2, 3], fc: '#d8d0a0', r: [7, 9], rc: '#1a1420' },
-  rubusRem: { b: [5, 8], fc: WHITE, r: [9, 13], rc: '#c0203a' }, lantern: null,
+  rubusRem: { b: [5, 8], fc: WHITE, r: [9, 13], rc: '#c0203a' }, lantern: null, stoneBig: null, stoneSmall: null,
   prunus: { b: [2, 2], fc: WHITE, r: [9, 10], rc: '#3a1a2a' }, echinacea: { b: [7, 13] }, rudbeckia: { b: [8, 14] },
 };
 for (const p of PLANTS) {

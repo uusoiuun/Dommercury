@@ -315,15 +315,15 @@ export const PLANTS = [
 const SOIL = {
   cornus: ['ANK', 'normal wet', 'very'], spiraea: ['NK', 'dry normal', 'good'], physocarpus: ['ANK', 'dry normal', 'very'],
   cotoneaster: ['ANK', 'dry normal', 'very'], potentilla: ['NK', 'dry normal', 'very'], bergenia: ['ANK', 'normal wet', 'very'],
-  sedum: ['NK', 'dry', 'very'], irisSib: ['AN', 'normal wet', 'very'], larix: ['ANK', 'normal', 'very'], pinus: ['AN', 'dry normal', 'very'],
+  sedum: ['NK', 'dry normal', 'very'], irisSib: ['AN', 'normal wet', 'very'], larix: ['ANK', 'normal', 'very'], pinus: ['AN', 'dry normal', 'very'],
   betula: ['AN', 'normal wet', 'very'], padus: ['ANK', 'normal wet', 'very'], crataegus: ['NK', 'normal', 'very'],
   juniper: ['NK', 'dry normal', 'good'], syringa: ['NK', 'normal', 'very'], caragana: ['NK', 'dry normal', 'very'],
   rosaAcic: ['AN', 'dry normal', 'very'], rosaCanina: ['NK', 'dry normal', 'very'], sorbaria: ['ANK', 'normal wet', 'very'],
   salix: ['ANK', 'normal wet', 'very'], ledum: ['A', 'wet', 'very'], lonicera: ['AN', 'normal', 'very'], malus: ['NK', 'normal', 'very'],
   ribes: ['AN', 'normal wet', 'very'], hippophae: ['NK', 'dry normal', 'very'], prunus: ['NK', 'dry normal', 'good'],
-  trollius: ['AN', 'normal wet', 'very'], hemerocallis: ['ANK', 'normal', 'very'], astilbe: ['AN', 'normal wet', 'good'],
+  trollius: ['AN', 'normal wet', 'very'], hemerocallis: ['ANK', 'dry normal', 'very'], astilbe: ['AN', 'normal wet', 'good'],
   phloxPan: ['AN', 'normal', 'good'], echinacea: ['NK', 'dry normal', 'good'], rudbeckia: ['NK', 'normal', 'good'],
-  paeonia: ['NK', 'normal', 'very'], delphinium: ['NK', 'normal', 'good'], adonis: ['NK', 'dry', 'very'], pulsatilla: ['NK', 'dry', 'very'],
+  paeonia: ['NK', 'normal', 'very'], delphinium: ['NK', 'normal', 'good'], adonis: ['NK', 'dry normal', 'very'], pulsatilla: ['NK', 'dry normal', 'very'],
   hosta: ['AN', 'normal wet', 'good'], achillea: ['NK', 'dry normal', 'very'], geranium: ['ANK', 'normal', 'very'],
   filipendula: ['NK', 'wet normal', 'very'], primula: ['AN', 'normal wet', 'good'], heuchera: ['AN', 'normal', 'good'],
   chrysanthemum: ['NK', 'normal', 'good'], phloxSub: ['NK', 'dry', 'good'], thymus: ['NK', 'dry', 'very'], sempervivum: ['NK', 'dry', 'very'],
@@ -337,9 +337,14 @@ const SOIL = {
   rhododendron: ['A', 'normal wet', 'risky'], picea: ['AN', 'normal wet', 'very'], malusDec: ['NK', 'normal', 'good'],
   rubus: ['AN', 'normal', 'very'], nepeta: ['NK', 'dry', 'good'], armeria: ['AN', 'dry', 'good'], aruncus: ['AN', 'normal wet', 'very'],
   irisBarb: ['NK', 'dry', 'good'], vinca: ['NK', 'normal', 'risky'],
-  alliumSch: ['NK', 'normal', 'very'], melissa: ['N', 'normal', 'good'], mentha: ['ANK', 'normal wet', 'very'], origanum: ['NK', 'dry', 'very'],
+  alliumSch: ['NK', 'dry normal', 'very'], melissa: ['N', 'normal', 'good'], mentha: ['ANK', 'normal wet', 'very'], origanum: ['NK', 'dry', 'very'],
   salvia: ['NK', 'dry', 'risky'], artemisiaDrac: ['NK', 'dry normal', 'very'], leek: ['NK', 'normal', 'very'], ocimum: ['N', 'normal', 'very'],
-  borago: ['NK', 'normal', 'very'], lantern: ['ANK', 'dry normal wet', 'very'], stoneBig: ['ANK', 'dry normal wet', 'very'], stoneSmall: ['ANK', 'dry normal wet', 'very'],
+  borago: ['NK', 'normal', 'very'],
+  // Растения, добавленные позже: почва и влага по справочникам
+  sorbusSib: ['ANK', 'dry normal', 'very'], sorbocot: ['AN', 'normal', 'very'], rosaBegg: ['NK', 'dry normal', 'very'], rosaRugosa: ['ANK', 'dry normal', 'very'],
+  padusMaackii: ['ANK', 'normal wet', 'very'], malusPurp: ['NK', 'normal', 'very'], populusBer: ['ANK', 'normal wet', 'very'], populusSuav: ['ANK', 'normal wet', 'very'],
+  rubusRem: ['AN', 'normal', 'very'], aquilegia: ['NK', 'dry normal', 'very'],
+  lantern: ['ANK', 'dry normal wet', 'very'], stoneBig: ['ANK', 'dry normal wet', 'very'], stoneSmall: ['ANK', 'dry normal wet', 'very'],
 };
 for (const p of PLANTS) {
   const [ph, water, hardy] = SOIL[p.key] || ['ANK', 'normal', 'good'];

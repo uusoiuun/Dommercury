@@ -103,3 +103,14 @@ test('Якутия: готовые и автоматические композ�
     assert.ok(PLANT_BY_KEY[k].hit, k);
   }
 });
+
+test('готовые композиции: у всех растений общая кислотность почвы, влажность и свет', async () => {
+  const { PRESETS, PRESET_KEYS, presetRows } = await import('../js/garden.js');
+  for (const k of PRESET_KEYS) {
+    const pr = PRESETS[k];
+    const pls = presetRows(k).flatMap((r) => r.plants.map((p) => PLANT_BY_KEY[p.key])).filter((pl) => pl.group !== 'decor');
+    assert.ok(['A', 'N', 'K'].some((c) => pls.every((pl) => pl.ph.includes(c))), `${k}: нет общей кислотности`);
+    assert.ok(['dry', 'normal', 'wet'].some((c) => pls.every((pl) => pl.water.includes(c))), `${k}: нет общей влажности`);
+    if (pr.want !== 'any') for (const pl of pls) assert.ok(pl.light.includes(pr.want), `${k}: ${pl.key} — не тот свет`);
+  }
+});
